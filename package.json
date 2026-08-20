@@ -1,0 +1,22 @@
+{
+  "name": "chatgpt-vs-gemini",
+  "version": "0.1.0",
+  "description": "ChatGPT と Gemini をブラウザ画面のまま議論させるデスクトップアプリ",
+  "license": "MPL-2.0",
+  "author": "takano32",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node scripts/copy-assets.mjs",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "start": "npm run build && electron ."
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.2.0",
+    "electron": "^43.4.1",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3"
+  }
+}
