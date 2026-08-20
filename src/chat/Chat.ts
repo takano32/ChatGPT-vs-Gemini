@@ -24,14 +24,48 @@ export class ChatError extends Error {
 // 送信ボタン待ち・送信開始確認用の短周期ポーリング間隔
 const SHORT_POLL_MS = 250;
 
-// 停止ボタンが消えたあと、完了と確定するまでの短い確認時間
-const POST_STREAM_CONFIRM_MS = 400;
+// 送信の試行回数。クリックが効かない・リクエストが失敗して応答が現れない等の
+// 取りこぼしを自己修復し、議論を止めないための上限。
+const SEND_ATTEMPTS = 3;
+// 送信ボタンが押せる状態になるのを待つ時間。過ぎたら Enter キーに切り替える
+const SEND_BUTTON_MS = 5000;
+// 送信クリック後、生成指標(停止ボタン or 応答数の増加)が現れるのを待つ時間
+const SEND_START_MS = 10000;
+// Enter キーフォールバック後の待ち時間
+const ENTER_START_MS = 5000;
+// 停止ボタンが指標にならず応答要素の出現だけを待つときの窓。応答要素は送信から
+// 数秒(実測 1.5〜3 秒、思考モードではそれ以上)遅れて現れるため、停止ボタン向けより長く取る
+const SLOW_START_MS = 15000;
+// 再送前の小休止
+const RETRY_DELAY_MS = 1000;
+// 生成指標が無いまま応答要素が現れない状態がこの時間続いたら、送信が失われたとみなす
+const LOST_SEND_MS = 8000;
+// 停止ボタンは出ているのに応答要素が一向に現れない状態の上限。リクエスト失敗で
+// ボタンだけが固着したとみなし、以降は停止ボタンを指標にしない
+const STOP_WITHOUT_RESPONSE_MS = 45000;
+// エラー吹き出しとみなす本文長の上限。正規の回答が文中でエラー文言を引用しても誤検知しないため
+const ERROR_TEXT_MAX = 400;
+// ページ状態の取得(executeJavaScript)が失敗し続ける上限。遷移中の一瞬の失敗は許容し、
+// レンダラのクラッシュ等で取得できないままなら timeoutMs まで黙らずエラーにする
+const PROBE_FAILURE_MS = 20000;
+
+// 新規チャットの準備待ちの上限と、準備ができないときに遷移をやり直す間隔
+const NEW_CHAT_TIMEOUT_MS = 45000;
+const NEW_CHAT_RENAV_MS = 10000;
+
+// 完了の多重確認。「応答あり・生成指標なし・本文が前回ポーリングから不変」を
+// 連続でこの回数観測したら完了とする。確認中はポーリングを速める。
+const COMPLETION_CONFIRMATIONS = 2;
+const CONFIRM_POLL_MS = 500;
+// 確認間隔の下限。pollMs を極端に小さくしても確認窓(間隔×回数)が潰れないようにする
+const CONFIRM_POLL_MIN_MS = 250;
 
 interface ProbeResult {
   count: number;
   lastText: string;
   streaming: boolean;
   limited: boolean;
+  failed: boolean; // 最後の応答要素がエラー吹き出し(短い本文にエラー文言)
 }
 
 function sleep(ms: number): Promise<void> {
@@ -46,6 +80,8 @@ export abstract class Chat {
   // 望ましいロック状態。入力フェーズ中は一時的に window.__cvgLock を外す。
   private lockDesired = false;
   private inputPhase = false;
+  // 送信の再試行など、議論は止めないが利用者に見せたい出来事の通知先(Runner が設定)
+  notice: ((message: string) => void) | null = null;
 
   constructor(
     readonly name: Speaker,
@@ -137,11 +173,19 @@ export abstract class Chat {
   // 新規チャットを開始する。ベース URL へ遷移すると空の新しい会話になる
   // (chatgpt.com/ も gemini.google.com/app も常に新規チャット。既存会話は /c/ /app/<id>)。
   // 遷移後、入力欄が使える状態になるまで待つ。議論ごとに前の文脈を持ち越さないために使う。
+  // ネットワーク切替等で遷移が失敗してエラーページに落ちることがある(実測: ERR_NETWORK_CHANGED)。
+  // 1 回の遷移に賭けて待ち続けず、エラーページを検知したら即、そうでなくても一定時間
+  // 準備ができなければ遷移をやり直す。
   async newChat(): Promise<void> {
     const wc = this.view.webContents;
-    // 進行中のリダイレクトで reject し得るため握りつぶす
-    await wc.loadURL(this.selectors.url).catch(() => {});
-    const deadline = Date.now() + 30000;
+    const deadline = Date.now() + NEW_CHAT_TIMEOUT_MS;
+    let navigatedAt = 0;
+    const navigate = async (): Promise<void> => {
+      navigatedAt = Date.now();
+      // 進行中のリダイレクトで reject し得るため握りつぶす
+      await wc.loadURL(this.selectors.url).catch(() => {});
+    };
+    await navigate();
     for (;;) {
       if (await this.isLoggedIn()) {
         const ready = await this.js<boolean>(
@@ -155,6 +199,11 @@ export abstract class Chat {
       }
       if (Date.now() >= deadline) {
         throw new ChatError('selector', `新規チャットの準備ができません: ${this.displayName}`);
+      }
+      const onErrorPage = wc.getURL().startsWith('chrome-error://');
+      const stale = Date.now() - navigatedAt >= NEW_CHAT_RENAV_MS;
+      if ((onErrorPage && Date.now() - navigatedAt >= 1000) || stale) {
+        await navigate();
       }
       await sleep(500);
     }
@@ -206,9 +255,69 @@ export abstract class Chat {
     }
   }
 
-  private async sendAndAwait(text: string, baseline: number): Promise<string> {
+  // 送信〜応答完了。送信の取りこぼしは最大 SEND_ATTEMPTS 回まで自己修復する。
+  // 二重送信を避けるため、再送の前には必ず「前回の送信が遅れて始まっていないか」を確認する。
+  private async sendAndAwait(text: string, initialBaseline: number): Promise<string> {
+    // 送信前から停止ボタンが残っている(前回の生成終了で消えなかった固着)なら、
+    // 停止ボタンは生成指標として使えない。応答数の増加だけを見る。
+    let ignoreStop = await this.stopVisible();
+    // 応答の代わりにエラー吹き出しが追加された場合、それは履歴に残るので基準件数を進める
+    let baseline = initialBaseline;
+
+    for (let attempt = 1; attempt <= SEND_ATTEMPTS; attempt++) {
+      this.throwIfAborted();
+
+      let started: boolean;
+      if (attempt > 1 && (await this.sendStarted(baseline, ignoreStop))) {
+        // 前回の送信が遅れて始まっていた。再送せずそのまま完了待ちに入る
+        started = true;
+      } else {
+        if (attempt > 1) {
+          this.throwIfAborted(); // 停止後に「再試行します」と出さない
+          this.notify(`${this.displayName} への送信を再試行します(${attempt}/${SEND_ATTEMPTS} 回目)`);
+        }
+        try {
+          started = await this.submit(text, baseline, ignoreStop);
+        } catch (err) {
+          if (attempt === SEND_ATTEMPTS) throw err;
+          if (err instanceof ChatError && err.code === 'stopped') throw err;
+          started = false;
+        }
+      }
+
+      if (!started) {
+        if (attempt === SEND_ATTEMPTS) {
+          throw new ChatError('send-failed', `${this.displayName} への送信が開始しません`);
+        }
+        this.throwIfAborted();
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+
+      const outcome = await this.waitForCompletion(baseline, ignoreStop);
+      if (outcome.reply !== null) return outcome.reply;
+      // 正規の応答が来ないまま終わった(応答要素が現れない / エラー吹き出し / 空応答)。再送へ。
+      // 停止ボタンだけが出続けていたなら固着とみなし、以降は指標から外す
+      if (outcome.stuckStop) ignoreStop = true;
+      baseline = outcome.baseline;
+      if (attempt === SEND_ATTEMPTS) break;
+      this.throwIfAborted(); // 停止後に「やり直します」と出さない
+      this.notify(`${this.displayName} の${outcome.why}。送信をやり直します`);
+      await sleep(RETRY_DELAY_MS);
+    }
+    throw new ChatError(
+      'send-failed',
+      `${this.displayName} への送信が ${SEND_ATTEMPTS} 回とも応答に至りませんでした`,
+    );
+  }
+
+  // 1 回分の送信操作: 入力欄をクリア → 本文を挿入 → 送信クリック → 生成開始の確認。
+  // 送信ボタンが押せない/開始が確認できなければ Enter キーでフォールバックし、
+  // それでも始まらなければ false(呼び出し側が再試行する)。
+  private async submit(text: string, baseline: number, ignoreStop: boolean): Promise<boolean> {
     const s = this.selectors;
 
+    this.throwIfAborted(); // 停止後に入力欄へ本文を残さない
     if (!(await this.focusInput())) {
       throw new ChatError('selector', s.input);
     }
@@ -246,22 +355,21 @@ export abstract class Chat {
       }
     }
 
-    if (!(await this.pollShort(5000, () => this.clickSend()))) {
-      throw new ChatError('selector', s.sendButton);
+    // 送信ボタンをクリックし、送信が実際に始まったことを確認する。
+    // ボタンが押せない(固着で stop 表示のまま等)場合や始まらない場合は Enter キーで送る。
+    // 停止ボタンが指標にならないときは応答要素の出現を待つしかなく、それは数秒遅れるため窓を長く取る。
+    const startWindow = ignoreStop ? SLOW_START_MS : SEND_START_MS;
+    const enterWindow = ignoreStop ? SLOW_START_MS : ENTER_START_MS;
+    const clicked = await this.pollShort(SEND_BUTTON_MS, () => this.clickSend());
+    if (clicked && (await this.pollShort(startWindow, () => this.sendStarted(baseline, ignoreStop)))) {
+      return true;
     }
-
-    // 送信が実際に始まったことを確認。だめなら Enter キーでフォールバック
-    let started = await this.pollShort(10000, () => this.sendStarted(baseline));
-    if (!started) {
-      await this.focusInput();
-      this.pressEnter();
-      started = await this.pollShort(5000, () => this.sendStarted(baseline));
-      if (!started) {
-        throw new ChatError('send-failed', 'send did not start');
-      }
-    }
-
-    return this.waitForCompletion(baseline);
+    this.throwIfAborted(); // 停止直後に Enter で送ってしまわない
+    // ボタン待ちの間に始まっていたら Enter を押さない(二重送信防止)
+    if (await this.sendStarted(baseline, ignoreStop)) return true;
+    await this.focusInput();
+    this.pressEnter();
+    return this.pollShort(enterWindow, () => this.sendStarted(baseline, ignoreStop));
   }
 
   private async focusInput(): Promise<boolean> {
@@ -304,16 +412,31 @@ export abstract class Chat {
   // 生成が始まらない場合でも成功と誤判定し、waitForCompletion が新応答を最大 timeout
   // まで待ってハングする(turn 7 の沈黙の原因、実測)。実際の生成指標である
   // 「停止ボタン出現」か「応答数が増えた」ことだけを成功条件にする。
-  private async sendStarted(baseline: number): Promise<boolean> {
+  // ignoreStop: 送信前から停止ボタンが固着していて指標にならないとき true。
+  private async sendStarted(baseline: number, ignoreStop: boolean): Promise<boolean> {
     const s = this.selectors;
     const r = await this.js<boolean>(
       `(() => {
-        const stop = !!document.querySelector(${JSON.stringify(s.stopButton)});
+        const stop = ${this.stopVisibleExpr()};
         const count = document.querySelectorAll(${JSON.stringify(s.assistantMessages)}).length;
-        return stop || count > ${baseline};
+        return (stop && !${ignoreStop}) || count > ${baseline};
       })()`,
     );
     return r === true;
+  }
+
+  private async stopVisible(): Promise<boolean> {
+    const r = await this.js<boolean>(`(() => ${this.stopVisibleExpr()})()`);
+    return r === true;
+  }
+
+  // 停止ボタンが「表示されている」ことを判定する式。offsetParent は position:fixed の
+  // 祖先配下で null になり見えているのに非表示扱いするため、getClientRects で判定する。
+  private stopVisibleExpr(): string {
+    return (
+      `((el) => !!el && el.getClientRects().length > 0)` +
+      `(document.querySelector(${JSON.stringify(this.selectors.stopButton)}))`
+    );
   }
 
   private pressEnter(): void {
@@ -324,60 +447,104 @@ export abstract class Chat {
     wc.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
   }
 
-  // 応答完了待ち。1 tick = js() 1 往復で状態スナップショットを取る
-  private async waitForCompletion(baseline: number): Promise<string> {
+  // 応答完了待ち。1 tick = js() 1 往復で状態スナップショットを取る。
+  // reply=null は「正規の応答が来ないまま終わった」ことを表し、呼び出し側(sendAndAwait)が
+  // 再送する。timeoutMs まで黙って待たない。
+  //  - stuckStop: 停止ボタンだけが出続けて応答が来なかった(ボタンの固着)
+  //  - baseline: 次の試行で使う基準件数(エラー吹き出し等が応答要素として残った場合は進める)
+  //  - why: 通知用の理由
+  private async waitForCompletion(
+    baseline: number,
+    ignoreStop: boolean,
+  ): Promise<{ reply: string } | { reply: null; stuckStop: boolean; baseline: number; why: string }> {
     const { pollMs, stabilityMs, timeoutMs } = this.getDetection();
+    const confirmPollMs = Math.max(CONFIRM_POLL_MIN_MS, Math.min(pollMs, CONFIRM_POLL_MS));
     const start = Date.now();
     let lastText = '';
-    let lastChangedAt = Date.now();
+    let lastChangedAt = start;
+    let lastProbeOkAt = start; // 最後にページ状態を取得できた時刻
     let responseSeenAt = 0; // 応答要素が現れた時刻(空応答の早期検知用)
+    let idleSince = 0; // 応答要素も生成指標も無い状態の起点(送信喪失の検知用)
+    let stopOnlySince = 0; // 停止ボタンだけが出て応答要素が無い状態の起点(固着の検知用)
+    let confirmations = 0; // 完了条件を連続で満たした回数
 
     for (;;) {
       this.throwIfAborted();
       const snap = await this.probe();
       const now = Date.now();
+      let confirming = false;
       if (snap) {
+        lastProbeOkAt = now;
+        // 停止ボタンが固着しているときは「生成中」の証拠にならない
+        const generating = snap.streaming && !ignoreStop;
         // 応答本文に制限文言が含まれるだけの誤検知を避けるため、
         // 新しい応答が現れていない(count <= baseline)ときのみ制限とみなす
         if (snap.limited && snap.count <= baseline) {
           throw new ChatError('rate-limited', this.displayName);
         }
-        if (snap.count > baseline && responseSeenAt === 0) {
-          responseSeenAt = now;
-        }
-        // 生成が終わった(停止ボタンが消えた)のに本文が空のまま stabilityMs 続いたら
-        // 失敗した空応答とみなし、5 分待たずに早期にエラーにする。
-        if (
-          snap.count > baseline &&
-          !snap.streaming &&
-          lastText.length === 0 &&
-          responseSeenAt > 0 &&
-          now - responseSeenAt >= stabilityMs
-        ) {
-          throw new ChatError('send-failed', `${this.displayName} が空の応答を返しました`);
-        }
-        if (snap.lastText !== lastText) {
-          lastText = snap.lastText;
-          lastChangedAt = now;
-        }
-        // 完了検知(実測: 停止ボタンは生成終了で確実に消える。テキスト安定はその後)。
-        // 通常: 停止ボタンが消えたら短い確認(POST_STREAM_CONFIRM_MS)だけで即完了。
-        //       stabilityMs をまるごと待たないので、ターン間の無駄な間が生じない。
-        // 固着時: 停止ボタンが残ったままでも、本文が stabilityMs 変化しなければ完了とみなす。
-        if (snap.count > baseline && lastText.length > 0) {
-          const stableFor = now - lastChangedAt;
-          if (!snap.streaming && stableFor >= POST_STREAM_CONFIRM_MS) {
-            return this.finalizeText(lastText);
+        if (snap.count <= baseline) {
+          // 応答要素がまだ無い。生成指標も無い状態が LOST_SEND_MS 続いたら送信が失われている
+          // (クリック直後に停止ボタンが出てもリクエスト失敗で消える等)。
+          // 停止ボタンだけが STOP_WITHOUT_RESPONSE_MS 出続けるならボタンの固着とみなす。
+          if (generating) {
+            idleSince = 0;
+            if (stopOnlySince === 0) stopOnlySince = now;
+            else if (now - stopOnlySince >= STOP_WITHOUT_RESPONSE_MS) {
+              return { reply: null, stuckStop: true, baseline, why: '応答が現れません' };
+            }
+          } else {
+            stopOnlySince = 0;
+            if (idleSince === 0) idleSince = now;
+            else if (now - idleSince >= LOST_SEND_MS) {
+              return { reply: null, stuckStop: false, baseline, why: '応答が現れません' };
+            }
           }
-          if (stableFor >= stabilityMs) {
-            return this.finalizeText(lastText);
+        } else {
+          idleSince = 0;
+          stopOnlySince = 0;
+          if (responseSeenAt === 0) responseSeenAt = now;
+          const changed = snap.lastText !== lastText;
+          if (changed) {
+            lastText = snap.lastText;
+            lastChangedAt = now;
+          }
+          // 応答の代わりにエラー吹き出し(実測: ChatGPT「Something went wrong … Retry」)が
+          // 応答要素として描画された。回答として中継せず、基準件数を進めて再送する。
+          if (snap.failed && !generating) {
+            return { reply: null, stuckStop: false, baseline: snap.count, why: '応答がエラーでした' };
+          }
+          if (lastText.length === 0) {
+            // 生成が終わった(停止ボタンが消えた)のに本文が空のまま stabilityMs 続いたら
+            // 失敗した空応答とみなし、timeoutMs まで待たずに再送する。
+            if (!generating && now - responseSeenAt >= stabilityMs) {
+              return { reply: null, stuckStop: false, baseline: snap.count, why: '応答が空でした' };
+            }
+          } else if (!snap.streaming) {
+            // 完了の多重確認(実測: 停止ボタンは生成終了で確実に消える。テキスト安定はその後)。
+            // 「停止ボタンなし・本文が前回から不変」を連続 COMPLETION_CONFIRMATIONS 回観測したら完了。
+            // 本文が動いたり停止ボタンが戻ったりしたら数え直す。確認中は短い間隔でポーリングし、
+            // stabilityMs をまるごと待たないのでターン間に無駄な間が生じない。
+            confirmations = changed ? 0 : confirmations + 1;
+            if (confirmations >= COMPLETION_CONFIRMATIONS) {
+              return { reply: this.finalizeText(lastText) };
+            }
+            confirming = true;
+          } else {
+            // 停止ボタンが見えている(固着を含む)間は、本文が stabilityMs 変化しなければ完了とみなす。
+            // 固着時でも生成中の短い間(ポーズ)で切らないよう、こちらは多重確認で短縮しない。
+            confirmations = 0;
+            if (now - lastChangedAt >= stabilityMs) {
+              return { reply: this.finalizeText(lastText) };
+            }
           }
         }
+      } else if (now - lastProbeOkAt >= PROBE_FAILURE_MS) {
+        throw new ChatError('selector', `${this.displayName} のページ状態を取得できません`);
       }
       // 生成中はペインを常に最下部へスクロールして最新の出力を追う
       this.scrollToBottom();
       if (now - start >= timeoutMs) throw new ChatError('timeout', this.displayName);
-      await sleep(pollMs);
+      await sleep(confirming ? confirmPollMs : pollMs);
     }
   }
 
@@ -454,11 +621,12 @@ export abstract class Chat {
         const count = msgs.length;
         const last = count > 0 ? msgs[count - 1] : null;
         const lastText = last ? ((last.innerText || '').trim()) : '';
-        const stop = document.querySelector(${JSON.stringify(s.stopButton)});
-        const streaming = !!stop && stop.offsetParent !== null;
+        const streaming = ${this.stopVisibleExpr()};
         const tail = ((document.body && document.body.innerText) || '').slice(-2000);
         const limited = ${JSON.stringify(s.rateLimitPatterns)}.some((p) => tail.includes(p));
-        return { count: count, lastText: lastText, streaming: streaming, limited: limited };
+        const failed = lastText.length > 0 && lastText.length <= ${ERROR_TEXT_MAX} &&
+          ${JSON.stringify(s.errorPatterns)}.some((p) => lastText.includes(p));
+        return { count: count, lastText: lastText, streaming: streaming, limited: limited, failed: failed };
       })()`,
     );
   }
@@ -475,5 +643,13 @@ export abstract class Chat {
 
   private throwIfAborted(): void {
     if (this.abortRequested) throw new ChatError('stopped');
+  }
+
+  private notify(message: string): void {
+    try {
+      if (this.notice) this.notice(message);
+    } catch {
+      // 通知先の失敗で議論を止めない
+    }
   }
 }

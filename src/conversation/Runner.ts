@@ -53,6 +53,10 @@ export class Runner extends EventEmitter {
     this.chats = deps.chats;
     this.repository = deps.repository;
     this.settings = deps.settings;
+    // Chat 内部の自己修復(送信の再試行など)もログフィードに流す
+    for (const chat of Object.values(this.chats)) {
+      chat.notice = (message) => this.log('warn', message);
+    }
   }
 
   get status(): RunnerStatus {

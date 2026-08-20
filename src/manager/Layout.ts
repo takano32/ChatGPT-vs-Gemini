@@ -158,7 +158,33 @@ export class Layout {
     });
     // ログイン画面へのリダイレクト等で reject し得るため握りつぶす
     void wc.loadURL(url).catch(() => {});
+    this.reloadOnLoadFailure(wc, url);
     return view;
+  }
+
+  // メインフレームの読み込みが失敗したら(起動直後のネットワーク切替等、実測: ERR_NETWORK_CHANGED)
+  // エラーページのまま放置せず、指数バックオフで再読込する。成功したらバックオフを戻す。
+  private reloadOnLoadFailure(wc: WebContents, url: string): void {
+    let failures = 0;
+    let timer: NodeJS.Timeout | null = null;
+    wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
+      if (!isMainFrame || code === -3 /* ABORTED はリダイレクトで頻発する正常系 */) return;
+      failures += 1;
+      const delay = Math.min(30000, 2000 * 2 ** Math.min(failures - 1, 4));
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        // 既に別の経路(newChat 等)で復帰していれば何もしない
+        if (wc.isDestroyed() || !wc.getURL().startsWith('chrome-error://')) return;
+        void wc.loadURL(url).catch(() => {});
+      }, delay);
+    });
+    wc.on('did-finish-load', () => {
+      if (!wc.getURL().startsWith('chrome-error://')) failures = 0;
+    });
+    wc.on('destroyed', () => {
+      if (timer) clearTimeout(timer);
+    });
   }
 
   private hardenChatContents(wc: WebContents, label: string): void {

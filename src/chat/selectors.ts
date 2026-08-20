@@ -12,6 +12,10 @@ export interface SiteSelectors {
   loggedInProbe: string; // ログイン済みのときだけ存在(DOM。送信準備の判定に使う)
   loggedOutProbe: string; // 未ログインのときだけ存在
   rateLimitPatterns: string[]; // 本文に現れる制限文言(ja/en 両方)
+  // 応答の代わりにエラー吹き出しが応答要素として描画されたときの文言(ja/en)。
+  // 実測: ChatGPT は会話リクエストが失敗すると assistant ロールの要素に
+  // 「Something went wrong. … Retry」を描画する。これを回答として中継しないための判定に使う。
+  errorPatterns: string[];
   // 認証判定用のセッション Cookie。DOM は遷移中に一瞬消えてブレるため、
   // ロックや状態表示の「ログイン済み」判定にはこの Cookie の有無を使う(安定)。
   authCookiePrefix: string;
@@ -39,6 +43,7 @@ export const CHATGPT_SELECTORS: SiteSelectors = {
     'Too many requests',
     'unusual activity',
   ],
+  errorPatterns: ['Something went wrong', '問題が発生しました', 'エラーが発生しました'],
   authCookiePrefix: '__Secure-next-auth.session-token', // 実測: @.chatgpt.com
   authCookieDomain: 'chatgpt.com',
 };
@@ -56,6 +61,7 @@ export const GEMINI_SELECTORS: SiteSelectors = {
   loggedInProbe: 'rich-textarea',
   loggedOutProbe: 'a[href*="ServiceLogin"]',
   rateLimitPatterns: ['しばらくしてからもう一度', 'try again later', '上限に達しました'],
+  errorPatterns: ['問題が発生しました', 'Something went wrong', 'もう一度お試しください'],
   authCookiePrefix: '__Secure-1PSID', // 実測: @.google.com(Google セッション)
   authCookieDomain: 'google.com',
 };
