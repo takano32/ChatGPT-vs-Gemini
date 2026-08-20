@@ -58,9 +58,9 @@ function render(payload: TranscriptPayload): void {
   currentConversationId = payload.conversationId;
   copyBtn.disabled = payload.messages.length === 0;
 
-  // 再構築でスクロール位置がリセットされるため、事前に「最下部付近か」を測っておく
-  const nearBottomBefore =
-    bodyEl.scrollHeight - bodyEl.scrollTop - bodyEl.clientHeight <= 120;
+  // 再構築でスクロール位置がリセットされるため、同じ議論への追記では元の位置へ戻す
+  // (自動追従はしない。利用者が読んでいる位置を動かさない)
+  const scrollBefore = bodyEl.scrollTop;
 
   bodyEl.textContent = '';
   if (payload.messages.length === 0) {
@@ -74,15 +74,9 @@ function render(payload: TranscriptPayload): void {
     });
   }
 
-  // 新しい議論に切り替わったら先頭から。同じ議論への追記は、最下部付近にいるとき
-  // だけ追従する(上へスクロールして読んでいる最中は強制移動しない)。
-  if (isNewConversation) {
-    bodyEl.scrollTop = 0;
-  } else if (payload.messages.length > lastCount && nearBottomBefore) {
-    bodyEl.scrollTop = bodyEl.scrollHeight;
-  }
+  // 新しい議論に切り替わったら先頭から。同じ議論への追記では位置を維持する。
+  bodyEl.scrollTop = isNewConversation ? 0 : scrollBefore;
   lastConversationId = payload.conversationId;
-  lastCount = payload.messages.length;
 }
 
 function turnBlock(m: MessageRecord, turn: number, maxTurns: number): HTMLElement {

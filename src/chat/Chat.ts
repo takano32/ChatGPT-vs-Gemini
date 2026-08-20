@@ -38,6 +38,8 @@ const ENTER_START_MS = 5000;
 const SLOW_START_MS = 15000;
 // 再送前の小休止
 const RETRY_DELAY_MS = 1000;
+// 残っていた停止ボタンを押してから、UI が送信状態に戻るのを待つ時間
+const STOP_RELEASE_MS = 1000;
 // 生成指標が無いまま応答要素が現れない状態がこの時間続いたら、送信が失われたとみなす
 const LOST_SEND_MS = 8000;
 // 停止ボタンは出ているのに応答要素が一向に現れない状態の上限。リクエスト失敗で
@@ -62,11 +64,23 @@ const CONFIRM_POLL_MIN_MS = 200;
 
 interface ProbeResult {
   count: number;
+  lastKey: string | null; // 最後の応答要素の識別子(data-message-id / id)。無いサイトでは null
+  keys: string[]; // いま DOM にある応答要素の識別子(仮想化で古いものは消えている)
   lastText: string;
   streaming: boolean;
   limited: boolean;
   failed: boolean; // 最後の応答要素がエラー吹き出し(短い本文にエラー文言)
   follower: boolean; // ページ側のスクロール追従が仕込まれているか(遷移で消える)
+}
+
+// 「新しい応答が現れたか」の判定材料。
+// 実測: ChatGPT はスレッド描画を仮想化しており、DOM には直近 5 ターン程度しか無い
+// (古い要素は外される)。応答要素の件数は 4 通目以降増えないため、件数だけで判定すると
+// 本当は返ってきている回答を「応答なし」と誤判定する(turn 7 の沈黙の正体)。
+// そこで応答要素の識別子(ChatGPT: data-message-id / Gemini: id)を使い、
+// 「最後の応答要素の識別子が未見」を新しい応答の条件にする。識別子が無いサイトでは件数に退避。
+interface ResponseBaseline {
+  count: number;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -83,6 +97,9 @@ export abstract class Chat {
   private inputPhase = false;
   // 送信の再試行など、議論は止めないが利用者に見せたい出来事の通知先(Runner が設定)
   notice: ((message: string) => void) | null = null;
+  // この会話でこれまでに見た応答要素の識別子。newChat で空にする。
+  // 利用者が上へスクロールして古い要素が最後尾に見えても、新しい応答と取り違えないために使う。
+  private seenKeys = new Set<string>();
 
   constructor(
     readonly name: Speaker,
@@ -162,7 +179,11 @@ export abstract class Chat {
   stop(): void {
     this.abortRequested = true;
     // ページ側の停止ボタンは投げっぱなしでクリック
-    void this.js(
+    void this.clickStop();
+  }
+
+  private async clickStop(): Promise<void> {
+    await this.js(
       `(() => {
         const el = document.querySelector(${JSON.stringify(this.selectors.stopButton)});
         if (el) el.click();
@@ -179,6 +200,7 @@ export abstract class Chat {
   // 準備ができなければ遷移をやり直す。
   async newChat(): Promise<void> {
     const wc = this.view.webContents;
+    this.seenKeys.clear();
     const deadline = Date.now() + NEW_CHAT_TIMEOUT_MS;
     let navigatedAt = 0;
     const navigate = async (): Promise<void> => {
@@ -238,10 +260,7 @@ export abstract class Chat {
       throw new ChatError('not-logged-in', this.displayName);
     }
 
-    const baseline =
-      (await this.js<number>(
-        `document.querySelectorAll(${JSON.stringify(s.assistantMessages)}).length`,
-      )) ?? 0;
+    const baseline = await this.captureBaseline();
 
     // 入力フェーズ開始。insertText / Enter は実入力経路(isTrusted=true)を通り
     // 操作ロックに弾かれるため、この間だけ遮断を外す(el.click は isTrusted=false で通る)。
@@ -258,10 +277,21 @@ export abstract class Chat {
 
   // 送信〜応答完了。送信の取りこぼしは最大 SEND_ATTEMPTS 回まで自己修復する。
   // 二重送信を避けるため、再送の前には必ず「前回の送信が遅れて始まっていないか」を確認する。
-  private async sendAndAwait(text: string, initialBaseline: number): Promise<string> {
-    // 送信前から停止ボタンが残っている(前回の生成終了で消えなかった固着)なら、
-    // 停止ボタンは生成指標として使えない。応答数の増加だけを見る。
-    let ignoreStop = await this.stopVisible();
+  private async sendAndAwait(text: string, initialBaseline: ResponseBaseline): Promise<string> {
+    // 送信前から停止ボタンが残っている = 前回の生成が閉じずに UI が「生成中」のまま固まっている
+    // (実測: ストリーム切断時に起きる。送信ボタンが出ないので次が送れない)。
+    // まず押して生成状態を解除する。それでも消えなければ固着として生成指標から外す。
+    let ignoreStop = false;
+    if (await this.stopVisible()) {
+      await this.clickStop();
+      await sleep(STOP_RELEASE_MS);
+      ignoreStop = await this.stopVisible();
+      this.notify(
+        ignoreStop
+          ? `${this.displayName} の停止ボタンが消えません。応答の有無だけで判定します`
+          : `${this.displayName} に残っていた生成状態を解除しました`,
+      );
+    }
     // 応答の代わりにエラー吹き出しが追加された場合、それは履歴に残るので基準件数を進める
     let baseline = initialBaseline;
 
@@ -299,7 +329,11 @@ export abstract class Chat {
       if (outcome.reply !== null) return outcome.reply;
       // 正規の応答が来ないまま終わった(応答要素が現れない / エラー吹き出し / 空応答)。再送へ。
       // 停止ボタンだけが出続けていたなら固着とみなし、以降は指標から外す
-      if (outcome.stuckStop) ignoreStop = true;
+      if (outcome.stuckStop) {
+        await this.clickStop(); // 固着した生成状態を解除してから送り直す
+        await sleep(STOP_RELEASE_MS);
+        ignoreStop = await this.stopVisible();
+      }
       baseline = outcome.baseline;
       if (attempt === SEND_ATTEMPTS) break;
       this.throwIfAborted(); // 停止後に「やり直します」と出さない
@@ -315,7 +349,7 @@ export abstract class Chat {
   // 1 回分の送信操作: 入力欄をクリア → 本文を挿入 → 送信クリック → 生成開始の確認。
   // 送信ボタンが押せない/開始が確認できなければ Enter キーでフォールバックし、
   // それでも始まらなければ false(呼び出し側が再試行する)。
-  private async submit(text: string, baseline: number, ignoreStop: boolean): Promise<boolean> {
+  private async submit(text: string, baseline: ResponseBaseline, ignoreStop: boolean): Promise<boolean> {
     const s = this.selectors;
 
     this.throwIfAborted(); // 停止後に入力欄へ本文を残さない
@@ -414,16 +448,30 @@ export abstract class Chat {
   // まで待ってハングする(turn 7 の沈黙の原因、実測)。実際の生成指標である
   // 「停止ボタン出現」か「応答数が増えた」ことだけを成功条件にする。
   // ignoreStop: 送信前から停止ボタンが固着していて指標にならないとき true。
-  private async sendStarted(baseline: number, ignoreStop: boolean): Promise<boolean> {
-    const s = this.selectors;
-    const r = await this.js<boolean>(
-      `(() => {
-        const stop = ${this.stopVisibleExpr()};
-        const count = document.querySelectorAll(${JSON.stringify(s.assistantMessages)}).length;
-        return (stop && !${ignoreStop}) || count > ${baseline};
-      })()`,
-    );
-    return r === true;
+  private async sendStarted(baseline: ResponseBaseline, ignoreStop: boolean): Promise<boolean> {
+    const snap = await this.probe(baseline);
+    if (!snap) return false;
+    return (snap.streaming && !ignoreStop) || this.isFresh(snap, baseline);
+  }
+
+  // 新しい応答要素が現れたか(ResponseBaseline の説明を参照)
+  private isFresh(snap: ProbeResult, baseline: ResponseBaseline): boolean {
+    if (snap.lastKey !== null) return !this.seenKeys.has(snap.lastKey);
+    return snap.count > baseline.count;
+  }
+
+  // 送信前の状態を記録する。いま DOM にある応答要素の識別子は全て「見た」ことにする
+  private async captureBaseline(): Promise<ResponseBaseline> {
+    const snap = await this.probe({ count: 0 });
+    if (!snap) return { count: 0 };
+    for (const k of snap.keys) this.seenKeys.add(k);
+    return { count: snap.count };
+  }
+
+  // 受理した(あるいは失敗として片付けた)応答の識別子を「見た」ことにし、次の基準を返す
+  private acceptResponse(snap: ProbeResult): ResponseBaseline {
+    for (const k of snap.keys) this.seenKeys.add(k);
+    return { count: snap.count };
   }
 
   private async stopVisible(): Promise<boolean> {
@@ -455,9 +503,11 @@ export abstract class Chat {
   //  - baseline: 次の試行で使う基準件数(エラー吹き出し等が応答要素として残った場合は進める)
   //  - why: 通知用の理由
   private async waitForCompletion(
-    baseline: number,
+    baseline: ResponseBaseline,
     ignoreStop: boolean,
-  ): Promise<{ reply: string } | { reply: null; stuckStop: boolean; baseline: number; why: string }> {
+  ): Promise<
+    { reply: string } | { reply: null; stuckStop: boolean; baseline: ResponseBaseline; why: string }
+  > {
     const { pollMs, stabilityMs, timeoutMs } = this.getDetection();
     const confirmPollMs = Math.max(CONFIRM_POLL_MIN_MS, Math.min(pollMs, CONFIRM_POLL_MS));
     const start = Date.now();
@@ -482,12 +532,13 @@ export abstract class Chat {
         if (!snap.follower) void this.ensureFollower(); // 遷移で剥がれたら入れ直す
         // 停止ボタンが固着しているときは「生成中」の証拠にならない
         const generating = snap.streaming && !ignoreStop;
+        const fresh = this.isFresh(snap, baseline);
         // 応答本文に制限文言が含まれるだけの誤検知を避けるため、
-        // 新しい応答が現れていない(count <= baseline)ときのみ制限とみなす
-        if (snap.limited && snap.count <= baseline) {
+        // 新しい応答が現れていないときのみ制限とみなす
+        if (snap.limited && !fresh) {
           throw new ChatError('rate-limited', this.displayName);
         }
-        if (snap.count <= baseline) {
+        if (!fresh) {
           // 応答要素がまだ無い。生成指標も無い状態が LOST_SEND_MS 続いたら送信が失われている
           // (クリック直後に停止ボタンが出てもリクエスト失敗で消える等)。
           // 停止ボタンだけが STOP_WITHOUT_RESPONSE_MS 出続けるならボタンの固着とみなす。
@@ -516,13 +567,13 @@ export abstract class Chat {
           // 応答の代わりにエラー吹き出し(実測: ChatGPT「Something went wrong … Retry」)が
           // 応答要素として描画された。回答として中継せず、基準件数を進めて再送する。
           if (snap.failed && !generating) {
-            return { reply: null, stuckStop: false, baseline: snap.count, why: '応答がエラーでした' };
+            return { reply: null, stuckStop: false, baseline: this.acceptResponse(snap), why: '応答がエラーでした' };
           }
           if (lastText.length === 0) {
             // 生成が終わった(停止ボタンが消えた)のに本文が空のまま stabilityMs 続いたら
             // 失敗した空応答とみなし、timeoutMs まで待たずに再送する。
             if (!generating && now - responseSeenAt >= stabilityMs) {
-              return { reply: null, stuckStop: false, baseline: snap.count, why: '応答が空でした' };
+              return { reply: null, stuckStop: false, baseline: this.acceptResponse(snap), why: '応答が空でした' };
             }
           } else if (!snap.streaming) {
             // 完了の多重確認(実測: 停止ボタンは生成終了で確実に消える。テキスト安定はその後)。
@@ -531,6 +582,7 @@ export abstract class Chat {
             // stabilityMs をまるごと待たないのでターン間に無駄な間が生じない。
             confirmations = changed ? 0 : confirmations + 1;
             if (confirmations >= COMPLETION_CONFIRMATIONS) {
+              this.acceptResponse(snap);
               return { reply: this.finalizeText(lastText) };
             }
             confirming = true;
@@ -539,6 +591,7 @@ export abstract class Chat {
             // 固着時でも生成中の短い間(ポーズ)で切らないよう、こちらは多重確認で短縮しない。
             confirmations = 0;
             if (now - lastChangedAt >= stabilityMs) {
+              this.acceptResponse(snap);
               return { reply: this.finalizeText(lastText) };
             }
           }
@@ -648,26 +701,31 @@ export abstract class Chat {
     );
   }
 
-  // baseline: 制限文言の判定は新しい応答が無い(count <= baseline)ときにしか使わないので、
-  // そのときだけ body 全文を読む(高頻度ポーリングで毎回 body.innerText を取らない)。
-  private async probe(baseline: number): Promise<ProbeResult | null> {
+  // 制限文言の判定は新しい応答が無いときにしか使わないので、そのときだけ body 全文を読む
+  // (高頻度ポーリングで毎回 body.innerText を取らない)。ページ側では識別子の既知/未知を
+  // 判定できないため、「件数が増えていない」を暫定条件にする(多少余計に読むだけで害はない)。
+  private async probe(baseline: ResponseBaseline): Promise<ProbeResult | null> {
     const s = this.selectors;
     return this.js<ProbeResult>(
       `(() => {
         const msgs = document.querySelectorAll(${JSON.stringify(s.assistantMessages)});
         const count = msgs.length;
+        const keyOf = (el) => el.getAttribute('data-message-id') || el.id || null;
+        const keys = [];
+        for (const m of msgs) { const k = keyOf(m); if (k) keys.push(k); }
         const last = count > 0 ? msgs[count - 1] : null;
+        const lastKey = last ? keyOf(last) : null;
         const lastText = last ? ((last.innerText || '').trim()) : '';
         const streaming = ${this.stopVisibleExpr()};
         let limited = false;
-        if (count <= ${baseline}) {
+        if (count <= ${baseline.count}) {
           const tail = ((document.body && document.body.innerText) || '').slice(-2000);
           limited = ${JSON.stringify(s.rateLimitPatterns)}.some((p) => tail.includes(p));
         }
         const failed = lastText.length > 0 && lastText.length <= ${ERROR_TEXT_MAX} &&
           ${JSON.stringify(s.errorPatterns)}.some((p) => lastText.includes(p));
-        return { count: count, lastText: lastText, streaming: streaming, limited: limited,
-          failed: failed, follower: !!window.__cvgFollow };
+        return { count: count, lastKey: lastKey, keys: keys, lastText: lastText, streaming: streaming,
+          limited: limited, failed: failed, follower: !!window.__cvgFollow };
       })()`,
     );
   }
