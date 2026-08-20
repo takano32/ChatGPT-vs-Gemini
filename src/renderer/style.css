@@ -175,15 +175,23 @@ button { font-family: var(--mono); }
   white-space: nowrap;
 }
 .turns-field input {
-  width: 3.2em;
+  width: 3.4em;
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: 3px;
   color: var(--text);
   font-family: var(--mono);
   font-size: 12px;
-  padding: 5px 6px;
-  text-align: right;
+  padding: 5px 8px;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* 数字にスピナーが重なるため上下ボタンを消す */
+.turns-field input::-webkit-outer-spin-button,
+.turns-field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 .turns-field input:focus { outline: none; border-color: var(--amber-soft); }
 

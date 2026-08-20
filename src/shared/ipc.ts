@@ -39,7 +39,8 @@ export const IPC = {
 
 /** preload が contextBridge で `window.api` に公開する形。 */
 export interface RendererApi {
-  startDebate(topic: string): Promise<void>;
+  /** maxTurns はそのラン用の上書き(省略時は設定の既定を使う)。保存はしない。 */
+  startDebate(topic: string, maxTurns?: number): Promise<void>;
   stopDebate(): Promise<void>;
   pauseDebate(): Promise<void>;
   resumeDebate(): Promise<void>;

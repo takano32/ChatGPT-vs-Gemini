@@ -154,30 +154,22 @@
     updateControls();
   }
 
-  // 既定ターン数を一箇所で更新(ヘッダ表示・操作バーの入力・ドロワーを同期)
-  function setDefaultMaxTurns(n: number): void {
+  // このラン用のターン数(操作バーの値)。既定は設定から、変更しても保存しない。
+  // 永続化する既定ターン数はドロワー(設定)側でのみ変更する。
+  function setNextRunTurns(n: number): void {
     defaultMaxTurns = n;
     if (document.activeElement !== ctlMaxTurns) ctlMaxTurns.value = String(n);
     updateRunnerUi();
   }
 
-  // 操作バーのターン数入力: 変更時に即保存(ドロワーの最大ターン数と同じ設定)
+  // 操作バーのターン数入力: そのラン用の一時値。保存しない(開始時に上書きとして渡す)。
   ctlMaxTurns.addEventListener('change', () => {
-    const n = Math.max(1, Math.min(99, Math.floor(ctlMaxTurns.valueAsNumber)));
-    if (!Number.isFinite(n)) {
+    const raw = ctlMaxTurns.valueAsNumber;
+    if (!Number.isFinite(raw)) {
       ctlMaxTurns.value = String(defaultMaxTurns);
       return;
     }
-    ctlMaxTurns.value = String(n);
-    void (async () => {
-      try {
-        const cur = await api.getSettings();
-        await api.setSettings({ ...cur, debate: { ...cur.debate, maxTurns: n } });
-        setDefaultMaxTurns(n);
-      } catch (err) {
-        localLog('error', `ターン数の保存に失敗: ${errMsg(err)}`);
-      }
-    })();
+    setNextRunTurns(Math.max(1, Math.min(99, Math.floor(raw))));
   });
 
   function updateControls(): void {
@@ -235,7 +227,8 @@
       topicInput.focus();
       return;
     }
-    api.startDebate(topic).catch((err) => localLog('error', `開始失敗: ${errMsg(err)}`));
+    // 操作バーのターン数をそのラン用の上書きとして渡す(設定の既定は変えない)
+    api.startDebate(topic, defaultMaxTurns).catch((err) => localLog('error', `開始失敗: ${errMsg(err)}`));
   });
   btnPause.addEventListener('click', () => {
     api.pauseDebate().catch((err) => localLog('error', `一時停止失敗: ${errMsg(err)}`));
@@ -323,7 +316,7 @@
       taOpening.value = s.debate.openingTemplate;
       taCounter.value = s.debate.counterTemplate;
       taRelay.value = s.debate.relayTemplate;
-      setDefaultMaxTurns(s.debate.maxTurns);
+      setNextRunTurns(s.debate.maxTurns);
     } catch (err) {
       localLog('error', `設定読込失敗: ${errMsg(err)}`);
     }
@@ -369,7 +362,7 @@
           },
         };
         await api.setSettings(next);
-        setDefaultMaxTurns(next.debate.maxTurns);
+        setNextRunTurns(next.debate.maxTurns);
         saveFlash.classList.add('show');
         window.clearTimeout(flashTimer);
         flashTimer = window.setTimeout(() => saveFlash.classList.remove('show'), 1600);
@@ -532,7 +525,7 @@
   async function init(): Promise<void> {
     try {
       const [settings, chatStatus] = await Promise.all([api.getSettings(), api.getChatStatus()]);
-      setDefaultMaxTurns(settings.debate.maxTurns);
+      setNextRunTurns(settings.debate.maxTurns);
       chats = chatStatus;
     } catch (err) {
       localLog('error', `初期化失敗: ${errMsg(err)}`);

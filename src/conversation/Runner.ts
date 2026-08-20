@@ -68,7 +68,7 @@ export class Runner extends EventEmitter {
     return status;
   }
 
-  async start(topic: string): Promise<void> {
+  async start(topic: string, maxTurnsOverride?: number): Promise<void> {
     if (this.state === 'running' || this.state === 'paused') {
       this.log('warn', '議論は既に実行中です');
       return;
@@ -88,8 +88,13 @@ export class Runner extends EventEmitter {
       if (this.runId !== myRun) return;
     }
 
-    // 設定は開始時に 1 回だけ読む(途中変更は次回から反映)
-    const debate = this.settings.get().debate;
+    // 設定は開始時に 1 回だけ読む(途中変更は次回から反映)。
+    // maxTurns はそのラン用の上書きがあれば優先(操作バーの一時値。保存はしない)。
+    const base = this.settings.get().debate;
+    const debate: DebateConfig =
+      typeof maxTurnsOverride === 'number' && maxTurnsOverride >= 1
+        ? { ...base, maxTurns: Math.floor(maxTurnsOverride) }
+        : base;
     this.debate = debate;
 
     this.state = 'running';

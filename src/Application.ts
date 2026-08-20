@@ -87,10 +87,11 @@ export class Application {
   }
 
   private registerIpc(): void {
-    ipcMain.handle(IPC.runnerStart, (_e, topic: string) => {
+    ipcMain.handle(IPC.runnerStart, (_e, topic: string, maxTurns?: number) => {
       // 議論全体を await すると invoke が完走まで返らないため fire-and-forget。
       // エラーは Runner が status/log イベントで通知する。
-      void this.runner.start(String(topic)).catch(() => {});
+      const override = typeof maxTurns === 'number' ? maxTurns : undefined;
+      void this.runner.start(String(topic), override).catch(() => {});
     });
     ipcMain.handle(IPC.runnerStop, () => this.runner.stop());
     ipcMain.handle(IPC.runnerPause, () => this.runner.pause());
