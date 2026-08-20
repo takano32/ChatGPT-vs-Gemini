@@ -29,6 +29,12 @@ const POPUP_ALLOWED_HOSTS: readonly string[] = [
   'github.com',
 ];
 
+// Google は「Chrome を名乗る埋め込みブラウザ」を Client Hints 等の不整合や
+// WebView 検出で弾く(This browser or app may not be secure)。Firefox には
+// その検査経路がなく Client Hints も送らないため、パーティション全体を一貫して
+// Firefox として振る舞わせることでログインを通す。
+const FIREFOX_UA = 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0';
+
 function isPopupAllowed(url: string): boolean {
   let hostname: string;
   try {
@@ -91,19 +97,49 @@ export class Layout {
       },
     });
     const wc = view.webContents;
-    this.hardenChatContents(wc);
+    this.hardenChatContents(wc, partition.replace('persist:', ''));
     // ログイン画面へのリダイレクト等で reject し得るため握りつぶす
     void wc.loadURL(url).catch(() => {});
     return view;
   }
 
-  private hardenChatContents(wc: WebContents): void {
-    // Electron/アプリ名トークンを UA から除去(Google ログイン拒否対策)
-    const cleaned = wc
-      .getUserAgent()
-      .replace(/ chatgpt-vs-gemini\/[^ ]+/, '')
-      .replace(/ Electron\/[^ ]+/, '');
-    wc.setUserAgent(cleaned);
+  private hardenChatContents(wc: WebContents, label: string): void {
+    // 白画面・ハング調査用の診断ログ(stderr)
+    wc.on('render-process-gone', (_e, details) => {
+      console.error(`[pane:${label}] renderer gone: ${details.reason} (exit ${details.exitCode})`);
+    });
+    wc.on('unresponsive', () => console.error(`[pane:${label}] unresponsive`));
+    wc.on('did-fail-load', (_e, code, desc, _url, isMainFrame) => {
+      if (isMainFrame && code !== -3 /* ABORTED はリダイレクトで頻発する正常系 */) {
+        console.error(`[pane:${label}] load failed ${code} ${desc}`);
+      }
+    });
+    // パーティション全体を一貫して Firefox として振る舞わせる。
+    // 部分的な UA 偽装(ログインホストだけ Firefox)は navigator.userAgent と
+    // Chromium が自動送出する Sec-CH-UA の不整合を生み、Google がセッション確立を
+    // 拒否する(=ログインが完了しない)。UA を一貫させ、Firefox が送らない
+    // Client Hints を全リクエストで除去することで矛盾をなくす。
+    wc.setUserAgent(FIREFOX_UA);
+    wc.session.setUserAgent(FIREFOX_UA);
+    console.error(`[ua:${label}] firefox (consistent)`);
+
+    // 全リクエストで UA を Firefox に固定し、Sec-CH-UA 系と X-Requested-With を除去。
+    // (session 単位の登録。同一 session への再登録は前回リスナーの置換になるだけ)
+    wc.session.webRequest.onBeforeSendHeaders((details, callback) => {
+      try {
+        const headers = details.requestHeaders;
+        headers['User-Agent'] = FIREFOX_UA;
+        for (const key of Object.keys(headers)) {
+          const lower = key.toLowerCase();
+          if (lower.startsWith('sec-ch-ua') || lower === 'x-requested-with') {
+            delete headers[key];
+          }
+        }
+      } catch {
+        // ヘッダ加工に失敗しても必ず callback は呼ぶ(呼ばないとリクエストが永久に止まる)
+      }
+      callback({ requestHeaders: details.requestHeaders });
+    });
 
     // SSO ポップアップは partition 共有のためアプリ内で許可、それ以外は外部ブラウザへ
     wc.setWindowOpenHandler((details) => {
@@ -120,7 +156,7 @@ export class Layout {
     wc.session.setPermissionRequestHandler((_wc, _permission, cb) => cb(false));
 
     // 許可した SSO ポップアップの子ウィンドウにも同じ強化を再帰適用する
-    wc.on('did-create-window', (win) => this.hardenChatContents(win.webContents));
+    wc.on('did-create-window', (win) => this.hardenChatContents(win.webContents, `${label}:popup`));
 
     // will-navigate はブロックしない(ログインはドメインをまたいで遷移する)
   }
