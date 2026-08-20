@@ -105,6 +105,11 @@ export class Repository {
       );
     }
 
+    // 前回クラッシュ等で残った実行中状態を復旧(v1 は再起動後の再開を保証しない)
+    this.db
+      .prepare("UPDATE conversations SET status = 'stopped' WHERE status IN ('running', 'paused')")
+      .run();
+
     this.stmtInsertConversation = this.db.prepare(
       'INSERT INTO conversations (title, status, created_at, updated_at) VALUES (?, ?, ?, ?)',
     );

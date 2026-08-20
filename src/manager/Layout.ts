@@ -13,15 +13,16 @@ export type PaneName = 'admin' | 'chatgpt' | 'gemini';
 
 // SSO ログインのポップアップをアプリ内(同一 partition)で許可するホスト。
 // 完全一致またはドットサフィックス一致。
+// 注意: 'google.com' や 'auth0.com' のような裸ドメインをサフィックス許可すると
+// sites.google.com 等の攻撃者制御ホストまで通してしまうため、具体ホストのみ列挙する
 const POPUP_ALLOWED_HOSTS: readonly string[] = [
   'accounts.google.com',
   'accounts.youtube.com',
-  'google.com',
   'gemini.google.com',
   'chatgpt.com',
   'openai.com',
   'auth.openai.com',
-  'auth0.com',
+  'auth0.openai.com',
   'appleid.apple.com',
   'login.live.com',
   'login.microsoftonline.com',
@@ -60,6 +61,10 @@ export class Layout {
       },
     });
     admin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    // 管理ペインが外部ページへ遷移すると preload の window.api が
+    // リモートページに渡ってしまうため、一切のナビゲーションを禁止する
+    // (loadFile 自体には will-navigate は発火しない)
+    admin.webContents.on('will-navigate', (e) => e.preventDefault());
     void admin.webContents.loadFile(config.admin.file);
     this.views.admin = admin;
 
@@ -114,6 +119,9 @@ export class Layout {
     // 通知・位置情報・メディア等の許可要求はすべて拒否
     wc.session.setPermissionRequestHandler((_wc, _permission, cb) => cb(false));
 
+    // 許可した SSO ポップアップの子ウィンドウにも同じ強化を再帰適用する
+    wc.on('did-create-window', (win) => this.hardenChatContents(win.webContents));
+
     // will-navigate はブロックしない(ログインはドメインをまたいで遷移する)
   }
 
@@ -125,8 +133,10 @@ export class Layout {
 
     const [w, h] = this.window.base.getContentSize();
     const { adminRatio, chatSplit } = this.settings.get().layout;
-    const ah = Math.round(h * adminRatio);
-    const cw = Math.round(w * chatSplit);
+    // 設定ファイルの手編集等で 0 や 1 が入ってもペインが潰れないよう防衛的にクランプ
+    const clampRatio = (n: number): number => Math.min(0.95, Math.max(0.05, n));
+    const ah = Math.round(h * clampRatio(adminRatio));
+    const cw = Math.round(w * clampRatio(chatSplit));
 
     admin.setBounds({ x: 0, y: 0, width: w, height: ah });
     chatgpt.setBounds({ x: 0, y: ah, width: cw, height: h - ah });

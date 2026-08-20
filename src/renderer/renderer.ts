@@ -46,10 +46,6 @@
     return s.length > max ? `${s.slice(0, max)}…` : s;
   }
 
-  function clamp01(n: number): number {
-    return Math.min(1, Math.max(0, n));
-  }
-
   const SPEAKER_LABELS: Record<Speaker, string> = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
 
   // ---------- elements ----------
@@ -212,8 +208,13 @@
   });
 
   topicInput.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter' && !btnStart.disabled) btnStart.click();
+    // IME の変換確定 Enter で議論が開始してしまわないよう isComposing を除外
+    if (ev.key === 'Enter' && !ev.isComposing && !btnStart.disabled) btnStart.click();
   });
+
+  // リンク等を管理ペインへドロップすると WebContents ごと遷移してしまうため常に抑止
+  document.addEventListener('dragover', (ev) => ev.preventDefault());
+  document.addEventListener('drop', (ev) => ev.preventDefault());
 
   // ---------- drawer ----------
 
@@ -286,8 +287,14 @@
   }
 
   function numVal(input: HTMLInputElement, fallback: number): number {
-    const n = Number(input.value);
+    // Number('') は 0 になるため valueAsNumber(空欄なら NaN)を使う
+    const n = input.valueAsNumber;
     return Number.isFinite(n) ? n : fallback;
+  }
+
+  /** ペイン比率は 0/1 に潰れないよう [0.05, 0.95] に収める */
+  function clampRatio(n: number): number {
+    return Math.min(0.95, Math.max(0.05, n));
   }
 
   let flashTimer = 0;
@@ -300,8 +307,8 @@
         const next: SettingsData = {
           ...cur,
           layout: {
-            adminRatio: clamp01(numVal(inAdminRatio, cur.layout.adminRatio)),
-            chatSplit: clamp01(numVal(inChatSplit, cur.layout.chatSplit)),
+            adminRatio: clampRatio(numVal(inAdminRatio, cur.layout.adminRatio)),
+            chatSplit: clampRatio(numVal(inChatSplit, cur.layout.chatSplit)),
           },
           debate: {
             maxTurns: Math.max(1, Math.floor(numVal(inMaxTurns, cur.debate.maxTurns))),
@@ -394,8 +401,6 @@
 
   // ---------- 検索 ----------
 
-  // FTS5 trigram は 3 文字未満だとヒットしないため入力ガードを置く
-  const SEARCH_MIN_CHARS = 3;
   let searchTimer = 0;
   let searchSeq = 0;
 
@@ -433,10 +438,7 @@
     const seq = ++searchSeq;
     searchResults.textContent = '';
     if (query.length === 0) return;
-    if (query.length < SEARCH_MIN_CHARS) {
-      searchResults.appendChild(el('div', 'drawer-empty', `${SEARCH_MIN_CHARS}文字以上で検索できます`));
-      return;
-    }
+    // 短い語は Repository 側が LIKE 検索にフォールバックするため、ここでは制限しない
     searchResults.appendChild(el('div', 'drawer-empty', '検索中…'));
     try {
       const hits = await api.search(query);

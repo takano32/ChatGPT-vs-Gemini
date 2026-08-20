@@ -39,5 +39,6 @@ export const GEMINI_SELECTORS: SiteSelectors = {
   assistantMessages: 'message-content', // 要実機調整
   loggedInProbe: 'rich-textarea', // 要実機調整
   loggedOutProbe: 'a[href*="ServiceLogin"]', // 要実機調整
-  rateLimitPatterns: ['しばらくしてからもう一度', 'try again later', '上限'],
+  // 裸の「上限」のような短い語は議論本文と誤マッチするため、完全なフレーズのみ
+  rateLimitPatterns: ['しばらくしてからもう一度', 'try again later', '上限に達しました'],
 };

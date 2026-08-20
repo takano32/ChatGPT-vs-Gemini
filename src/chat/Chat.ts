@@ -64,7 +64,14 @@ export abstract class Chat {
 
   async isLoggedIn(): Promise<boolean> {
     const url = this.view.webContents.getURL();
-    if (!url.startsWith(this.origin)) return false;
+    // startsWith だと類似ドメイン(例: chatgpt.com.evil.io)をすり抜けるため origin 厳密比較
+    let origin: string;
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      return false;
+    }
+    if (origin !== this.origin) return false;
     const s = this.selectors;
     const ok = await this.js<boolean>(
       `(() => !!document.querySelector(${JSON.stringify(s.loggedInProbe)}) && !document.querySelector(${JSON.stringify(s.loggedOutProbe)}))()`,
@@ -229,7 +236,11 @@ export abstract class Chat {
       const snap = await this.probe();
       const now = Date.now();
       if (snap) {
-        if (snap.limited) throw new ChatError('rate-limited', this.displayName);
+        // 応答本文に制限文言が含まれるだけの誤検知を避けるため、
+        // 新しい応答が現れていない(count <= baseline)ときのみ制限とみなす
+        if (snap.limited && snap.count <= baseline) {
+          throw new ChatError('rate-limited', this.displayName);
+        }
         if (snap.lastText !== lastText) {
           lastText = snap.lastText;
           lastChangedAt = now;
@@ -259,9 +270,7 @@ export abstract class Chat {
         const stop = document.querySelector(${JSON.stringify(s.stopButton)});
         const streaming = !!stop && stop.offsetParent !== null;
         const tail = ((document.body && document.body.innerText) || '').slice(-2000);
-        const limited = ${JSON.stringify(s.rateLimitPatterns)}.some(
-          (p) => lastText.includes(p) || tail.includes(p),
-        );
+        const limited = ${JSON.stringify(s.rateLimitPatterns)}.some((p) => tail.includes(p));
         return { count: count, lastText: lastText, streaming: streaming, limited: limited };
       })()`,
     );

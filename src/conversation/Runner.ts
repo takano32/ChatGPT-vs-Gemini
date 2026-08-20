@@ -6,6 +6,7 @@ import {
   SPEAKER_LABELS,
   opponentOf,
   type LogEntry,
+  type MessageRecord,
   type RunnerState,
   type RunnerStatus,
   type SettingsData,
@@ -41,6 +42,8 @@ export class Runner extends EventEmitter {
 
   private currentSpeaker: Speaker | null = null;
   private askInFlight = false;
+  // stop 直後の再 start が Chat の単一実行ガードに衝突しないよう、前回の ask の決着を待つ
+  private inFlightAsk: Promise<string> | null = null;
 
   private resumeWaiter: (() => void) | null = null;
   private sleepWaiter: (() => void) | null = null;
@@ -78,12 +81,29 @@ export class Runner extends EventEmitter {
     this.resumeWaiter = null;
     this.sleepWaiter = null;
 
+    // 前回 stop した ask が未決着なら決着を待つ(Chat の busy ガード対策)
+    if (this.inFlightAsk) {
+      await this.inFlightAsk.catch(() => {});
+      this.inFlightAsk = null;
+      if (this.runId !== myRun) return;
+    }
+
     // 設定は開始時に 1 回だけ読む(途中変更は次回から反映)
     const debate = this.settings.get().debate;
     this.debate = debate;
 
     this.state = 'running';
-    const conversation = new Conversation(this.repository.createConversation(topic));
+    let conversation: Conversation;
+    try {
+      conversation = new Conversation(this.repository.createConversation(topic));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.state = 'error';
+      this.lastError = message;
+      this.emitStatus();
+      this.log('error', `会話の作成に失敗しました: ${message}`);
+      return;
+    }
     this.conversation = conversation;
     this.emitStatus();
     this.log('info', `議論を開始します: 「${topic}」(最大 ${debate.maxTurns} ターン)`);
@@ -117,11 +137,17 @@ export class Runner extends EventEmitter {
         this.askInFlight = true;
         let reply: string;
         try {
-          reply = await chat.ask(prompt);
+          const askPromise = chat.ask(prompt);
+          this.inFlightAsk = askPromise;
+          reply = await askPromise;
         } catch (err) {
           this.askInFlight = false;
+          this.inFlightAsk = null;
           this.currentSpeaker = null;
           if (this.runId !== myRun) return;
+          // stop() が先に完了処理を済ませている。ask() が stopped 以外の
+          // エラー(rate-limited / timeout 等)で抜けてきても stopped を上書きしない
+          if (this.stopRequested) return;
 
           if (err instanceof ChatError && err.code === 'rate-limited') {
             this.state = 'paused';
@@ -150,11 +176,23 @@ export class Runner extends EventEmitter {
           return;
         }
         this.askInFlight = false;
+        this.inFlightAsk = null;
         this.currentSpeaker = null;
         if (this.runId !== myRun) return;
         if (this.stopRequested) return;
 
-        const record = this.repository.addMessage(conversation.id, speaker, reply);
+        let record: MessageRecord;
+        try {
+          record = this.repository.addMessage(conversation.id, speaker, reply);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.state = 'error';
+          this.lastError = message;
+          this.setConversationStatus('error');
+          this.emitStatus();
+          this.log('error', `会話の保存に失敗しました: ${message}`);
+          return;
+        }
         conversation.addMessage(record);
         this.emit('message', record);
         this.emitStatus();
@@ -226,7 +264,12 @@ export class Runner extends EventEmitter {
   private setConversationStatus(status: Conversation['status']): void {
     if (!this.conversation) return;
     this.conversation.status = status;
-    this.repository.setConversationStatus(this.conversation.id, status);
+    try {
+      this.repository.setConversationStatus(this.conversation.id, status);
+    } catch (err) {
+      // 状態遷移自体は続行し、永続化失敗のみ通知する
+      this.log('warn', `会話状態の保存に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   private waitForResume(): Promise<void> {

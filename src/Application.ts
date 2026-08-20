@@ -1,6 +1,6 @@
 // Composition Root。各コンポーネントの組み立てと IPC の仲介だけを行い、ロジックは持たない。
 
-import { app, ipcMain } from 'electron';
+import { app, dialog, ipcMain } from 'electron';
 import * as path from 'node:path';
 import { Manager } from './manager/Manager';
 import { Repository } from './conversation/Repository';
@@ -36,7 +36,16 @@ export class Application {
     }
     app.on('window-all-closed', () => app.quit());
     app.on('will-quit', () => this.dispose());
-    void app.whenReady().then(() => this.init());
+    void app
+      .whenReady()
+      .then(() => this.init())
+      .catch((err: unknown) => {
+        dialog.showErrorBox(
+          '起動エラー',
+          err instanceof Error ? (err.stack ?? err.message) : String(err),
+        );
+        app.quit();
+      });
   }
 
   private init(): void {
