@@ -599,7 +599,16 @@ export abstract class Chat {
       } else if (now - lastProbeOkAt >= PROBE_FAILURE_MS) {
         throw new ChatError('selector', `${this.displayName} のページ状態を取得できません`);
       }
-      if (now - start >= timeoutMs) throw new ChatError('timeout', this.displayName);
+      if (now - start >= timeoutMs) {
+        // 上限まで待っても閉じなかった(実測: マシンのスリープ復帰後にストリームが切れたまま残る)。
+        // 本文が得られていればエラーにせず、それを応答として採用して議論を止めない。
+        if (snap && this.isFresh(snap, baseline) && lastText.length > 0) {
+          this.notify(`${this.displayName} の応答が閉じないため、得られた本文で続行します`);
+          this.acceptResponse(snap);
+          return { reply: this.finalizeText(lastText) };
+        }
+        throw new ChatError('timeout', this.displayName);
+      }
       await sleep(confirming ? confirmPollMs : pollMs);
     }
   }
