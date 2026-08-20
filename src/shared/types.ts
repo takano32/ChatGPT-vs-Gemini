@@ -122,10 +122,10 @@ export const DEFAULT_SETTINGS: SettingsData = {
       '相手の最初の主張は以下のとおりです。400字以内で反論または深掘りしてください。\n\n{message}',
     relayTemplate:
       '相手({opponent})の発言:\n\n{message}\n\nこれに対して400字以内で応答し、議論を続けてください。',
-    betweenTurnsMs: 5000,
+    betweenTurnsMs: 0,
   },
   detection: {
-    pollMs: 1000,
+    pollMs: 250,
     stabilityMs: 6000,
     timeoutMs: 300000,
   },

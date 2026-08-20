@@ -22,7 +22,7 @@ export class ChatError extends Error {
 }
 
 // 送信ボタン待ち・送信開始確認用の短周期ポーリング間隔
-const SHORT_POLL_MS = 250;
+const SHORT_POLL_MS = 150;
 
 // 送信の試行回数。クリックが効かない・リクエストが失敗して応答が現れない等の
 // 取りこぼしを自己修復し、議論を止めないための上限。
@@ -58,7 +58,7 @@ const NEW_CHAT_RENAV_MS = 10000;
 const COMPLETION_CONFIRMATIONS = 2;
 const CONFIRM_POLL_MS = 500;
 // 確認間隔の下限。pollMs を極端に小さくしても確認窓(間隔×回数)が潰れないようにする
-const CONFIRM_POLL_MIN_MS = 250;
+const CONFIRM_POLL_MIN_MS = 200;
 
 interface ProbeResult {
   count: number;
@@ -66,6 +66,7 @@ interface ProbeResult {
   streaming: boolean;
   limited: boolean;
   failed: boolean; // 最後の応答要素がエラー吹き出し(短い本文にエラー文言)
+  follower: boolean; // ページ側のスクロール追従が仕込まれているか(遷移で消える)
 }
 
 function sleep(ms: number): Promise<void> {
@@ -468,13 +469,17 @@ export abstract class Chat {
     let stopOnlySince = 0; // 停止ボタンだけが出て応答要素が無い状態の起点(固着の検知用)
     let confirmations = 0; // 完了条件を連続で満たした回数
 
+    // 本文の流れに追従するスクロールをページ側に仕込む(ページ内で自律的に動く)
+    await this.ensureFollower();
+
     for (;;) {
       this.throwIfAborted();
-      const snap = await this.probe();
+      const snap = await this.probe(baseline);
       const now = Date.now();
       let confirming = false;
       if (snap) {
         lastProbeOkAt = now;
+        if (!snap.follower) void this.ensureFollower(); // 遷移で剥がれたら入れ直す
         // 停止ボタンが固着しているときは「生成中」の証拠にならない
         const generating = snap.streaming && !ignoreStop;
         // 応答本文に制限文言が含まれるだけの誤検知を避けるため、
@@ -541,8 +546,6 @@ export abstract class Chat {
       } else if (now - lastProbeOkAt >= PROBE_FAILURE_MS) {
         throw new ChatError('selector', `${this.displayName} のページ状態を取得できません`);
       }
-      // 生成中はペインを常に最下部へスクロールして最新の出力を追う
-      this.scrollToBottom();
       if (now - start >= timeoutMs) throw new ChatError('timeout', this.displayName);
       await sleep(confirming ? confirmPollMs : pollMs);
     }
@@ -561,13 +564,21 @@ export abstract class Chat {
     return out.join('\n');
   }
 
-  // 最後の応答要素から祖先を辿って「実際に縦スクロールしているコンテナ」を見つけ、
-  // 最下部へ追従する。ただしユーザが自分で上へスクロールして履歴を読んでいるときは
-  // 強制移動しない(最下部付近にいるときだけ追従)。新しい応答が現れた瞬間だけは
-  // 一度だけ最下部へジャンプする。
-  private scrollToBottom(): void {
-    void this.js(
+  // 本文の流れに追従するスクロールをページ側に常駐させる(冪等)。
+  // main 側のポーリング周期で位置を送るのではなく、ページ内の MutationObserver /
+  // ResizeObserver で「本文が伸びた・描き直された」瞬間に requestAnimationFrame で
+  // 位置を合わせる。目標は「最後の回答の下端を、下端に浮く入力欄(コンポーザー)の少し上」。
+  // 利用者が上へスクロールして読み返している間は追従せず(貼り付き解除)、最下部付近へ
+  // 戻る/新しい応答が始まると再び追従する。状態は window.__cvgFollow(遷移で消える)。
+  private async ensureFollower(): Promise<void> {
+    const s = this.selectors;
+    await this.js(
       `(() => {
+        if (window.__cvgFollow) return true;
+        const MSG = ${JSON.stringify(s.assistantMessages)};
+        const INPUT = ${JSON.stringify(s.input)};
+        const st = { stick: true, lastTop: -1, count: 0, raf: 0, cont: null, last: null, ro: null };
+        window.__cvgFollow = st;
         const findContainer = (el) => {
           for (let n = el; n; n = n.parentElement) {
             if (n.scrollHeight > n.clientHeight + 4) {
@@ -577,43 +588,69 @@ export abstract class Chat {
           }
           return null;
         };
-        const msgs = document.querySelectorAll(${JSON.stringify(this.selectors.assistantMessages)});
-        const last = msgs[msgs.length - 1];
-        if (!last) return true;
-        const cont = findContainer(last);
-        if (!cont) return true;
-        // 「貼り付き(stick)」方式。距離スナップショットだと本文が 1 秒に閾値以上
-        // 伸びたとき追従をやめてしまうため、フラグで管理する。
-        //  - 前回こちらが送った位置(lastTop)より明確に上へ動いていたら=ユーザが上へ
-        //    スクロールした → 貼り付き解除
-        //  - 最下部付近に戻ったら再び貼り付き
-        //  - 新しい応答が出たら貼り付きに戻す
-        // 貼り付き中は現在距離に関係なく毎回最下部へ送る(縦に伸び続けても追従)。
-        // 目標位置: 最後の回答の「下端」を、下端に浮く入力欄(コンポーザー)の
-        // 少し上に合わせる。コンテナの幾何学的下端に合わせると最終行が入力欄の裏に
-        // 隠れて切れる。入力欄の上端を実質的な可視下端として扱う。
-        const contRect = cont.getBoundingClientRect();
-        const lastRect = last.getBoundingClientRect();
-        const inputEl = document.querySelector(${JSON.stringify(this.selectors.input)});
-        const inputTop = inputEl ? inputEl.getBoundingClientRect().top : contRect.bottom;
-        const bottomLimit = Math.min(contRect.bottom, inputTop) - 12; // 余白
-        const maxTop = Math.max(0, cont.scrollHeight - cont.clientHeight);
-        let desired = cont.scrollTop + (lastRect.bottom - bottomLimit);
-        desired = Math.min(maxTop, Math.max(0, desired));
-        const st = window.__cvgScroll || (window.__cvgScroll = { count: 0, stick: true, lastTop: -1 });
-        if (st.lastTop >= 0 && cont.scrollTop < st.lastTop - 40) {
-          st.stick = false; // ユーザが自分で上へスクロールした
-        }
-        if (Math.abs(cont.scrollTop - desired) <= 80) st.stick = true; // 目標付近に戻ったら再追従
-        if (msgs.length > st.count) { st.stick = true; st.count = msgs.length; }
-        if (st.stick) cont.scrollTop = desired;
-        st.lastTop = cont.scrollTop;
+        const nearBottom = (c) => c.scrollHeight - c.clientHeight - c.scrollTop <= 120;
+        // 利用者のスクロールを検知: こちらが最後に送った位置(lastTop)より明確に上へ動いたら解除。
+        // 最下部付近へ戻ったら再び追従(キー操作でも効くよう scroll イベントでも見る)。
+        const onScroll = () => {
+          const c = st.cont;
+          if (!c) return;
+          if (st.lastTop >= 0 && c.scrollTop < st.lastTop - 40) st.stick = false;
+          else if (!st.stick && nearBottom(c)) st.stick = true;
+        };
+        const onWheel = (e) => {
+          if (e.deltaY < 0) st.stick = false;
+          else if (e.deltaY > 0 && st.cont && nearBottom(st.cont)) st.stick = true;
+        };
+        const schedule = () => { if (!st.raf) st.raf = requestAnimationFrame(align); };
+        const align = () => {
+          st.raf = 0;
+          const msgs = document.querySelectorAll(MSG);
+          const last = msgs[msgs.length - 1];
+          if (!last) return;
+          if (msgs.length > st.count) { st.stick = true; st.count = msgs.length; } // 新しい応答
+          if (last !== st.last) {
+            st.last = last;
+            if (st.ro) st.ro.disconnect();
+            st.ro = new ResizeObserver(schedule); // 画像・コードブロック等の遅延レイアウト
+            st.ro.observe(last);
+          }
+          const cont = findContainer(last);
+          if (!cont) return;
+          if (cont !== st.cont) {
+            if (st.cont) {
+              st.cont.removeEventListener('scroll', onScroll);
+              st.cont.removeEventListener('wheel', onWheel);
+            }
+            st.cont = cont;
+            st.lastTop = -1;
+            cont.addEventListener('scroll', onScroll, { passive: true });
+            cont.addEventListener('wheel', onWheel, { passive: true });
+          }
+          if (!st.stick) return;
+          const contRect = cont.getBoundingClientRect();
+          const lastRect = last.getBoundingClientRect();
+          const inputEl = document.querySelector(INPUT);
+          const inputTop = inputEl ? inputEl.getBoundingClientRect().top : contRect.bottom;
+          const bottomLimit = Math.min(contRect.bottom, inputTop) - 12; // 余白
+          const maxTop = Math.max(0, cont.scrollHeight - cont.clientHeight);
+          let desired = cont.scrollTop + (lastRect.bottom - bottomLimit);
+          desired = Math.min(maxTop, Math.max(0, desired));
+          if (Math.abs(cont.scrollTop - desired) >= 1) cont.scrollTop = desired;
+          st.lastTop = cont.scrollTop;
+        };
+        new MutationObserver(schedule).observe(document.documentElement, {
+          childList: true, subtree: true, characterData: true,
+        });
+        window.addEventListener('resize', schedule);
+        schedule();
         return true;
       })()`,
     );
   }
 
-  private async probe(): Promise<ProbeResult | null> {
+  // baseline: 制限文言の判定は新しい応答が無い(count <= baseline)ときにしか使わないので、
+  // そのときだけ body 全文を読む(高頻度ポーリングで毎回 body.innerText を取らない)。
+  private async probe(baseline: number): Promise<ProbeResult | null> {
     const s = this.selectors;
     return this.js<ProbeResult>(
       `(() => {
@@ -622,11 +659,15 @@ export abstract class Chat {
         const last = count > 0 ? msgs[count - 1] : null;
         const lastText = last ? ((last.innerText || '').trim()) : '';
         const streaming = ${this.stopVisibleExpr()};
-        const tail = ((document.body && document.body.innerText) || '').slice(-2000);
-        const limited = ${JSON.stringify(s.rateLimitPatterns)}.some((p) => tail.includes(p));
+        let limited = false;
+        if (count <= ${baseline}) {
+          const tail = ((document.body && document.body.innerText) || '').slice(-2000);
+          limited = ${JSON.stringify(s.rateLimitPatterns)}.some((p) => tail.includes(p));
+        }
         const failed = lastText.length > 0 && lastText.length <= ${ERROR_TEXT_MAX} &&
           ${JSON.stringify(s.errorPatterns)}.some((p) => lastText.includes(p));
-        return { count: count, lastText: lastText, streaming: streaming, limited: limited, failed: failed };
+        return { count: count, lastText: lastText, streaming: streaming, limited: limited,
+          failed: failed, follower: !!window.__cvgFollow };
       })()`,
     );
   }

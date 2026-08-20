@@ -1,6 +1,6 @@
 // Composition Root。各コンポーネントの組み立てと IPC の仲介だけを行い、ロジックは持たない。
 
-import { app, clipboard, dialog, ipcMain } from 'electron';
+import { app, clipboard, dialog, ipcMain, powerSaveBlocker } from 'electron';
 import * as path from 'node:path';
 import { Manager } from './manager/Manager';
 import { Repository } from './conversation/Repository';
@@ -148,6 +148,9 @@ export class Application {
   private forwardEvents(): void {
     this.runner.on('status', (s: RunnerStatus) => {
       this.sendToAdmin(IPC.evRunnerStatus, s);
+      // 議論中(一時停止中を含む)は画面スリープを抑止する。放置して眺める使い方が前提で、
+      // 途中でスリープすると両サイトのストリーミングが止まり議論が壊れるため。
+      this.setSleepBlocked(s.state === 'running' || s.state === 'paused');
       // 議論開始でライブ表示に戻し、完了/停止/エラーで経過を前面に出す
       if (s.state === 'running') {
         this.setTranscriptVisible(false);
@@ -187,6 +190,19 @@ export class Application {
     this.transcriptVisible = show;
     this.manager.layout.setTranscriptVisible(show);
     this.sendToAdmin(IPC.evTranscriptVisible, show);
+  }
+
+  private sleepBlockerId: number | null = null;
+
+  private setSleepBlocked(blocked: boolean): void {
+    if (blocked) {
+      if (this.sleepBlockerId === null || !powerSaveBlocker.isStarted(this.sleepBlockerId)) {
+        this.sleepBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+      }
+    } else if (this.sleepBlockerId !== null) {
+      powerSaveBlocker.stop(this.sleepBlockerId);
+      this.sleepBlockerId = null;
+    }
   }
 
   private sendToAdmin(channel: string, payload: unknown): void {
