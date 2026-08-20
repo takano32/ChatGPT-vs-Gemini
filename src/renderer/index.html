@@ -28,8 +28,15 @@
 
   <div class="controls">
     <input id="topic-input" type="text" placeholder="議論テーマを入力…" autocomplete="off" spellcheck="false">
-    <label class="turns-field" title="最大ターン数"><span>ターン</span>
-      <input id="ctl-max-turns" type="number" min="1" max="99" step="1"></label>
+    <span class="turns-field" title="最大ターン数(▲▼で変更)"><span class="turns-label-inline">ターン</span>
+      <span class="stepper">
+        <input id="ctl-max-turns" type="text" readonly tabindex="-1" aria-label="最大ターン数">
+        <span class="spin">
+          <button type="button" id="ctl-turns-up" class="spin-btn" aria-label="ターン数を増やす" tabindex="-1">▲</button>
+          <button type="button" id="ctl-turns-down" class="spin-btn" aria-label="ターン数を減らす" tabindex="-1">▼</button>
+        </span>
+      </span>
+    </span>
     <button type="button" id="btn-start"  class="btn btn-start" disabled>開始</button>
     <button type="button" id="btn-pause"  class="btn" disabled>一時停止</button>
     <button type="button" id="btn-resume" class="btn" disabled>再開</button>

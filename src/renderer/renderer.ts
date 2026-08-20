@@ -58,6 +58,8 @@
 
   const topicInput = must<HTMLInputElement>('topic-input');
   const ctlMaxTurns = must<HTMLInputElement>('ctl-max-turns');
+  const ctlTurnsUp = must<HTMLButtonElement>('ctl-turns-up');
+  const ctlTurnsDown = must<HTMLButtonElement>('ctl-turns-down');
   const btnStart = must<HTMLButtonElement>('btn-start');
   const btnPause = must<HTMLButtonElement>('btn-pause');
   const btnResume = must<HTMLButtonElement>('btn-resume');
@@ -156,21 +158,19 @@
 
   // このラン用のターン数(操作バーの値)。既定は設定から、変更しても保存しない。
   // 永続化する既定ターン数はドロワー(設定)側でのみ変更する。
+  // 入力欄は読み取り専用で、変更は▲▼スピナーのみ(不正な値が入らない)。
   function setNextRunTurns(n: number): void {
-    defaultMaxTurns = n;
-    if (document.activeElement !== ctlMaxTurns) ctlMaxTurns.value = String(n);
+    defaultMaxTurns = Math.max(1, Math.min(99, Math.floor(n) || 1));
+    ctlMaxTurns.value = String(defaultMaxTurns);
     updateRunnerUi();
   }
 
-  // 操作バーのターン数入力: そのラン用の一時値。保存しない(開始時に上書きとして渡す)。
-  ctlMaxTurns.addEventListener('change', () => {
-    const raw = ctlMaxTurns.valueAsNumber;
-    if (!Number.isFinite(raw)) {
-      ctlMaxTurns.value = String(defaultMaxTurns);
-      return;
-    }
-    setNextRunTurns(Math.max(1, Math.min(99, Math.floor(raw))));
-  });
+  function stepTurns(delta: number): void {
+    const cur = parseInt(ctlMaxTurns.value, 10);
+    setNextRunTurns((Number.isFinite(cur) ? cur : defaultMaxTurns) + delta);
+  }
+  ctlTurnsUp.addEventListener('click', () => stepTurns(1));
+  ctlTurnsDown.addEventListener('click', () => stepTurns(-1));
 
   function updateControls(): void {
     const st = runner.state;

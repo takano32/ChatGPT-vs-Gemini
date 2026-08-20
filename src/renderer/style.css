@@ -174,26 +174,52 @@ button { font-family: var(--mono); }
   color: var(--dim);
   white-space: nowrap;
 }
-.turns-field input {
-  width: 3.4em;
-  background: var(--bg-inset);
+/* カスタムステッパー: 読み取り専用の値 + 常時表示の▲▼(キーボード入力不可) */
+.stepper {
+  display: inline-flex;
+  align-items: stretch;
   border: 1px solid var(--border);
   border-radius: 3px;
+  background: var(--bg-inset);
+  overflow: hidden;
+  height: 26px;
+}
+.stepper input {
+  width: 2.6em;
+  border: none;
+  background: transparent;
   color: var(--text);
   font-family: var(--mono);
   font-size: 12px;
-  padding: 5px 8px;
   text-align: center;
-  -moz-appearance: textfield;
-  appearance: textfield;
+  padding: 0 4px;
+  cursor: default;
+  user-select: none;
 }
-/* 数字にスピナーが重なるため上下ボタンを消す */
-.turns-field input::-webkit-outer-spin-button,
-.turns-field input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.stepper input:focus { outline: none; }
+.stepper .spin {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
 }
-.turns-field input:focus { outline: none; border-color: var(--amber-soft); }
+.stepper .spin-btn {
+  flex: 1;
+  width: 18px;
+  padding: 0;
+  border: none;
+  background: var(--bg-panel);
+  color: var(--dim);
+  font-size: 7px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.stepper .spin-btn:first-child { border-bottom: 1px solid var(--border); }
+.stepper .spin-btn:hover { color: var(--amber); background: var(--amber-tint); }
+.stepper .spin-btn:active { color: var(--amber); }
 
 .login-banner {
   display: flex;
