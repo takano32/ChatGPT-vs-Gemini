@@ -1,0 +1,114 @@
+// src/shared と手動同期(types.ts / ipc.ts のミラー)。
+// renderer ビルドは ../shared を import できないため、純粋な ambient 宣言として持つ。
+// src/shared 側を変更したら必ずここも追従させること。
+
+type Speaker = 'chatgpt' | 'gemini';
+
+type RunnerState = 'idle' | 'running' | 'paused' | 'stopped' | 'error' | 'done';
+
+type ConversationStatus = 'running' | 'paused' | 'stopped' | 'error' | 'done';
+
+interface ConversationRecord {
+  id: number;
+  title: string;
+  status: ConversationStatus;
+  createdAt: string; // ISO 8601
+  updatedAt: string;
+}
+
+interface MessageRecord {
+  id: number;
+  conversationId: number;
+  speaker: Speaker;
+  content: string;
+  createdAt: string;
+}
+
+interface SearchHit {
+  message: MessageRecord;
+  conversationTitle: string;
+  snippet: string;
+}
+
+interface ChatStatus {
+  loggedIn: boolean;
+  rateLimited: boolean;
+}
+
+interface ChatStatusMap {
+  chatgpt: ChatStatus;
+  gemini: ChatStatus;
+}
+
+interface RunnerStatus {
+  state: RunnerState;
+  conversationId: number | null;
+  turn: number; // 送信済みメッセージ数(1 AI 発言 = 1 ターン)
+  maxTurns: number;
+  error?: string;
+}
+
+interface LogEntry {
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  ts: string;
+}
+
+interface SettingsData {
+  layout: {
+    /** 管理ペインの高さ比(0-1) */
+    adminRatio: number;
+    /** 下段のうち ChatGPT の幅比(0-1) */
+    chatSplit: number;
+  };
+  debate: {
+    maxTurns: number;
+    firstSpeaker: Speaker;
+    /** 先攻への最初の指示。{topic} {opponent} を展開 */
+    openingTemplate: string;
+    /** 後攻への最初の指示。{topic} {opponent} {message} を展開 */
+    counterTemplate: string;
+    /** 3ターン目以降の中継。{opponent} {message} を展開 */
+    relayTemplate: string;
+    /** ターン間の待機 ms(レート制限対策) */
+    betweenTurnsMs: number;
+  };
+  detection: {
+    /** 応答監視のポーリング間隔 ms */
+    pollMs: number;
+    /** 本文がこの時間変化しなければ完了とみなす ms */
+    stabilityMs: number;
+    /** 1 応答の上限 ms。超えたらタイムアウト */
+    timeoutMs: number;
+  };
+  window: {
+    width: number;
+    height: number;
+  };
+}
+
+/** preload が contextBridge で `window.api` に公開する形。 */
+interface RendererApi {
+  startDebate(topic: string): Promise<void>;
+  stopDebate(): Promise<void>;
+  pauseDebate(): Promise<void>;
+  resumeDebate(): Promise<void>;
+
+  getSettings(): Promise<SettingsData>;
+  setSettings(settings: SettingsData): Promise<void>;
+
+  search(query: string): Promise<SearchHit[]>;
+  listConversations(): Promise<ConversationRecord[]>;
+  getMessages(conversationId: number): Promise<MessageRecord[]>;
+  getChatStatus(): Promise<ChatStatusMap>;
+
+  // 購読系。戻り値は購読解除関数
+  onLog(cb: (entry: LogEntry) => void): () => void;
+  onRunnerStatus(cb: (status: RunnerStatus) => void): () => void;
+  onMessage(cb: (message: MessageRecord) => void): () => void;
+  onChatStatus(cb: (status: ChatStatusMap) => void): () => void;
+}
+
+interface Window {
+  api: RendererApi;
+}

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:">
+  <title>chatgpt-vs-gemini</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <button type="button" id="btn-menu" class="icon-btn" title="メニュー" aria-label="メニュー">☰</button>
+    <h1 class="app-title">
+      <span class="t-gpt">CHATGPT</span><span class="t-vs">vs</span><span class="t-gem">GEMINI</span>
+    </h1>
+    <div class="leds">
+      <span class="led-group"><span id="led-chatgpt" class="led"></span><span class="led-label">ChatGPT</span></span>
+      <span class="led-group"><span id="led-gemini" class="led"></span><span class="led-label">Gemini</span></span>
+      <span class="led-group"><span id="led-runner" class="led st-idle"></span><span id="runner-state-label" class="led-label">idle</span></span>
+    </div>
+    <div class="turns">
+      <span class="turns-label">TURN</span>
+      <span id="turn-now">0</span><span class="turns-sep">/</span><span id="turn-max">–</span>
+    </div>
+  </header>
+
+  <div class="controls">
+    <input id="topic-input" type="text" placeholder="議論テーマを入力…" autocomplete="off" spellcheck="false">
+    <button type="button" id="btn-start"  class="btn btn-start" disabled>開始</button>
+    <button type="button" id="btn-pause"  class="btn" disabled>一時停止</button>
+    <button type="button" id="btn-resume" class="btn" disabled>再開</button>
+    <button type="button" id="btn-stop"   class="btn btn-stop" disabled>停止</button>
+  </div>
+
+  <main id="feed" class="feed" aria-live="polite"></main>
+
+  <div id="backdrop" class="backdrop"></div>
+
+  <aside id="drawer" class="drawer" aria-label="管理メニュー">
+    <nav class="drawer-tabs">
+      <button type="button" class="drawer-tab active" data-tab="settings">設定</button>
+      <button type="button" class="drawer-tab" data-tab="history">履歴</button>
+      <button type="button" class="drawer-tab" data-tab="search">検索</button>
+      <button type="button" id="btn-drawer-close" class="icon-btn" title="閉じる" aria-label="閉じる">✕</button>
+    </nav>
+
+    <section id="panel-settings" class="drawer-panel">
+      <form id="settings-form">
+        <div class="set-grid">
+          <label class="field"><span>最大ターン数</span>
+            <input id="set-max-turns" type="number" min="1" step="1"></label>
+          <label class="field"><span>先攻</span>
+            <select id="set-first-speaker">
+              <option value="chatgpt">ChatGPT</option>
+              <option value="gemini">Gemini</option>
+            </select></label>
+          <label class="field"><span>ターン間隔 (ms)</span>
+            <input id="set-between-turns" type="number" min="0" step="500"></label>
+          <label class="field"><span>ポーリング (ms)</span>
+            <input id="set-poll" type="number" min="100" step="100"></label>
+          <label class="field"><span>安定判定 (ms)</span>
+            <input id="set-stability" type="number" min="500" step="500"></label>
+          <label class="field"><span>タイムアウト (ms)</span>
+            <input id="set-timeout" type="number" min="1000" step="1000"></label>
+          <label class="field"><span>管理ペイン比 (0-1)</span>
+            <input id="set-admin-ratio" type="number" min="0" max="1" step="0.05"></label>
+          <label class="field"><span>ChatGPT 幅比 (0-1)</span>
+            <input id="set-chat-split" type="number" min="0" max="1" step="0.05"></label>
+          <label class="field field-wide"><span>開始テンプレート {topic} {opponent}</span>
+            <textarea id="set-opening" rows="3" spellcheck="false"></textarea></label>
+          <label class="field field-wide"><span>反論テンプレート {topic} {opponent} {message}</span>
+            <textarea id="set-counter" rows="3" spellcheck="false"></textarea></label>
+          <label class="field field-wide"><span>中継テンプレート {opponent} {message}</span>
+            <textarea id="set-relay" rows="3" spellcheck="false"></textarea></label>
+        </div>
+        <div class="save-row">
+          <button type="submit" id="btn-save-settings" class="btn btn-save">保存</button>
+          <span id="save-flash">保存しました</span>
+        </div>
+      </form>
+    </section>
+
+    <section id="panel-history" class="drawer-panel hidden">
+      <div id="history-list"></div>
+      <div id="history-detail" class="hidden">
+        <div class="hist-head">
+          <button type="button" id="btn-history-back" class="btn btn-small">← 一覧</button>
+          <span id="history-title" class="hist-title"></span>
+        </div>
+        <div id="history-messages"></div>
+      </div>
+    </section>
+
+    <section id="panel-search" class="drawer-panel hidden">
+      <input id="search-input" type="search" placeholder="全文検索…" autocomplete="off" spellcheck="false">
+      <div id="search-results"></div>
+    </section>
+  </aside>
+
+  <script type="module" src="./renderer.js"></script>
+</body>
+</html>

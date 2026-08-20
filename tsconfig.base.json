@@ -2,7 +2,6 @@
   "compilerOptions": {
     "strict": true,
     "target": "ES2022",
-    "moduleResolution": "node",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
