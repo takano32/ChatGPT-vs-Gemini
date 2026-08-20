@@ -25,7 +25,7 @@ export class ChatError extends Error {
 const SHORT_POLL_MS = 250;
 
 // 停止ボタンが消えたあと、完了と確定するまでの短い確認時間
-const POST_STREAM_CONFIRM_MS = 1000;
+const POST_STREAM_CONFIRM_MS = 400;
 
 interface ProbeResult {
   count: number;
@@ -422,14 +422,24 @@ export abstract class Chat {
         //  - 最下部付近に戻ったら再び貼り付き
         //  - 新しい応答が出たら貼り付きに戻す
         // 貼り付き中は現在距離に関係なく毎回最下部へ送る(縦に伸び続けても追従)。
+        // 目標位置: 最後の回答の「下端」を、下端に浮く入力欄(コンポーザー)の
+        // 少し上に合わせる。コンテナの幾何学的下端に合わせると最終行が入力欄の裏に
+        // 隠れて切れる。入力欄の上端を実質的な可視下端として扱う。
+        const contRect = cont.getBoundingClientRect();
+        const lastRect = last.getBoundingClientRect();
+        const inputEl = document.querySelector(${JSON.stringify(this.selectors.input)});
+        const inputTop = inputEl ? inputEl.getBoundingClientRect().top : contRect.bottom;
+        const bottomLimit = Math.min(contRect.bottom, inputTop) - 12; // 余白
+        const maxTop = Math.max(0, cont.scrollHeight - cont.clientHeight);
+        let desired = cont.scrollTop + (lastRect.bottom - bottomLimit);
+        desired = Math.min(maxTop, Math.max(0, desired));
         const st = window.__cvgScroll || (window.__cvgScroll = { count: 0, stick: true, lastTop: -1 });
         if (st.lastTop >= 0 && cont.scrollTop < st.lastTop - 40) {
-          st.stick = false;
+          st.stick = false; // ユーザが自分で上へスクロールした
         }
-        const dist = cont.scrollHeight - cont.scrollTop - cont.clientHeight;
-        if (dist <= 80) st.stick = true;
+        if (Math.abs(cont.scrollTop - desired) <= 80) st.stick = true; // 目標付近に戻ったら再追従
         if (msgs.length > st.count) { st.stick = true; st.count = msgs.length; }
-        if (st.stick) cont.scrollTop = cont.scrollHeight;
+        if (st.stick) cont.scrollTop = desired;
         st.lastTop = cont.scrollTop;
         return true;
       })()`,
