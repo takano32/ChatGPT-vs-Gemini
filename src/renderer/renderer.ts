@@ -42,10 +42,6 @@
     return `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
-  function truncate(s: string, max: number): string {
-    return s.length > max ? `${s.slice(0, max)}…` : s;
-  }
-
   const SPEAKER_LABELS: Record<Speaker, string> = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
 
   // ---------- elements ----------
@@ -88,6 +84,7 @@
   const inTimeout = must<HTMLInputElement>('set-timeout');
   const inAdminRatio = must<HTMLInputElement>('set-admin-ratio');
   const inChatSplit = must<HTMLInputElement>('set-chat-split');
+  const inChatZoom = must<HTMLInputElement>('set-chat-zoom');
   const taOpening = must<HTMLTextAreaElement>('set-opening');
   const taCounter = must<HTMLTextAreaElement>('set-counter');
   const taRelay = must<HTMLTextAreaElement>('set-relay');
@@ -198,7 +195,7 @@
     const row = el('div', 'feed-msg');
     row.appendChild(el('span', 'feed-ts', clockTime(msg.createdAt)));
     row.appendChild(el('span', `chip chip-${msg.speaker}`, SPEAKER_LABELS[msg.speaker]));
-    row.appendChild(el('span', 'feed-text', truncate(msg.content, 200)));
+    row.appendChild(el('span', 'feed-text', msg.content));
     pushFeedRow(row);
   }
 
@@ -295,6 +292,7 @@
       inTimeout.value = String(s.detection.timeoutMs);
       inAdminRatio.value = String(s.layout.adminRatio);
       inChatSplit.value = String(s.layout.chatSplit);
+      inChatZoom.value = String(s.layout.chatZoom);
       taOpening.value = s.debate.openingTemplate;
       taCounter.value = s.debate.counterTemplate;
       taRelay.value = s.debate.relayTemplate;
@@ -328,6 +326,7 @@
           layout: {
             adminRatio: clampRatio(numVal(inAdminRatio, cur.layout.adminRatio)),
             chatSplit: clampRatio(numVal(inChatSplit, cur.layout.chatSplit)),
+            chatZoom: Math.min(3, Math.max(0.25, numVal(inChatZoom, cur.layout.chatZoom))),
           },
           debate: {
             maxTurns: Math.max(1, Math.floor(numVal(inMaxTurns, cur.debate.maxTurns))),

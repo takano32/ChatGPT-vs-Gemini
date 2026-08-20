@@ -110,9 +110,23 @@ export class Layout {
     content.addChildView(this.views.gemini);
     content.addChildView(transcript); // 最後 = 最前面(チャットの上に重ねる)
     this.apply();
+    this.applyChatZoom();
 
     this.window.on('resize', () => this.apply());
-    this.settings.on('change', () => this.apply());
+    this.settings.on('change', () => {
+      this.apply();
+      this.applyChatZoom();
+    });
+  }
+
+  /** チャットペインのズーム率を設定値に合わせる。遷移でリセットされ得るので都度呼ぶ。 */
+  applyChatZoom(): void {
+    const zoom = this.settings.get().layout.chatZoom;
+    const z = Math.min(3, Math.max(0.25, zoom || 1));
+    for (const name of ['chatgpt', 'gemini'] as const) {
+      const v = this.views[name];
+      if (v && !v.webContents.isDestroyed()) v.webContents.setZoomFactor(z);
+    }
   }
 
   /** 経過ビューの表示/非表示。表示中はチャット2枚を覆う。 */
@@ -137,6 +151,11 @@ export class Layout {
     });
     const wc = view.webContents;
     this.hardenChatContents(wc, partition.replace('persist:', ''));
+    // 遷移でズームがリセットされ得るため、読み込み完了ごとに再適用
+    wc.on('did-finish-load', () => {
+      const z = Math.min(3, Math.max(0.25, this.settings.get().layout.chatZoom || 1));
+      if (!wc.isDestroyed()) wc.setZoomFactor(z);
+    });
     // ログイン画面へのリダイレクト等で reject し得るため握りつぶす
     void wc.loadURL(url).catch(() => {});
     return view;

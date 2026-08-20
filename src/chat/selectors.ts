@@ -9,9 +9,13 @@ export interface SiteSelectors {
   sendButton: string;
   stopButton: string; // ストリーミング中のみ存在/表示
   assistantMessages: string; // AI 応答メッセージ要素(全件)
-  loggedInProbe: string; // ログイン済みのときだけ存在
+  loggedInProbe: string; // ログイン済みのときだけ存在(DOM。送信準備の判定に使う)
   loggedOutProbe: string; // 未ログインのときだけ存在
   rateLimitPatterns: string[]; // 本文に現れる制限文言(ja/en 両方)
+  // 認証判定用のセッション Cookie。DOM は遷移中に一瞬消えてブレるため、
+  // ロックや状態表示の「ログイン済み」判定にはこの Cookie の有無を使う(安定)。
+  authCookiePrefix: string;
+  authCookieDomain: string;
 }
 
 // ChatGPT は data-testid が言語非依存で安定。実測で確認済み。
@@ -35,6 +39,8 @@ export const CHATGPT_SELECTORS: SiteSelectors = {
     'Too many requests',
     'unusual activity',
   ],
+  authCookiePrefix: '__Secure-next-auth.session-token', // 実測: @.chatgpt.com
+  authCookieDomain: 'chatgpt.com',
 };
 
 // Gemini は Angular Material。data-testid が無いため aria-label を主に、
@@ -50,4 +56,6 @@ export const GEMINI_SELECTORS: SiteSelectors = {
   loggedInProbe: 'rich-textarea',
   loggedOutProbe: 'a[href*="ServiceLogin"]',
   rateLimitPatterns: ['しばらくしてからもう一度', 'try again later', '上限に達しました'],
+  authCookiePrefix: '__Secure-1PSID', // 実測: @.google.com(Google セッション)
+  authCookieDomain: 'google.com',
 };

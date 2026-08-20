@@ -18,6 +18,12 @@ const statusEl = document.getElementById('tr-status') as HTMLElement;
 const bodyEl = document.getElementById('tr-body') as HTMLElement;
 const copyBtn = document.getElementById('tr-copy') as HTMLButtonElement;
 const copyFlash = document.getElementById('tr-copy-flash') as HTMLElement;
+const backBtn = document.getElementById('tr-back') as HTMLButtonElement;
+
+backBtn.addEventListener('click', () => {
+  // 経過表示は現在前面なので、トグルで隠してライブのチャット表示へ戻る
+  void window.api.toggleTranscript();
+});
 
 let lastConversationId: number | null = null;
 let lastCount = 0;

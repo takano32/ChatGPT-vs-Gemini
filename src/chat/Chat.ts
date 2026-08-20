@@ -24,8 +24,8 @@ export class ChatError extends Error {
 // 送信ボタン待ち・送信開始確認用の短周期ポーリング間隔
 const SHORT_POLL_MS = 250;
 
-// 停止ボタンが消えないまま本文だけ安定した場合に完了とみなす、安定時間の倍率
-const STUCK_STOP_FACTOR = 3;
+// 停止ボタンが消えたあと、完了と確定するまでの短い確認時間
+const POST_STREAM_CONFIRM_MS = 1000;
 
 interface ProbeResult {
   count: number;
@@ -69,6 +69,20 @@ export abstract class Chat {
     }
   }
 
+  // 認証判定はセッション Cookie の有無で行う(DOM と違い遷移でブレない)。
+  // ロック・状態表示(LED/バナー/開始ボタン)の「ログイン済み/未ログイン」はこれを使う。
+  async isAuthenticated(): Promise<boolean> {
+    try {
+      const cookies = await this.view.webContents.session.cookies.get({
+        domain: this.selectors.authCookieDomain,
+      });
+      return cookies.some((c) => c.name.startsWith(this.selectors.authCookiePrefix));
+    } catch {
+      return false;
+    }
+  }
+
+  // DOM ベースの準備判定。送信直前に「入力欄が実在するか」を見るために使う。
   async isLoggedIn(): Promise<boolean> {
     const url = this.view.webContents.getURL();
     // startsWith だと類似ドメイン(例: chatgpt.com.evil.io)をすり抜けるため origin 厳密比較
@@ -285,15 +299,18 @@ export abstract class Chat {
     return r === true;
   }
 
+  // 送信が「実際に生成を開始した」ことの確認。
+  // 注意: 入力欄が空になっただけ(emptied)を成功と見なすと、送信が取りこぼされて
+  // 生成が始まらない場合でも成功と誤判定し、waitForCompletion が新応答を最大 timeout
+  // まで待ってハングする(turn 7 の沈黙の原因、実測)。実際の生成指標である
+  // 「停止ボタン出現」か「応答数が増えた」ことだけを成功条件にする。
   private async sendStarted(baseline: number): Promise<boolean> {
     const s = this.selectors;
     const r = await this.js<boolean>(
       `(() => {
-        const input = document.querySelector(${JSON.stringify(s.input)});
-        const emptied = !!input && ((input.innerText || '').trim().length === 0);
         const stop = !!document.querySelector(${JSON.stringify(s.stopButton)});
         const count = document.querySelectorAll(${JSON.stringify(s.assistantMessages)}).length;
-        return emptied || stop || count > ${baseline};
+        return stop || count > ${baseline};
       })()`,
     );
     return r === true;
@@ -343,17 +360,16 @@ export abstract class Chat {
           lastText = snap.lastText;
           lastChangedAt = now;
         }
-        // 完了検知はテキスト安定を主指標にする。停止ボタンは補助的な指標で、
-        // ChatGPT ではストリーム終了後も stop-button が残ることがあるため
-        // (実測で確認)、これを必須条件にするとハングする。
-        // 通常: 停止ボタンが消え、かつ本文が stabilityMs 変化なし。
-        // 固着時: 停止ボタンが残っていても、本文が長時間(STUCK 係数倍)不変なら完了とみなす。
+        // 完了検知(実測: 停止ボタンは生成終了で確実に消える。テキスト安定はその後)。
+        // 通常: 停止ボタンが消えたら短い確認(POST_STREAM_CONFIRM_MS)だけで即完了。
+        //       stabilityMs をまるごと待たないので、ターン間の無駄な間が生じない。
+        // 固着時: 停止ボタンが残ったままでも、本文が stabilityMs 変化しなければ完了とみなす。
         if (snap.count > baseline && lastText.length > 0) {
           const stableFor = now - lastChangedAt;
-          if (!snap.streaming && stableFor >= stabilityMs) {
+          if (!snap.streaming && stableFor >= POST_STREAM_CONFIRM_MS) {
             return this.finalizeText(lastText);
           }
-          if (stableFor >= stabilityMs * STUCK_STOP_FACTOR) {
+          if (stableFor >= stabilityMs) {
             return this.finalizeText(lastText);
           }
         }
@@ -399,17 +415,22 @@ export abstract class Chat {
         if (!last) return true;
         const cont = findContainer(last);
         if (!cont) return true;
-        const NEAR = 120; // これ以内なら「最下部付近」とみなして追従
-        const dist = cont.scrollHeight - cont.scrollTop - cont.clientHeight;
-        const st = window.__cvgScroll || (window.__cvgScroll = { count: 0 });
-        if (msgs.length > st.count) {
-          // 新しい応答が出た → 一度だけ最下部へ
-          cont.scrollTop = cont.scrollHeight;
-          st.count = msgs.length;
-        } else if (dist <= NEAR) {
-          // 最下部付近にいるときだけ追従(上に離れている=閲覧中なら触らない)
-          cont.scrollTop = cont.scrollHeight;
+        // 「貼り付き(stick)」方式。距離スナップショットだと本文が 1 秒に閾値以上
+        // 伸びたとき追従をやめてしまうため、フラグで管理する。
+        //  - 前回こちらが送った位置(lastTop)より明確に上へ動いていたら=ユーザが上へ
+        //    スクロールした → 貼り付き解除
+        //  - 最下部付近に戻ったら再び貼り付き
+        //  - 新しい応答が出たら貼り付きに戻す
+        // 貼り付き中は現在距離に関係なく毎回最下部へ送る(縦に伸び続けても追従)。
+        const st = window.__cvgScroll || (window.__cvgScroll = { count: 0, stick: true, lastTop: -1 });
+        if (st.lastTop >= 0 && cont.scrollTop < st.lastTop - 40) {
+          st.stick = false;
         }
+        const dist = cont.scrollHeight - cont.scrollTop - cont.clientHeight;
+        if (dist <= 80) st.stick = true;
+        if (msgs.length > st.count) { st.stick = true; st.count = msgs.length; }
+        if (st.stick) cont.scrollTop = cont.scrollHeight;
+        st.lastTop = cont.scrollTop;
         return true;
       })()`,
     );

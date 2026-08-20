@@ -253,8 +253,14 @@ button { font-family: var(--mono); }
 .level-error .feed-text  { color: var(--red); }
 .feed-log .feed-text { overflow-wrap: anywhere; }
 
-.feed-msg { padding: 3px 0; }
-.feed-msg .feed-text { color: var(--text); overflow-wrap: anywhere; }
+.feed-msg { padding: 3px 0; align-items: flex-start; }
+.feed-msg .feed-text {
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap; /* AI 応答内の改行を保持しつつ折り返す。省略しない */
+  overflow-wrap: anywhere;
+}
 
 .chip {
   flex: none;

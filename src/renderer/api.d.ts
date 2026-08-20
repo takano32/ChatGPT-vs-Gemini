@@ -68,6 +68,8 @@ interface SettingsData {
     adminRatio: number;
     /** 下段のうち ChatGPT の幅比(0-1) */
     chatSplit: number;
+    /** チャットペインのズーム率(1=100%) */
+    chatZoom: number;
   };
   debate: {
     maxTurns: number;

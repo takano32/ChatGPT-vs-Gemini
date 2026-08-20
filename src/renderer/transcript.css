@@ -94,6 +94,19 @@ body { display: flex; flex-direction: column; }
 }
 .tr-copy-flash.show { opacity: 1; }
 
+.tr-back {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.tr-back:hover { color: var(--gpt); border-color: var(--gpt-soft); background: var(--gpt-tint); }
+
 .tr-body {
   flex: 1;
   min-height: 0;

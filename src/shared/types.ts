@@ -76,6 +76,8 @@ export interface SettingsData {
     adminRatio: number;
     /** 下段のうち ChatGPT の幅比(0-1) */
     chatSplit: number;
+    /** チャットペインのズーム率(1=100%。0.75 で縮小表示して情報量を増やす) */
+    chatZoom: number;
   };
   debate: {
     maxTurns: number;
@@ -105,8 +107,9 @@ export interface SettingsData {
 
 export const DEFAULT_SETTINGS: SettingsData = {
   layout: {
-    adminRatio: 0.3,
+    adminRatio: 0.5,
     chatSplit: 0.5,
+    chatZoom: 0.75,
   },
   debate: {
     maxTurns: 10,

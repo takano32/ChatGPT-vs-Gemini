@@ -203,10 +203,12 @@ export class Application {
   }
 
   private async collectChatStatus(): Promise<ChatStatusMap> {
+    // ログイン判定はセッション Cookie(認証状態)で行う。DOM 判定は遷移中に
+    // 一瞬ブレてロックのちらつき等を招くため使わない。
     const probe = async (chat: Chat): Promise<ChatStatus> => {
       try {
         const [loggedIn, rateLimited] = await Promise.all([
-          chat.isLoggedIn(),
+          chat.isAuthenticated(),
           chat.isRateLimited(),
         ]);
         return { loggedIn, rateLimited };
@@ -215,7 +217,8 @@ export class Application {
       }
     };
     const [chatgpt, gemini] = await Promise.all([probe(this.chatGPT), probe(this.gemini)]);
-    // ログイン済みならチャットペインをロック(スクロール以外の操作を遮断)
+    // 認証済みならチャットペインをロック(スクロール以外の操作を遮断)、
+    // 未認証なら解除(ログイン操作ができるように)。両ペインとも同方式。
     void this.chatGPT.setInteractionLock(chatgpt.loggedIn);
     void this.gemini.setInteractionLock(gemini.loggedIn);
     return { chatgpt, gemini };
