@@ -30,6 +30,14 @@ interface SearchHit {
   snippet: string;
 }
 
+interface TranscriptPayload {
+  conversationId: number;
+  title: string;
+  status: ConversationStatus | null;
+  maxTurns: number;
+  messages: MessageRecord[];
+}
+
 interface ChatStatus {
   loggedIn: boolean;
   rateLimited: boolean;
@@ -101,12 +109,17 @@ interface RendererApi {
   listConversations(): Promise<ConversationRecord[]>;
   getMessages(conversationId: number): Promise<MessageRecord[]>;
   getChatStatus(): Promise<ChatStatusMap>;
+  toggleTranscript(): Promise<void>;
+  showConversationTranscript(conversationId: number): Promise<void>;
+  copyTranscriptMarkdown(conversationId: number): Promise<boolean>;
 
   // 購読系。戻り値は購読解除関数
   onLog(cb: (entry: LogEntry) => void): () => void;
   onRunnerStatus(cb: (status: RunnerStatus) => void): () => void;
   onMessage(cb: (message: MessageRecord) => void): () => void;
   onChatStatus(cb: (status: ChatStatusMap) => void): () => void;
+  onTranscript(cb: (payload: TranscriptPayload) => void): () => void;
+  onTranscriptVisible(cb: (visible: boolean) => void): () => void;
 }
 
 interface Window {

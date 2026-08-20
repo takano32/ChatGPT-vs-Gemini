@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:">
+  <title>議論の経過</title>
+  <link rel="stylesheet" href="./transcript.css">
+</head>
+<body>
+  <header class="tr-head">
+    <span class="tr-badge tr-badge-gpt">ChatGPT</span>
+    <span class="tr-vs">vs</span>
+    <span class="tr-badge tr-badge-gem">Gemini</span>
+    <h1 id="tr-title" class="tr-title"></h1>
+    <span id="tr-status" class="tr-status"></span>
+    <button type="button" id="tr-copy" class="tr-copy" title="Markdown をコピー">Markdown をコピー</button>
+    <span id="tr-copy-flash" class="tr-copy-flash">コピーしました</span>
+  </header>
+  <main id="tr-body" class="tr-body">
+    <div class="tr-empty">議論が完了するとここに経過が表示されます。</div>
+  </main>
+  <script type="module" src="./transcript.js"></script>
+</body>
+</html>

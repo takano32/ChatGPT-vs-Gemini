@@ -38,6 +38,14 @@ export interface SearchHit {
   snippet: string;
 }
 
+export interface TranscriptPayload {
+  conversationId: number;
+  title: string;
+  status: ConversationStatus | null;
+  maxTurns: number;
+  messages: MessageRecord[];
+}
+
 export interface ChatStatus {
   loggedIn: boolean;
   rateLimited: boolean;

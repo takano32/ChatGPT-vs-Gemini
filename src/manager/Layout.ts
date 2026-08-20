@@ -7,9 +7,12 @@ export interface LayoutMountConfig {
   admin: { file: string; preload: string };
   chatgpt: { url: string; partition: string };
   gemini: { url: string; partition: string };
+  transcript: { file: string; preload: string };
+  /** チャットビュー用 preload(操作ロックを document_start で仕込む) */
+  chatPreload: string;
 }
 
-export type PaneName = 'admin' | 'chatgpt' | 'gemini';
+export type PaneName = 'admin' | 'chatgpt' | 'gemini' | 'transcript';
 
 // SSO ログインのポップアップをアプリ内(同一 partition)で許可するホスト。
 // 完全一致またはドットサフィックス一致。
@@ -74,23 +77,59 @@ export class Layout {
     void admin.webContents.loadFile(config.admin.file);
     this.views.admin = admin;
 
-    this.views.chatgpt = this.createChatView(config.chatgpt.url, config.chatgpt.partition);
-    this.views.gemini = this.createChatView(config.gemini.url, config.gemini.partition);
+    this.views.chatgpt = this.createChatView(
+      config.chatgpt.url,
+      config.chatgpt.partition,
+      config.chatPreload,
+    );
+    this.views.gemini = this.createChatView(
+      config.gemini.url,
+      config.gemini.partition,
+      config.chatPreload,
+    );
+
+    // 議論経過(Markdown 対話)ビュー。チャット2枚分の領域に重ねる。
+    // 完了時に前面表示。既定は非表示。ローカルページなので admin と同じ扱い。
+    const transcript = new WebContentsView({
+      webPreferences: {
+        preload: config.transcript.preload,
+        contextIsolation: true,
+        sandbox: false,
+        nodeIntegration: false,
+      },
+    });
+    transcript.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    transcript.webContents.on('will-navigate', (e) => e.preventDefault());
+    void transcript.webContents.loadFile(config.transcript.file);
+    transcript.setVisible(false);
+    this.views.transcript = transcript;
 
     const content = this.window.base.contentView;
     content.addChildView(admin);
     content.addChildView(this.views.chatgpt);
     content.addChildView(this.views.gemini);
+    content.addChildView(transcript); // 最後 = 最前面(チャットの上に重ねる)
     this.apply();
 
     this.window.on('resize', () => this.apply());
     this.settings.on('change', () => this.apply());
   }
 
-  private createChatView(url: string, partition: string): WebContentsView {
+  /** 経過ビューの表示/非表示。表示中はチャット2枚を覆う。 */
+  setTranscriptVisible(show: boolean): void {
+    this.views.transcript?.setVisible(show);
+  }
+
+  isTranscriptVisible(): boolean {
+    const t = this.views.transcript;
+    return t ? t.getVisible() : false;
+  }
+
+  private createChatView(url: string, partition: string, preload: string): WebContentsView {
     const view = new WebContentsView({
       webPreferences: {
         partition,
+        preload,
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
@@ -177,6 +216,8 @@ export class Layout {
     admin.setBounds({ x: 0, y: 0, width: w, height: ah });
     chatgpt.setBounds({ x: 0, y: ah, width: cw, height: h - ah });
     gemini.setBounds({ x: cw, y: ah, width: w - cw, height: h - ah });
+    // 経過ビューはチャット2枚分(下段全体)に重ねる
+    this.views.transcript?.setBounds({ x: 0, y: ah, width: w, height: h - ah });
   }
 
   view(name: PaneName): WebContentsView {

@@ -28,11 +28,18 @@ const api: RendererApi = {
   listConversations: () => ipcRenderer.invoke(IPC.listConversations),
   getMessages: (conversationId) => ipcRenderer.invoke(IPC.getMessages, conversationId),
   getChatStatus: () => ipcRenderer.invoke(IPC.chatStatus),
+  toggleTranscript: () => ipcRenderer.invoke(IPC.transcriptToggle),
+  showConversationTranscript: (conversationId) =>
+    ipcRenderer.invoke(IPC.transcriptShowConversation, conversationId),
+  copyTranscriptMarkdown: (conversationId) =>
+    ipcRenderer.invoke(IPC.transcriptCopyMarkdown, conversationId),
 
   onLog: (cb) => subscribe(IPC.evLog, cb),
   onRunnerStatus: (cb) => subscribe(IPC.evRunnerStatus, cb),
   onMessage: (cb) => subscribe(IPC.evMessage, cb),
   onChatStatus: (cb) => subscribe(IPC.evChatStatus, cb),
+  onTranscript: (cb) => subscribe(IPC.evTranscript, cb),
+  onTranscriptVisible: (cb) => subscribe(IPC.evTranscriptVisible, cb),
 };
 
 contextBridge.exposeInMainWorld('api', api);

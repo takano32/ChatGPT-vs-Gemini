@@ -1,6 +1,6 @@
 // Composition Root。各コンポーネントの組み立てと IPC の仲介だけを行い、ロジックは持たない。
 
-import { app, dialog, ipcMain } from 'electron';
+import { app, clipboard, dialog, ipcMain } from 'electron';
 import * as path from 'node:path';
 import { Manager } from './manager/Manager';
 import { Repository } from './conversation/Repository';
@@ -17,6 +17,7 @@ import type {
   MessageRecord,
   RunnerStatus,
   SettingsData,
+  TranscriptPayload,
 } from './shared/types';
 
 const CHAT_STATUS_POLL_MS = 5000;
@@ -28,6 +29,7 @@ export class Application {
   private chatGPT!: ChatGPT;
   private gemini!: Gemini;
   private statusTimer: NodeJS.Timeout | null = null;
+  private transcriptVisible = false;
 
   start(): void {
     if (!app.requestSingleInstanceLock()) {
@@ -59,6 +61,11 @@ export class Application {
       },
       chatgpt: { url: CHATGPT_SELECTORS.url, partition: CHATGPT_SELECTORS.partition },
       gemini: { url: GEMINI_SELECTORS.url, partition: GEMINI_SELECTORS.partition },
+      transcript: {
+        file: path.join(app.getAppPath(), 'dist/renderer/transcript.html'),
+        preload: path.join(app.getAppPath(), 'dist/preload.js'),
+      },
+      chatPreload: path.join(app.getAppPath(), 'dist/chat-preload.js'),
     });
 
     this.repository = new Repository(path.join(userData, 'data.db'));
@@ -100,12 +107,85 @@ export class Application {
       this.repository.getMessages(Number(conversationId))
     );
     ipcMain.handle(IPC.chatStatus, () => this.collectChatStatus());
+    ipcMain.handle(IPC.transcriptToggle, () => this.setTranscriptVisible(!this.transcriptVisible));
+    ipcMain.handle(IPC.transcriptShowConversation, (_e, conversationId: number) => {
+      this.renderTranscript(Number(conversationId));
+      this.setTranscriptVisible(true);
+    });
+    ipcMain.handle(IPC.transcriptCopyMarkdown, (_e, conversationId: number) =>
+      this.copyTranscriptMarkdown(Number(conversationId))
+    );
+  }
+
+  // 経過を gist 形式 Markdown にしてクリップボードへ。派生データなので DB には保存しない。
+  private copyTranscriptMarkdown(conversationId: number): boolean {
+    try {
+      const conv = this.repository.listConversations().find((c) => c.id === conversationId);
+      const messages = this.repository.getMessages(conversationId);
+      if (messages.length === 0) return false;
+      const maxTurns = this.manager.settings.get().debate.maxTurns;
+      const emoji: Record<string, string> = { chatgpt: '🟢', gemini: '🔵' };
+      const label: Record<string, string> = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
+      const parts: string[] = [];
+      parts.push(`# ${conv ? conv.title : '議論'}`);
+      parts.push('');
+      messages.forEach((m, i) => {
+        parts.push(`${emoji[m.speaker]} **${label[m.speaker]}** (${i + 1}/${maxTurns})`);
+        parts.push('');
+        for (const line of m.content.split('\n')) parts.push(`> ${line}`);
+        parts.push('');
+        parts.push('* * *');
+        parts.push('');
+      });
+      clipboard.writeText(parts.join('\n'));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private forwardEvents(): void {
-    this.runner.on('status', (s: RunnerStatus) => this.sendToAdmin(IPC.evRunnerStatus, s));
-    this.runner.on('message', (m: MessageRecord) => this.sendToAdmin(IPC.evMessage, m));
+    this.runner.on('status', (s: RunnerStatus) => {
+      this.sendToAdmin(IPC.evRunnerStatus, s);
+      // 議論開始でライブ表示に戻し、完了/停止/エラーで経過を前面に出す
+      if (s.state === 'running') {
+        this.setTranscriptVisible(false);
+      } else if (s.state === 'done' || s.state === 'stopped' || s.state === 'error') {
+        if (s.conversationId !== null) this.renderTranscript(s.conversationId);
+        this.setTranscriptVisible(true);
+      }
+    });
+    this.runner.on('message', (m: MessageRecord) => {
+      this.sendToAdmin(IPC.evMessage, m);
+      // 経過ビューを毎メッセージ更新(表示・非表示に関わらず最新を保持)
+      this.renderTranscript(m.conversationId);
+    });
     this.runner.on('log', (l: LogEntry) => this.sendToAdmin(IPC.evLog, l));
+  }
+
+  private renderTranscript(conversationId: number): void {
+    try {
+      const conv = this.repository
+        .listConversations()
+        .find((c) => c.id === conversationId);
+      const messages = this.repository.getMessages(conversationId);
+      const payload: TranscriptPayload = {
+        conversationId,
+        title: conv ? conv.title : '',
+        status: conv ? conv.status : null,
+        maxTurns: this.manager.settings.get().debate.maxTurns,
+        messages,
+      };
+      this.manager.layout.view('transcript').webContents.send(IPC.evTranscript, payload);
+    } catch {
+      // ウィンドウ破棄後等は無視
+    }
+  }
+
+  private setTranscriptVisible(show: boolean): void {
+    this.transcriptVisible = show;
+    this.manager.layout.setTranscriptVisible(show);
+    this.sendToAdmin(IPC.evTranscriptVisible, show);
   }
 
   private sendToAdmin(channel: string, payload: unknown): void {
@@ -135,6 +215,9 @@ export class Application {
       }
     };
     const [chatgpt, gemini] = await Promise.all([probe(this.chatGPT), probe(this.gemini)]);
+    // ログイン済みならチャットペインをロック(スクロール以外の操作を遮断)
+    void this.chatGPT.setInteractionLock(chatgpt.loggedIn);
+    void this.gemini.setInteractionLock(gemini.loggedIn);
     return { chatgpt, gemini };
   }
 

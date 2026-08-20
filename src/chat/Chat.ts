@@ -42,6 +42,10 @@ export abstract class Chat {
   private busy = false;
   private abortRequested = false;
   private readonly origin: string;
+  // ログイン後の操作ロック(スクロール以外の実ユーザ操作を遮断)。
+  // 望ましいロック状態。入力フェーズ中は一時的に window.__cvgLock を外す。
+  private lockDesired = false;
+  private inputPhase = false;
 
   constructor(
     readonly name: Speaker,
@@ -129,13 +133,38 @@ export abstract class Chat {
         const ready = await this.js<boolean>(
           `!!document.querySelector(${JSON.stringify(this.selectors.input)})`,
         );
-        if (ready === true) return;
+        if (ready === true) {
+          // 遷移で剥がれたブロッカ/バッジを再注入し、望ましいロック状態を反映
+          await this.setPageLock(this.lockDesired);
+          return;
+        }
       }
       if (Date.now() >= deadline) {
         throw new ChatError('selector', `新規チャットの準備ができません: ${this.displayName}`);
       }
       await sleep(500);
     }
+  }
+
+  // ログイン後の操作ロックの ON/OFF。スクロール(ホイール/スクロールキー)以外の
+  // 実ユーザ操作を遮断し、議論中に状態を壊されたり入力を改変されたりするのを防ぐ。
+  async setInteractionLock(locked: boolean): Promise<void> {
+    this.lockDesired = locked;
+    if (this.inputPhase) return; // 入力中は askInner の finally が lockDesired を反映する
+    await this.setPageLock(locked);
+  }
+
+  // ロック状態は localStorage に持たせる(chat-preload.js が document_start で読み、
+  // 遷移をまたいで隙間なくロックを維持する)。__cvgLock=遮断 / __cvgLockUi=バッジ表示。
+  // 入力フェーズでは遮断だけ外し、バッジ表示は lockDesired のまま維持してちらつきを防ぐ。
+  private async setPageLock(blockLocked: boolean, uiLocked?: boolean): Promise<void> {
+    const ui = uiLocked === undefined ? blockLocked : uiLocked;
+    await this.js(
+      `(() => { try {` +
+        ` localStorage.setItem('__cvgLock', ${blockLocked ? "'1'" : "'0'"});` +
+        ` localStorage.setItem('__cvgLockUi', ${ui ? "'1'" : "'0'"});` +
+        ` } catch (e) {} return true; })()`,
+    );
   }
 
   private async askInner(text: string): Promise<string> {
@@ -150,9 +179,38 @@ export abstract class Chat {
         `document.querySelectorAll(${JSON.stringify(s.assistantMessages)}).length`,
       )) ?? 0;
 
+    // 入力フェーズ開始。insertText / Enter は実入力経路(isTrusted=true)を通り
+    // 操作ロックに弾かれるため、この間だけ遮断を外す(el.click は isTrusted=false で通る)。
+    // バッジは lockDesired のまま維持してちらつかせない。
+    this.inputPhase = true;
+    await this.setPageLock(false, this.lockDesired);
+    try {
+      return await this.sendAndAwait(text, baseline);
+    } finally {
+      this.inputPhase = false;
+      await this.setPageLock(this.lockDesired);
+    }
+  }
+
+  private async sendAndAwait(text: string, baseline: number): Promise<string> {
+    const s = this.selectors;
+
     if (!(await this.focusInput())) {
       throw new ChatError('selector', s.input);
     }
+
+    // 送信前に入力欄を空にする。ChatGPT は下書きを復元するため(実測)、
+    // クリアしないと insertText が既存文へ追記してプロンプトが壊れる。
+    await this.js(
+      `(() => {
+        const el = document.querySelector(${JSON.stringify(s.input)});
+        if (!el) return false;
+        el.focus();
+        document.execCommand('selectAll', false, null);
+        document.execCommand('delete', false, null);
+        return true;
+      })()`,
+    );
 
     // insertText は Chromium の実入力経路を通るため ProseMirror/Quill も受理する
     const wc = this.view.webContents;
@@ -255,6 +313,7 @@ export abstract class Chat {
     const start = Date.now();
     let lastText = '';
     let lastChangedAt = Date.now();
+    let responseSeenAt = 0; // 応答要素が現れた時刻(空応答の早期検知用)
 
     for (;;) {
       this.throwIfAborted();
@@ -265,6 +324,20 @@ export abstract class Chat {
         // 新しい応答が現れていない(count <= baseline)ときのみ制限とみなす
         if (snap.limited && snap.count <= baseline) {
           throw new ChatError('rate-limited', this.displayName);
+        }
+        if (snap.count > baseline && responseSeenAt === 0) {
+          responseSeenAt = now;
+        }
+        // 生成が終わった(停止ボタンが消えた)のに本文が空のまま stabilityMs 続いたら
+        // 失敗した空応答とみなし、5 分待たずに早期にエラーにする。
+        if (
+          snap.count > baseline &&
+          !snap.streaming &&
+          lastText.length === 0 &&
+          responseSeenAt > 0 &&
+          now - responseSeenAt >= stabilityMs
+        ) {
+          throw new ChatError('send-failed', `${this.displayName} が空の応答を返しました`);
         }
         if (snap.lastText !== lastText) {
           lastText = snap.lastText;
@@ -278,16 +351,68 @@ export abstract class Chat {
         if (snap.count > baseline && lastText.length > 0) {
           const stableFor = now - lastChangedAt;
           if (!snap.streaming && stableFor >= stabilityMs) {
-            return lastText;
+            return this.finalizeText(lastText);
           }
           if (stableFor >= stabilityMs * STUCK_STOP_FACTOR) {
-            return lastText;
+            return this.finalizeText(lastText);
           }
         }
       }
+      // 生成中はペインを常に最下部へスクロールして最新の出力を追う
+      this.scrollToBottom();
       if (now - start >= timeoutMs) throw new ChatError('timeout', this.displayName);
       await sleep(pollMs);
     }
+  }
+
+  // ChatGPT はストリーミング中に見出し等を一時的に二重描画し、数秒後に整理する。
+  // その「二重かつ一見安定」な状態を取得してしまうことがあるため、隣接する
+  // 同一の非空行を 1 行に畳んで正規化する(散文でこの重複はまず起きない)。
+  private finalizeText(text: string): string {
+    const lines = text.split('\n');
+    const out: string[] = [];
+    for (const line of lines) {
+      if (out.length > 0 && out[out.length - 1] === line && line.trim() !== '') continue;
+      out.push(line);
+    }
+    return out.join('\n');
+  }
+
+  // 最後の応答要素から祖先を辿って「実際に縦スクロールしているコンテナ」を見つけ、
+  // 最下部へ追従する。ただしユーザが自分で上へスクロールして履歴を読んでいるときは
+  // 強制移動しない(最下部付近にいるときだけ追従)。新しい応答が現れた瞬間だけは
+  // 一度だけ最下部へジャンプする。
+  private scrollToBottom(): void {
+    void this.js(
+      `(() => {
+        const findContainer = (el) => {
+          for (let n = el; n; n = n.parentElement) {
+            if (n.scrollHeight > n.clientHeight + 4) {
+              const oy = getComputedStyle(n).overflowY;
+              if (oy === 'auto' || oy === 'scroll') return n;
+            }
+          }
+          return null;
+        };
+        const msgs = document.querySelectorAll(${JSON.stringify(this.selectors.assistantMessages)});
+        const last = msgs[msgs.length - 1];
+        if (!last) return true;
+        const cont = findContainer(last);
+        if (!cont) return true;
+        const NEAR = 120; // これ以内なら「最下部付近」とみなして追従
+        const dist = cont.scrollHeight - cont.scrollTop - cont.clientHeight;
+        const st = window.__cvgScroll || (window.__cvgScroll = { count: 0 });
+        if (msgs.length > st.count) {
+          // 新しい応答が出た → 一度だけ最下部へ
+          cont.scrollTop = cont.scrollHeight;
+          st.count = msgs.length;
+        } else if (dist <= NEAR) {
+          // 最下部付近にいるときだけ追従(上に離れている=閲覧中なら触らない)
+          cont.scrollTop = cont.scrollHeight;
+        }
+        return true;
+      })()`,
+    );
   }
 
   private async probe(): Promise<ProbeResult | null> {

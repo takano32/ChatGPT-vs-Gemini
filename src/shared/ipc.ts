@@ -9,6 +9,7 @@ import type {
   RunnerStatus,
   SearchHit,
   SettingsData,
+  TranscriptPayload,
 } from './types';
 
 export const IPC = {
@@ -23,12 +24,17 @@ export const IPC = {
   listConversations: 'repository:conversations',
   getMessages: 'repository:messages',
   chatStatus: 'chat:status',
+  transcriptToggle: 'transcript:toggle', // 管理ペイン -> main。ライブ⇄経過の表示切替
+  transcriptShowConversation: 'transcript:show-conversation', // 履歴から経過表示
+  transcriptCopyMarkdown: 'transcript:copy-md', // 経過を gist 形式 Markdown でクリップボードへ
 
   // main -> renderer (send)
   evLog: 'event:log',
   evRunnerStatus: 'event:runner-status',
   evMessage: 'event:message',
   evChatStatus: 'event:chat-status',
+  evTranscript: 'event:transcript', // main -> transcript ビュー。全文を渡して再描画
+  evTranscriptVisible: 'event:transcript-visible', // main -> admin。トグルボタンの状態同期
 } as const;
 
 /** preload が contextBridge で `window.api` に公開する形。 */
@@ -45,10 +51,16 @@ export interface RendererApi {
   listConversations(): Promise<ConversationRecord[]>;
   getMessages(conversationId: number): Promise<MessageRecord[]>;
   getChatStatus(): Promise<ChatStatusMap>;
+  toggleTranscript(): Promise<void>;
+  showConversationTranscript(conversationId: number): Promise<void>;
+  /** 経過を gist 形式 Markdown にしてクリップボードへコピー。成功すれば true */
+  copyTranscriptMarkdown(conversationId: number): Promise<boolean>;
 
   // 購読系。戻り値は購読解除関数
   onLog(cb: (entry: LogEntry) => void): () => void;
   onRunnerStatus(cb: (status: RunnerStatus) => void): () => void;
   onMessage(cb: (message: MessageRecord) => void): () => void;
   onChatStatus(cb: (status: ChatStatusMap) => void): () => void;
+  onTranscript(cb: (payload: TranscriptPayload) => void): () => void;
+  onTranscriptVisible(cb: (visible: boolean) => void): () => void;
 }

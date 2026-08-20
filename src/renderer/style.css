@@ -138,6 +138,21 @@ button { font-family: var(--mono); }
 #turn-now { color: var(--amber); min-width: 2ch; text-align: right; }
 #turn-max { color: var(--dim); }
 
+.view-toggle {
+  margin-left: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.view-toggle:hover { border-color: var(--amber-soft); color: var(--amber); }
+.view-toggle.active { color: var(--amber); border-color: var(--amber-soft); background: var(--amber-tint); }
+
 /* ===== 操作行 ===== */
 
 .controls {

@@ -58,6 +58,7 @@
   const runnerLabel = must<HTMLElement>('runner-state-label');
   const turnNow = must<HTMLElement>('turn-now');
   const turnMax = must<HTMLElement>('turn-max');
+  const btnTranscript = must<HTMLButtonElement>('btn-transcript');
 
   const topicInput = must<HTMLInputElement>('topic-input');
   const btnStart = must<HTMLButtonElement>('btn-start');
@@ -220,6 +221,9 @@
   });
   btnStop.addEventListener('click', () => {
     api.stopDebate().catch((err) => localLog('error', `停止失敗: ${errMsg(err)}`));
+  });
+  btnTranscript.addEventListener('click', () => {
+    api.toggleTranscript().catch((err) => localLog('error', `表示切替失敗: ${errMsg(err)}`));
   });
 
   topicInput.addEventListener('keydown', (ev) => {
@@ -495,6 +499,10 @@
   api.onChatStatus((status) => {
     chats = status;
     updateChatUi();
+  });
+  api.onTranscriptVisible((visible) => {
+    btnTranscript.classList.toggle('active', visible);
+    btnTranscript.textContent = visible ? 'ライブ' : '経過';
   });
 
   async function init(): Promise<void> {
