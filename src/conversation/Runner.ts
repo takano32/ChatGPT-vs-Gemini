@@ -108,6 +108,22 @@ export class Runner extends EventEmitter {
     this.emitStatus();
     this.log('info', `議論を開始します: 「${topic}」(最大 ${debate.maxTurns} ターン)`);
 
+    // 議論ごとに両サイトで新規チャットを開き、前の議論の文脈を持ち越さない
+    this.log('info', '新しいチャットを準備しています(ChatGPT / Gemini)');
+    try {
+      await Promise.all([this.chats.chatgpt.newChat(), this.chats.gemini.newChat()]);
+    } catch (err) {
+      if (this.runId !== myRun || this.stopRequested) return;
+      const message = err instanceof Error ? err.message : String(err);
+      this.state = 'error';
+      this.lastError = message;
+      this.setConversationStatus('error');
+      this.emitStatus();
+      this.log('error', `新規チャットの準備に失敗しました: ${message}`);
+      return;
+    }
+    if (this.runId !== myRun || this.stopRequested) return;
+
     let prevReply = '';
 
     for (let turn = 1; turn <= debate.maxTurns; turn++) {

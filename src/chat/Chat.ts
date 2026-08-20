@@ -116,6 +116,28 @@ export abstract class Chat {
     );
   }
 
+  // 新規チャットを開始する。ベース URL へ遷移すると空の新しい会話になる
+  // (chatgpt.com/ も gemini.google.com/app も常に新規チャット。既存会話は /c/ /app/<id>)。
+  // 遷移後、入力欄が使える状態になるまで待つ。議論ごとに前の文脈を持ち越さないために使う。
+  async newChat(): Promise<void> {
+    const wc = this.view.webContents;
+    // 進行中のリダイレクトで reject し得るため握りつぶす
+    await wc.loadURL(this.selectors.url).catch(() => {});
+    const deadline = Date.now() + 30000;
+    for (;;) {
+      if (await this.isLoggedIn()) {
+        const ready = await this.js<boolean>(
+          `!!document.querySelector(${JSON.stringify(this.selectors.input)})`,
+        );
+        if (ready === true) return;
+      }
+      if (Date.now() >= deadline) {
+        throw new ChatError('selector', `新規チャットの準備ができません: ${this.displayName}`);
+      }
+      await sleep(500);
+    }
+  }
+
   private async askInner(text: string): Promise<string> {
     const s = this.selectors;
 
