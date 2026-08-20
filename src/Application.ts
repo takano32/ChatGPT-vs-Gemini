@@ -21,6 +21,7 @@ import type {
 } from './shared/types';
 
 const CHAT_STATUS_POLL_MS = 5000;
+const CHAT_STATUS_FAST_POLL_MS = 1000;
 
 export class Application {
   private manager!: Manager;
@@ -197,10 +198,16 @@ export class Application {
     }
   }
 
+  // 起動直後は開始ボタンを早く有効にしたいので即時に 1 回、両方ログイン済みになるまでは
+  // 短い間隔で、その後は通常間隔で状態を取る
   private startChatStatusPolling(): void {
-    this.statusTimer = setInterval(() => {
-      void this.collectChatStatus().then((status) => this.sendToAdmin(IPC.evChatStatus, status));
-    }, CHAT_STATUS_POLL_MS);
+    const tick = async (): Promise<void> => {
+      const status = await this.collectChatStatus();
+      this.sendToAdmin(IPC.evChatStatus, status);
+      const ready = status.chatgpt.loggedIn && status.gemini.loggedIn;
+      this.statusTimer = setTimeout(() => void tick(), ready ? CHAT_STATUS_POLL_MS : CHAT_STATUS_FAST_POLL_MS);
+    };
+    void tick();
   }
 
   private async collectChatStatus(): Promise<ChatStatusMap> {
@@ -208,9 +215,11 @@ export class Application {
     // 一瞬ブレてロックのちらつき等を招くため使わない。
     const probe = async (chat: Chat): Promise<ChatStatus> => {
       try {
+        // 読込中のページへの executeJavaScript は読込完了まで返らず、起動直後の
+        // 「ログイン済み」判定(Cookie だけで決まる)まで道連れに遅らせる。読込中は制限判定を飛ばす
         const [loggedIn, rateLimited] = await Promise.all([
           chat.isAuthenticated(),
-          chat.isRateLimited(),
+          chat.isPageLoading() ? Promise.resolve(false) : chat.isRateLimited(),
         ]);
         return { loggedIn, rateLimited };
       } catch {

@@ -22,7 +22,7 @@ export class ChatError extends Error {
 }
 
 // 送信ボタン待ち・送信開始確認用の短周期ポーリング間隔
-const SHORT_POLL_MS = 150;
+const SHORT_POLL_MS = 100;
 
 // 送信の試行回数。クリックが効かない・リクエストが失敗して応答が現れない等の
 // 取りこぼしを自己修復し、議論を止めないための上限。
@@ -60,7 +60,7 @@ const NEW_CHAT_RENAV_MS = 10000;
 const COMPLETION_CONFIRMATIONS = 2;
 const CONFIRM_POLL_MS = 500;
 // 確認間隔の下限。pollMs を極端に小さくしても確認窓(間隔×回数)が潰れないようにする
-const CONFIRM_POLL_MIN_MS = 200;
+const CONFIRM_POLL_MIN_MS = 150;
 
 interface ProbeResult {
   count: number;
@@ -154,6 +154,11 @@ export abstract class Chat {
     return ok === true;
   }
 
+  isPageLoading(): boolean {
+    const wc = this.view.webContents;
+    return wc.isDestroyed() || wc.isLoading();
+  }
+
   async isRateLimited(): Promise<boolean> {
     const hit = await this.js<boolean>(
       `(() => {
@@ -201,6 +206,11 @@ export abstract class Chat {
   async newChat(): Promise<void> {
     const wc = this.view.webContents;
     this.seenKeys.clear();
+    // 既にベース URL の空チャットにいる(起動直後など)なら再読込しない。議論開始が 3〜4 秒速くなる
+    if (await this.isFreshChat()) {
+      await this.setPageLock(this.lockDesired);
+      return;
+    }
     const deadline = Date.now() + NEW_CHAT_TIMEOUT_MS;
     let navigatedAt = 0;
     const navigate = async (): Promise<void> => {
@@ -230,6 +240,21 @@ export abstract class Chat {
       }
       await sleep(500);
     }
+  }
+
+  // ベース URL にいて、応答も生成中表示も無く、入力欄が使える = 新規チャットとして使える状態
+  private async isFreshChat(): Promise<boolean> {
+    if (!(await this.isLoggedIn())) return false;
+    let path: string;
+    try {
+      path = new URL(this.view.webContents.getURL()).pathname.replace(/\/+$/, '');
+    } catch {
+      return false;
+    }
+    const basePath = new URL(this.selectors.url).pathname.replace(/\/+$/, '');
+    if (path !== basePath) return false;
+    const snap = await this.probe({ count: 0 });
+    return !!snap && snap.count === 0 && !snap.streaming;
   }
 
   // ログイン後の操作ロックの ON/OFF。スクロール(ホイール/スクロールキー)以外の

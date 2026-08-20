@@ -125,7 +125,7 @@ export const DEFAULT_SETTINGS: SettingsData = {
     betweenTurnsMs: 0,
   },
   detection: {
-    pollMs: 250,
+    pollMs: 150,
     stabilityMs: 6000,
     timeoutMs: 300000,
   },
