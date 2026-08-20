@@ -164,6 +164,29 @@ button { font-family: var(--mono); }
   background: rgba(11, 16, 22, 0.55);
 }
 
+.turns-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.turns-field input {
+  width: 3.2em;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 5px 6px;
+  text-align: right;
+}
+.turns-field input:focus { outline: none; border-color: var(--amber-soft); }
+
 .login-banner {
   display: flex;
   align-items: center;

@@ -57,6 +57,7 @@
   const btnTranscript = must<HTMLButtonElement>('btn-transcript');
 
   const topicInput = must<HTMLInputElement>('topic-input');
+  const ctlMaxTurns = must<HTMLInputElement>('ctl-max-turns');
   const btnStart = must<HTMLButtonElement>('btn-start');
   const btnPause = must<HTMLButtonElement>('btn-pause');
   const btnResume = must<HTMLButtonElement>('btn-resume');
@@ -152,6 +153,32 @@
     turnMax.textContent = max > 0 ? String(max) : '–';
     updateControls();
   }
+
+  // 既定ターン数を一箇所で更新(ヘッダ表示・操作バーの入力・ドロワーを同期)
+  function setDefaultMaxTurns(n: number): void {
+    defaultMaxTurns = n;
+    if (document.activeElement !== ctlMaxTurns) ctlMaxTurns.value = String(n);
+    updateRunnerUi();
+  }
+
+  // 操作バーのターン数入力: 変更時に即保存(ドロワーの最大ターン数と同じ設定)
+  ctlMaxTurns.addEventListener('change', () => {
+    const n = Math.max(1, Math.min(99, Math.floor(ctlMaxTurns.valueAsNumber)));
+    if (!Number.isFinite(n)) {
+      ctlMaxTurns.value = String(defaultMaxTurns);
+      return;
+    }
+    ctlMaxTurns.value = String(n);
+    void (async () => {
+      try {
+        const cur = await api.getSettings();
+        await api.setSettings({ ...cur, debate: { ...cur.debate, maxTurns: n } });
+        setDefaultMaxTurns(n);
+      } catch (err) {
+        localLog('error', `ターン数の保存に失敗: ${errMsg(err)}`);
+      }
+    })();
+  });
 
   function updateControls(): void {
     const st = runner.state;
@@ -296,8 +323,7 @@
       taOpening.value = s.debate.openingTemplate;
       taCounter.value = s.debate.counterTemplate;
       taRelay.value = s.debate.relayTemplate;
-      defaultMaxTurns = s.debate.maxTurns;
-      updateRunnerUi();
+      setDefaultMaxTurns(s.debate.maxTurns);
     } catch (err) {
       localLog('error', `設定読込失敗: ${errMsg(err)}`);
     }
@@ -343,8 +369,7 @@
           },
         };
         await api.setSettings(next);
-        defaultMaxTurns = next.debate.maxTurns;
-        updateRunnerUi();
+        setDefaultMaxTurns(next.debate.maxTurns);
         saveFlash.classList.add('show');
         window.clearTimeout(flashTimer);
         flashTimer = window.setTimeout(() => saveFlash.classList.remove('show'), 1600);
@@ -507,7 +532,7 @@
   async function init(): Promise<void> {
     try {
       const [settings, chatStatus] = await Promise.all([api.getSettings(), api.getChatStatus()]);
-      defaultMaxTurns = settings.debate.maxTurns;
+      setDefaultMaxTurns(settings.debate.maxTurns);
       chats = chatStatus;
     } catch (err) {
       localLog('error', `初期化失敗: ${errMsg(err)}`);
