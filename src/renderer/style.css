@@ -149,6 +149,22 @@ button { font-family: var(--mono); }
   background: rgba(11, 16, 22, 0.55);
 }
 
+.login-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  background: var(--amber-tint);
+  border-bottom: 1px solid var(--amber-soft);
+}
+.login-banner.hidden { display: none; }
+.login-banner .lb-icon { font-size: 12px; }
+.login-banner .lb-text { font-weight: 600; letter-spacing: 0.02em; }
+.login-banner .lb-hint { color: var(--dim); margin-left: auto; }
+
 #topic-input {
   flex: 1;
   min-width: 0;

@@ -24,6 +24,9 @@ export class ChatError extends Error {
 // 送信ボタン待ち・送信開始確認用の短周期ポーリング間隔
 const SHORT_POLL_MS = 250;
 
+// 停止ボタンが消えないまま本文だけ安定した場合に完了とみなす、安定時間の倍率
+const STUCK_STOP_FACTOR = 3;
+
 interface ProbeResult {
   count: number;
   lastText: string;
@@ -245,13 +248,19 @@ export abstract class Chat {
           lastText = snap.lastText;
           lastChangedAt = now;
         }
-        if (
-          snap.count > baseline &&
-          !snap.streaming &&
-          lastText.length > 0 &&
-          now - lastChangedAt >= stabilityMs
-        ) {
-          return lastText;
+        // 完了検知はテキスト安定を主指標にする。停止ボタンは補助的な指標で、
+        // ChatGPT ではストリーム終了後も stop-button が残ることがあるため
+        // (実測で確認)、これを必須条件にするとハングする。
+        // 通常: 停止ボタンが消え、かつ本文が stabilityMs 変化なし。
+        // 固着時: 停止ボタンが残っていても、本文が長時間(STUCK 係数倍)不変なら完了とみなす。
+        if (snap.count > baseline && lastText.length > 0) {
+          const stableFor = now - lastChangedAt;
+          if (!snap.streaming && stableFor >= stabilityMs) {
+            return lastText;
+          }
+          if (stableFor >= stabilityMs * STUCK_STOP_FACTOR) {
+            return lastText;
+          }
         }
       }
       if (now - start >= timeoutMs) throw new ChatError('timeout', this.displayName);

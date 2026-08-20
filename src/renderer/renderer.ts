@@ -53,6 +53,8 @@
   const ledChatgpt = must<HTMLElement>('led-chatgpt');
   const ledGemini = must<HTMLElement>('led-gemini');
   const ledRunner = must<HTMLElement>('led-runner');
+  const loginBanner = must<HTMLElement>('login-banner');
+  const loginBannerText = must<HTMLElement>('login-banner-text');
   const runnerLabel = must<HTMLElement>('runner-state-label');
   const turnNow = must<HTMLElement>('turn-now');
   const turnMax = must<HTMLElement>('turn-max');
@@ -128,7 +130,20 @@
     ledChatgpt.title = chatLedTitle(chats.chatgpt);
     ledGemini.className = chatLedClass(chats.gemini, 'gemini');
     ledGemini.title = chatLedTitle(chats.gemini);
+    updateLoginBanner();
     updateControls();
+  }
+
+  function updateLoginBanner(): void {
+    const out: string[] = [];
+    if (!chats.chatgpt.loggedIn) out.push('ChatGPT');
+    if (!chats.gemini.loggedIn) out.push('Gemini');
+    if (out.length === 0) {
+      loginBanner.classList.add('hidden');
+      return;
+    }
+    loginBannerText.textContent = `${out.join(' と ')} が未ログインです`;
+    loginBanner.classList.remove('hidden');
   }
 
   function updateRunnerUi(): void {
