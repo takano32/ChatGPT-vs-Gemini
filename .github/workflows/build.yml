@@ -54,6 +54,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      - run: npm test
       - name: Build distributables
         run: npx electron-builder ${{ matrix.args }} --publish never
       # クロスビルドしたアーキは起動できないので、ランナーのアーキと一致するときだけスモークを走らせる

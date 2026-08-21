@@ -188,6 +188,8 @@ export class Application {
   private forwardEvents(): void {
     this.runner.on('status', (s: RunnerStatus) => {
       this.sendToAdmin(IPC.evRunnerStatus, s);
+      // 議論中だけチャットペインの操作をロックする(待機中はログインや手動チャットができるように)
+      this.applyInteractionLock(s.state);
       // 議論開始でライブ表示に戻し、完了/停止/エラーで経過を前面に出す
       if (s.state === 'running') {
         this.setTranscriptVisible(false);
@@ -237,39 +239,43 @@ export class Application {
     }
   }
 
-  // 起動直後は開始ボタンを早く有効にしたいので即時に 1 回、両方ログイン済みになるまでは
+  private applyInteractionLock(state: RunnerStatus['state']): void {
+    const locked = state === 'running' || state === 'paused';
+    void this.chatGPT.setInteractionLock(locked);
+    void this.gemini.setInteractionLock(locked);
+  }
+
+  // 起動直後は開始ボタンを早く有効にしたいので即時に 1 回、両方が送信できる状態になるまでは
   // 短い間隔で、その後は通常間隔で状態を取る
   private startChatStatusPolling(): void {
     const tick = async (): Promise<void> => {
       const status = await this.collectChatStatus();
       this.sendToAdmin(IPC.evChatStatus, status);
-      const ready = status.chatgpt.loggedIn && status.gemini.loggedIn;
+      const ready = status.chatgpt.ready && status.gemini.ready;
       this.statusTimer = setTimeout(() => void tick(), ready ? CHAT_STATUS_POLL_MS : CHAT_STATUS_FAST_POLL_MS);
     };
     void tick();
   }
 
   private async collectChatStatus(): Promise<ChatStatusMap> {
-    // ログイン判定はセッション Cookie(認証状態)で行う。DOM 判定は遷移中に
-    // 一瞬ブレてロックのちらつき等を招くため使わない。
+    // ready(入力欄がある = 送信できる)が開始条件。ログインは任意で、Cookie の有無は表示にだけ使う。
     const probe = async (chat: Chat): Promise<ChatStatus> => {
       try {
-        // 読込中のページへの executeJavaScript は読込完了まで返らず、起動直後の
-        // 「ログイン済み」判定(Cookie だけで決まる)まで道連れに遅らせる。読込中は制限判定を飛ばす
-        const [loggedIn, rateLimited] = await Promise.all([
+        // 読込中のページへの executeJavaScript は読込完了まで返らないので、読込中は DOM 判定を飛ばす
+        const loading = chat.isPageLoading();
+        const [ready, loggedIn, rateLimited] = await Promise.all([
+          loading ? Promise.resolve(false) : chat.isReady(),
           chat.isAuthenticated(),
-          chat.isPageLoading() ? Promise.resolve(false) : chat.isRateLimited(),
+          loading ? Promise.resolve(false) : chat.isRateLimited(),
         ]);
-        return { loggedIn, rateLimited };
+        return { loading, ready, loggedIn, rateLimited };
       } catch {
-        return { loggedIn: false, rateLimited: false };
+        return { loading: false, ready: false, loggedIn: false, rateLimited: false };
       }
     };
     const [chatgpt, gemini] = await Promise.all([probe(this.chatGPT), probe(this.gemini)]);
-    // 認証済みならチャットペインをロック(スクロール以外の操作を遮断)、
-    // 未認証なら解除(ログイン操作ができるように)。両ペインとも同方式。
-    void this.chatGPT.setInteractionLock(chatgpt.loggedIn);
-    void this.gemini.setInteractionLock(gemini.loggedIn);
+    // 遷移や再読込でページ側のロック状態が剥がれることがあるので、現在の議論状態を定期的に再適用する
+    this.applyInteractionLock(this.runner.status.state);
     return { chatgpt, gemini };
   }
 

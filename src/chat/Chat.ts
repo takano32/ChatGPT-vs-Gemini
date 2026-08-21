@@ -7,7 +7,7 @@ import { Speaker, SPEAKER_LABELS, SettingsData } from '../shared/types';
 import { SiteSelectors } from './selectors';
 
 export type ChatErrorCode =
-  | 'not-logged-in'
+  | 'not-ready'
   | 'rate-limited'
   | 'timeout'
   | 'selector'
@@ -91,7 +91,7 @@ export abstract class Chat {
   private busy = false;
   private abortRequested = false;
   private readonly origin: string;
-  // ログイン後の操作ロック(スクロール以外の実ユーザ操作を遮断)。
+  // 議論中の操作ロック(スクロール以外の実ユーザ操作を遮断)。
   // 望ましいロック状態。入力フェーズ中は一時的に window.__cvgLock を外す。
   private lockDesired = false;
   private inputPhase = false;
@@ -123,8 +123,8 @@ export abstract class Chat {
     }
   }
 
-  // 認証判定はセッション Cookie の有無で行う(DOM と違い遷移でブレない)。
-  // ロック・状態表示(LED/バナー/開始ボタン)の「ログイン済み/未ログイン」はこれを使う。
+  // ログイン状態はセッション Cookie の有無で見る(DOM と違い遷移でブレない)。表示専用。
+  // 両サイトともログインなしで使えるので、送信可否の判定には使わない(isReady を使う)。
   async isAuthenticated(): Promise<boolean> {
     try {
       const cookies = await this.view.webContents.session.cookies.get({
@@ -136,8 +136,8 @@ export abstract class Chat {
     }
   }
 
-  // DOM ベースの準備判定。送信直前に「入力欄が実在するか」を見るために使う。
-  async isLoggedIn(): Promise<boolean> {
+  // 送信できる状態か: サイトの origin にいて入力欄が実在する。ログインの有無は問わない。
+  async isReady(): Promise<boolean> {
     const url = this.view.webContents.getURL();
     // startsWith だと類似ドメイン(例: chatgpt.com.evil.io)をすり抜けるため origin 厳密比較
     let origin: string;
@@ -147,11 +147,34 @@ export abstract class Chat {
       return false;
     }
     if (origin !== this.origin) return false;
-    const s = this.selectors;
     const ok = await this.js<boolean>(
-      `(() => !!document.querySelector(${JSON.stringify(s.loggedInProbe)}) && !document.querySelector(${JSON.stringify(s.loggedOutProbe)}))()`,
+      `!!document.querySelector(${JSON.stringify(this.selectors.input)})`,
     );
     return ok === true;
+  }
+
+  // ゲスト利用中にサイトが出すログイン要求ダイアログを閉じる。閉じたら true。
+  private async dismissLoginNag(): Promise<boolean> {
+    const patterns = this.selectors.dismissPatterns.map((p) => p.toLowerCase());
+    if (patterns.length === 0) return false;
+    const clicked = await this.js<boolean>(
+      `(() => {
+        // position:fixed のモーダルは offsetParent が null になるので getClientRects で可視判定する
+        const dialogs = [...document.querySelectorAll('[role="dialog"], dialog, mat-dialog-container')]
+          .filter((d) => d.open || d.getClientRects().length > 0)
+          .filter((d) => /log ?in|sign ?in|ログイン/i.test(d.innerText || ''));
+        const patterns = ${JSON.stringify(patterns)};
+        for (const d of dialogs) {
+          for (const b of d.querySelectorAll('a, button')) {
+            const t = (b.textContent || '').trim().toLowerCase();
+            if (t && patterns.some((p) => t.includes(p))) { b.click(); return true; }
+          }
+        }
+        return false;
+      })()`,
+    );
+    if (clicked === true) this.notify(`${this.displayName} のログイン要求ダイアログを閉じました(ログインなしで続行)`);
+    return clicked === true;
   }
 
   isPageLoading(): boolean {
@@ -220,15 +243,10 @@ export abstract class Chat {
     };
     await navigate();
     for (;;) {
-      if (await this.isLoggedIn()) {
-        const ready = await this.js<boolean>(
-          `!!document.querySelector(${JSON.stringify(this.selectors.input)})`,
-        );
-        if (ready === true) {
-          // 遷移で剥がれたブロッカ/バッジを再注入し、望ましいロック状態を反映
-          await this.setPageLock(this.lockDesired);
-          return;
-        }
+      if (await this.isReady()) {
+        // 遷移で剥がれたブロッカ/バッジを再注入し、望ましいロック状態を反映
+        await this.setPageLock(this.lockDesired);
+        return;
       }
       if (Date.now() >= deadline) {
         throw new ChatError('selector', `新規チャットの準備ができません: ${this.displayName}`);
@@ -244,7 +262,7 @@ export abstract class Chat {
 
   // ベース URL にいて、応答も生成中表示も無く、入力欄が使える = 新規チャットとして使える状態
   private async isFreshChat(): Promise<boolean> {
-    if (!(await this.isLoggedIn())) return false;
+    if (!(await this.isReady())) return false;
     let path: string;
     try {
       path = new URL(this.view.webContents.getURL()).pathname.replace(/\/+$/, '');
@@ -257,8 +275,9 @@ export abstract class Chat {
     return !!snap && snap.count === 0 && !snap.streaming;
   }
 
-  // ログイン後の操作ロックの ON/OFF。スクロール(ホイール/スクロールキー)以外の
+  // 議論中の操作ロックの ON/OFF。スクロール(ホイール/スクロールキー)以外の
   // 実ユーザ操作を遮断し、議論中に状態を壊されたり入力を改変されたりするのを防ぐ。
+  // 待機中は解除され、ログインや手動のチャットが自由にできる。
   async setInteractionLock(locked: boolean): Promise<void> {
     this.lockDesired = locked;
     if (this.inputPhase) return; // 入力中は askInner の finally が lockDesired を反映する
@@ -281,8 +300,12 @@ export abstract class Chat {
   private async askInner(text: string): Promise<string> {
     const s = this.selectors;
 
-    if (!(await this.isLoggedIn())) {
-      throw new ChatError('not-logged-in', this.displayName);
+    await this.dismissLoginNag();
+    if (!(await this.isReady())) {
+      throw new ChatError(
+        'not-ready',
+        `${this.displayName} の入力欄が見つかりません。下のパネルでページの状態を確認してください`,
+      );
     }
 
     const baseline = await this.captureBaseline();
@@ -449,7 +472,9 @@ export abstract class Chat {
       `(() => {
         const el = document.querySelector(${JSON.stringify(this.selectors.input)});
         if (!el) return 0;
-        return ((el.innerText != null ? el.innerText : el.textContent) || '').trim().length;
+        // textarea は value、contenteditable は innerText
+        const v = typeof el.value === 'string' ? el.value : (el.innerText != null ? el.innerText : el.textContent);
+        return (v || '').trim().length;
       })()`,
     );
     return r ?? 0;
@@ -664,30 +689,79 @@ export abstract class Chat {
         if (window.__cvgFollow) return true;
         const MSG = ${JSON.stringify(s.assistantMessages)};
         const INPUT = ${JSON.stringify(s.input)};
-        const st = { stick: true, lastTop: -1, count: 0, raf: 0, cont: null, last: null, ro: null };
+        const st = { stick: true, lastTop: -1, count: 0, raf: 0, cont: null, last: null, ro: null,
+          intentAt: -Infinity, down: false, realigns: [] };
         window.__cvgFollow = st;
+        // 利用者のスクロール意思(ホイール上・スクロールキー・タッチ・ドラッグ)の最終時刻と押下状態。
+        // サイト自身もスクロール位置を動かす(ChatGPT は応答確定時や新しい発言の表示時に上へ戻す)ため、
+        // 位置の変化だけで「利用者が上へ戻した」と判断すると追従が外れてしまう。
+        // 操作ロック中は pointerdown 等が chat-preload.js で遮断されるので、preload が <html> の
+        // data-cvg-intent / data-cvg-down に書いた値も見る(ワールドをまたぐ唯一の経路)。
+        const html = document.documentElement;
+        const markIntent = () => { st.intentAt = performance.now(); };
+        const userIntent = () =>
+          st.down || html.dataset.cvgDown === '1' ||
+          performance.now() - st.intentAt < 1500 ||
+          Date.now() - Number(html.dataset.cvgIntent || 0) < 1500;
+        // スクロール容器: 応答要素の祖先で overflow-y が auto/scroll のもの。無ければページ全体
+        // (document.scrollingElement。ChatGPT の新変種 DOM はスレッドがページごとスクロールする)。
+        const docEl = () => document.scrollingElement || document.documentElement;
+        const isDoc = (c) => c === document.scrollingElement || c === document.documentElement;
         const findContainer = (el) => {
           for (let n = el; n; n = n.parentElement) {
+            // html が overflow:visible のとき body の overflow はビューポートへ伝播する(body 自体は動かない)
+            if (n === document.body && getComputedStyle(document.documentElement).overflowY === 'visible') continue;
             if (n.scrollHeight > n.clientHeight + 4) {
               const oy = getComputedStyle(n).overflowY;
               if (oy === 'auto' || oy === 'scroll') return n;
             }
           }
-          return null;
+          const se = docEl();
+          return se.scrollHeight > se.clientHeight + 4 ? se : null;
         };
+        // ページ全体が容器のときは矩形はビューポート、イベントは window で受ける
+        const rectOf = (c) => (isDoc(c) ? { top: 0, bottom: window.innerHeight } : c.getBoundingClientRect());
+        const eventTarget = (c) => (isDoc(c) ? window : c);
         const nearBottom = (c) => c.scrollHeight - c.clientHeight - c.scrollTop <= 120;
-        // 利用者のスクロールを検知: こちらが最後に送った位置(lastTop)より明確に上へ動いたら解除。
-        // 最下部付近へ戻ったら再び追従(キー操作でも効くよう scroll イベントでも見る)。
+        // こちらが最後に送った位置(lastTop)より明確に上へ動いたとき、利用者の意思が直前にあれば解除、
+        // 無ければサイト由来の移動とみなして次フレームで整列し直す。最下部付近へ戻ったら再び追従。
         const onScroll = () => {
           const c = st.cont;
           if (!c) return;
-          if (st.lastTop >= 0 && c.scrollTop < st.lastTop - 40) st.stick = false;
-          else if (!st.stick && nearBottom(c)) st.stick = true;
+          if (st.lastTop >= 0 && c.scrollTop < st.lastTop - 40) {
+            if (userIntent()) {
+              st.stick = false;
+            } else if (st.stick) {
+              // サイト由来の移動。ただし毎フレーム戻してくる UI と永久に押し合わないよう、短時間に何度も続くなら諦める
+              const now = performance.now();
+              st.realigns = st.realigns.filter((t) => now - t < 500);
+              st.realigns.push(now);
+              if (st.realigns.length > 3) st.stick = false;
+              else schedule();
+            }
+          } else if (!st.stick && nearBottom(c)) {
+            st.stick = true;
+          }
         };
         const onWheel = (e) => {
-          if (e.deltaY < 0) st.stick = false;
+          if (e.deltaY < 0) { markIntent(); st.stick = false; }
           else if (e.deltaY > 0 && st.cont && nearBottom(st.cont)) st.stick = true;
         };
+        const onKey = (e) => {
+          // 入力欄にフォーカスがあるときの矢印キーはキャレット移動でスクロールしないので無視
+          const t = e.target;
+          if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+          if (e.key === 'PageUp' || e.key === 'ArrowUp' || e.key === 'Home' || (e.key === ' ' && e.shiftKey)) {
+            markIntent(); st.stick = false;
+          } else if (e.key === 'End') {
+            st.stick = true;
+          }
+        };
+        window.addEventListener('keydown', onKey, { passive: true });
+        window.addEventListener('pointerdown', () => { markIntent(); st.down = true; }, { passive: true, capture: true });
+        window.addEventListener('pointerup', () => { st.down = false; }, { passive: true, capture: true });
+        window.addEventListener('pointercancel', () => { st.down = false; }, { passive: true, capture: true });
+        window.addEventListener('touchmove', markIntent, { passive: true, capture: true });
         const schedule = () => { if (!st.raf) st.raf = requestAnimationFrame(align); };
         const align = () => {
           st.raf = 0;
@@ -705,16 +779,16 @@ export abstract class Chat {
           if (!cont) return;
           if (cont !== st.cont) {
             if (st.cont) {
-              st.cont.removeEventListener('scroll', onScroll);
-              st.cont.removeEventListener('wheel', onWheel);
+              eventTarget(st.cont).removeEventListener('scroll', onScroll);
+              eventTarget(st.cont).removeEventListener('wheel', onWheel);
             }
             st.cont = cont;
             st.lastTop = -1;
-            cont.addEventListener('scroll', onScroll, { passive: true });
-            cont.addEventListener('wheel', onWheel, { passive: true });
+            eventTarget(cont).addEventListener('scroll', onScroll, { passive: true });
+            eventTarget(cont).addEventListener('wheel', onWheel, { passive: true });
           }
           if (!st.stick) return;
-          const contRect = cont.getBoundingClientRect();
+          const contRect = rectOf(cont);
           const lastRect = last.getBoundingClientRect();
           const inputEl = document.querySelector(INPUT);
           const inputTop = inputEl ? inputEl.getBoundingClientRect().top : contRect.bottom;
@@ -738,6 +812,10 @@ export abstract class Chat {
   // 制限文言の判定は新しい応答が無いときにしか使わないので、そのときだけ body 全文を読む
   // (高頻度ポーリングで毎回 body.innerText を取らない)。ページ側では識別子の既知/未知を
   // 判定できないため、「件数が増えていない」を暫定条件にする(多少余計に読むだけで害はない)。
+  // 注意: 以下のテンプレートリテラルはページ側で実行される JS。中に書いたコメントもページ側に渡るので、
+  // エスケープ(\\n など)や改行を含む注釈は書かない(実改行に展開されて構文エラーになる)。
+  // 本文要素(messageContent)を指定しているサイトでは、本文要素が無い(未描画)間は空として扱う。
+  // 要素全体へ退避すると読み上げ用ラベル等が本文になり、初トークン前に「完了」と誤認しうる。
   private async probe(baseline: ResponseBaseline): Promise<ProbeResult | null> {
     const s = this.selectors;
     return this.js<ProbeResult>(
@@ -749,15 +827,21 @@ export abstract class Chat {
         for (const m of msgs) { const k = keyOf(m); if (k) keys.push(k); }
         const last = count > 0 ? msgs[count - 1] : null;
         const lastKey = last ? keyOf(last) : null;
-        const lastText = last ? ((last.innerText || '').trim()) : '';
+        const contentSel = ${JSON.stringify(s.messageContent ?? '')};
+        const textOf = (el) => {
+          if (!contentSel) return (el.innerText || '').trim();
+          return [...el.querySelectorAll(contentSel)].map((c) => (c.innerText || '').trim()).filter(Boolean).join('\\n\\n');
+        };
+        const lastText = last ? textOf(last) : '';
+        const lastWhole = last ? ((last.innerText || '').trim()) : '';
         const streaming = ${this.stopVisibleExpr()};
         let limited = false;
         if (count <= ${baseline.count}) {
           const tail = ((document.body && document.body.innerText) || '').slice(-2000);
           limited = ${JSON.stringify(s.rateLimitPatterns)}.some((p) => tail.includes(p));
         }
-        const failed = lastText.length > 0 && lastText.length <= ${ERROR_TEXT_MAX} &&
-          ${JSON.stringify(s.errorPatterns)}.some((p) => lastText.includes(p));
+        const failed = lastWhole.length > 0 && lastWhole.length <= ${ERROR_TEXT_MAX} &&
+          ${JSON.stringify(s.errorPatterns)}.some((p) => lastWhole.includes(p));
         return { count: count, lastKey: lastKey, keys: keys, lastText: lastText, streaming: streaming,
           limited: limited, failed: failed, follower: !!window.__cvgFollow };
       })()`,

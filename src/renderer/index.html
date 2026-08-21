@@ -15,8 +15,8 @@
       <span class="t-gpt">CHATGPT</span><span class="t-vs">vs</span><span class="t-gem">GEMINI</span>
     </h1>
     <div class="leds">
-      <span class="led-group"><span id="led-chatgpt" class="led"></span><span class="led-label">ChatGPT</span></span>
-      <span class="led-group"><span id="led-gemini" class="led"></span><span class="led-label">Gemini</span></span>
+      <span class="led-group"><span id="led-chatgpt" class="led"></span><span class="led-label">ChatGPT</span><span id="guest-chatgpt" class="guest-tag hidden" title="ログインなしで利用中">ゲスト</span></span>
+      <span class="led-group"><span id="led-gemini" class="led"></span><span class="led-label">Gemini</span><span id="guest-gemini" class="guest-tag hidden" title="ログインなしで利用中">ゲスト</span></span>
       <span class="led-group"><span id="led-runner" class="led st-idle"></span><span id="runner-state-label" class="led-label">idle</span></span>
     </div>
     <div class="turns">
@@ -44,9 +44,10 @@
   </div>
 
   <div id="login-banner" class="login-banner hidden" role="status">
-    <span class="lb-icon">⚠</span>
+    <span class="lb-icon" aria-hidden="true"></span>
     <span id="login-banner-text" class="lb-text"></span>
-    <span class="lb-hint">下のパネルでログインしてください</span>
+    <span id="login-banner-hint" class="lb-hint"></span>
+    <button type="button" id="login-banner-close" class="lb-close" title="閉じる" aria-label="閉じる">✕</button>
   </div>
 
   <main id="feed" class="feed" aria-live="polite"></main>

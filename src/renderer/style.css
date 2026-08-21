@@ -232,10 +232,39 @@ button { font-family: var(--mono); }
   background: var(--amber-tint);
   border-bottom: 1px solid var(--amber-soft);
 }
-.login-banner.hidden { display: none; }
 .login-banner .lb-icon { font-size: 12px; }
+.login-banner.warn .lb-icon::before { content: "⚠"; }
+.login-banner.info .lb-icon::before { content: "ⓘ"; }
 .login-banner .lb-text { font-weight: 600; letter-spacing: 0.02em; }
 .login-banner .lb-hint { color: var(--dim); margin-left: auto; }
+.login-banner .lb-close { display: none; }
+/* 案内(ゲスト利用中)は警告色ではなく控えめに。閉じられる */
+.login-banner.info {
+  color: var(--dim);
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+.login-banner.info .lb-close {
+  display: inline-block;
+  background: none;
+  border: 0;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+}
+.login-banner.info .lb-close:hover { color: var(--text); }
+/* LED 横の「ゲスト」タグ */
+.guest-tag {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  border: 1px solid var(--border-bright);
+  border-radius: 999px;
+  padding: 0 5px;
+  line-height: 14px;
+  user-select: none;
+}
 
 #topic-input {
   flex: 1;

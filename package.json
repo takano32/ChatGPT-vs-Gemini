@@ -28,7 +28,8 @@
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "start": "npm run build && electron .",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "test": "node scripts/check-page-scripts.mjs"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

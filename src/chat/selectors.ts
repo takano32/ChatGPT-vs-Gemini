@@ -9,15 +9,18 @@ export interface SiteSelectors {
   sendButton: string;
   stopButton: string; // ストリーミング中のみ存在/表示
   assistantMessages: string; // AI 応答メッセージ要素(全件)
-  loggedInProbe: string; // ログイン済みのときだけ存在(DOM。送信準備の判定に使う)
-  loggedOutProbe: string; // 未ログインのときだけ存在
+  // 応答要素の中で本文だけを持つ要素(省略時は応答要素全体の innerText)。読み上げ用ラベルや
+  // 操作ボタンの文言が本文に混ざるサイト/変種で指定する。
+  messageContent?: string;
+  // ゲスト(未ログイン)利用中にサイトが出すログイン要求ダイアログを閉じるボタンの文言(部分一致、大小無視)。
+  // 両サイトともログインなしで使える(2026-08-21 実測)。ダイアログは実測では出なかったが備えておく。
+  dismissPatterns: string[];
   rateLimitPatterns: string[]; // 本文に現れる制限文言(ja/en 両方)
   // 応答の代わりにエラー吹き出しが応答要素として描画されたときの文言(ja/en)。
   // 実測: ChatGPT は会話リクエストが失敗すると assistant ロールの要素に
   // 「Something went wrong. … Retry」を描画する。これを回答として中継しないための判定に使う。
   errorPatterns: string[];
-  // 認証判定用のセッション Cookie。DOM は遷移中に一瞬消えてブレるため、
-  // ロックや状態表示の「ログイン済み」判定にはこの Cookie の有無を使う(安定)。
+  // ログイン状態の表示用セッション Cookie(ログインは任意。判定が DOM より安定)。
   authCookiePrefix: string;
   authCookieDomain: string;
 }
@@ -27,15 +30,19 @@ export interface SiteSelectors {
 // data-testid が send-button ⇄ stop-button とトグルする。ストリーミングが
 // 綺麗に閉じないと stop-button が残ることがあるため、完了検知はテキスト安定を
 // 主指標にする(Chat.ts 参照)。
+// 2026-08-21 実測: 未ログインの一部セッションには別の DOM 変種(data-testid="desktop-app-shell"、
+// textarea#mobile-composer-prompt、li[data-message-role]、ボタンは aria-label のみ)が配信される。
+// 各セレクタは CSS のリストで両変種を受ける(querySelector は最初に見つかった方を使う)。
 export const CHATGPT_SELECTORS: SiteSelectors = {
   url: 'https://chatgpt.com/',
   partition: 'persist:chatgpt',
-  input: '#prompt-textarea', // div.ProseMirror[contenteditable]
-  sendButton: 'button[data-testid="send-button"]',
-  stopButton: 'button[data-testid="stop-button"]',
-  assistantMessages: '[data-message-author-role="assistant"]',
-  loggedInProbe: '#prompt-textarea',
-  loggedOutProbe: '[data-testid="login-button"]', // 要実機調整(未ログイン時のみ検証未)
+  input: '#prompt-textarea, #mobile-composer-prompt', // div.ProseMirror[contenteditable] / 変種は textarea
+  // 変種側は aria-label(英語)にしか手掛かりが無い。匿名 UI は日本語環境でも英語で配信される(実測)。
+  sendButton: 'button[data-testid="send-button"], button[aria-label="Send message"]',
+  stopButton: 'button[data-testid="stop-button"], button[aria-label="Stop generating"]',
+  assistantMessages: '[data-message-author-role="assistant"], li[data-message-role="assistant"]',
+  messageContent: '.markdown, [data-assistant-markdown]', // 変種の li は読み上げ用「ChatGPT said:」を含むため本文だけ取る
+  dismissPatterns: ['Stay logged out', 'ログアウトしたまま', 'ログインせずに'],
   rateLimitPatterns: [
     'You have reached',
     'You’ve reached',
@@ -58,8 +65,7 @@ export const GEMINI_SELECTORS: SiteSelectors = {
   sendButton: 'button[aria-label="プロンプトを送信"], button:has(mat-icon[fonticon="arrow_upward"])',
   stopButton: 'button[aria-label="回答を停止"], button:has(mat-icon[fonticon="stop"])',
   assistantMessages: 'message-content', // 応答のみ(ユーザ発言は別要素)
-  loggedInProbe: 'rich-textarea',
-  loggedOutProbe: 'a[href*="ServiceLogin"]',
+  dismissPatterns: ['Not now', '後で', 'ログインせずに', 'Continue without'],
   rateLimitPatterns: ['しばらくしてからもう一度', 'try again later', '上限に達しました'],
   errorPatterns: ['問題が発生しました', 'Something went wrong', 'もう一度お試しください'],
   authCookiePrefix: '__Secure-1PSID', // 実測: @.google.com(Google セッション)

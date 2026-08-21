@@ -51,6 +51,10 @@
   const ledRunner = must<HTMLElement>('led-runner');
   const loginBanner = must<HTMLElement>('login-banner');
   const loginBannerText = must<HTMLElement>('login-banner-text');
+  const loginBannerHint = must<HTMLElement>('login-banner-hint');
+  const loginBannerClose = must<HTMLButtonElement>('login-banner-close');
+  const guestChatgpt = must<HTMLElement>('guest-chatgpt');
+  const guestGemini = must<HTMLElement>('guest-gemini');
   const runnerLabel = must<HTMLElement>('runner-state-label');
   const turnNow = must<HTMLElement>('turn-now');
   const turnMax = must<HTMLElement>('turn-max');
@@ -106,24 +110,26 @@
 
   let runner: RunnerStatus = { state: 'idle', conversationId: null, turn: 0, maxTurns: 0 };
   let chats: ChatStatusMap = {
-    chatgpt: { loggedIn: false, rateLimited: false },
-    gemini: { loggedIn: false, rateLimited: false },
+    chatgpt: { loading: true, ready: false, loggedIn: false, rateLimited: false },
+    gemini: { loading: true, ready: false, loggedIn: false, rateLimited: false },
   };
+  // 「ログインなしで使えます」の案内を閉じたか(このセッションのみ)
+  let guestNoticeDismissed = false;
   let defaultMaxTurns = 0;
   let lastRunnerError = '';
 
   // ---------- status LEDs / buttons ----------
 
   function chatLedClass(status: ChatStatus, speaker: Speaker): string {
-    if (!status.loggedIn) return 'led';
+    if (!status.ready) return 'led';
     if (status.rateLimited) return 'led warn';
     return `led on-${speaker}`;
   }
 
   function chatLedTitle(status: ChatStatus): string {
-    if (!status.loggedIn) return '未ログイン';
+    if (!status.ready) return status.loading ? '読み込み中' : 'ChatGPT / Gemini の画面になっていません';
     if (status.rateLimited) return 'レート制限中';
-    return 'ログイン済み';
+    return status.loggedIn ? 'ログイン済み' : 'ゲスト(ログインなしで利用中)';
   }
 
   function updateChatUi(): void {
@@ -131,21 +137,51 @@
     ledChatgpt.title = chatLedTitle(chats.chatgpt);
     ledGemini.className = chatLedClass(chats.gemini, 'gemini');
     ledGemini.title = chatLedTitle(chats.gemini);
+    guestChatgpt.classList.toggle('hidden', !(chats.chatgpt.ready && !chats.chatgpt.loggedIn));
+    guestGemini.classList.toggle('hidden', !(chats.gemini.ready && !chats.gemini.loggedIn));
     updateLoginBanner();
     updateControls();
   }
 
+  // バナーは 2 種類: 送信できない(警告)/ ログインなしで使っている(案内、閉じられる)。
+  // 読込中(起動直後・新規チャットへの遷移中)は警告しない。ログイン操作で別サイトに遷移している間も
+  // ready は落ちるので、文言は「読み込めない」ではなく「画面になっていない」にする。
   function updateLoginBanner(): void {
-    const out: string[] = [];
-    if (!chats.chatgpt.loggedIn) out.push('ChatGPT');
-    if (!chats.gemini.loggedIn) out.push('Gemini');
-    if (out.length === 0) {
-      loginBanner.classList.add('hidden');
+    const stuck: string[] = [];
+    let loading = false;
+    for (const [name, st] of [['ChatGPT', chats.chatgpt], ['Gemini', chats.gemini]] as const) {
+      if (st.ready) continue;
+      if (st.loading) loading = true;
+      else stuck.push(name);
+    }
+    if (stuck.length > 0) {
+      loginBanner.className = 'login-banner warn';
+      loginBannerText.textContent = `${stuck.join(' と ')} が ChatGPT / Gemini の画面になっていません`;
+      loginBannerHint.textContent = 'ログイン中なら完了後に戻ります。戻らなければ下のパネルで確認してください';
       return;
     }
-    loginBannerText.textContent = `${out.join(' と ')} が未ログインです`;
-    loginBanner.classList.remove('hidden');
+    if (loading) {
+      loginBanner.className = 'login-banner hidden';
+      return;
+    }
+    const guests: string[] = [];
+    if (!chats.chatgpt.loggedIn) guests.push('ChatGPT');
+    if (!chats.gemini.loggedIn) guests.push('Gemini');
+    if (guests.length === 0 || guestNoticeDismissed) {
+      loginBanner.className = 'login-banner hidden';
+      return;
+    }
+    const locked = runner.state === 'running' || runner.state === 'paused';
+    loginBanner.className = 'login-banner info';
+    loginBannerText.textContent = `${guests.join(' と ')} はログインなしで使えます`;
+    loginBannerHint.textContent =
+      'ログインすると、会話がサイト側の履歴に残り、利用制限が緩くなることがあります' +
+      (locked ? '(停止後に下のパネルでログインできます)' : '(下のパネルでログイン)');
   }
+  loginBannerClose.addEventListener('click', () => {
+    guestNoticeDismissed = true;
+    updateLoginBanner();
+  });
 
   function updateRunnerUi(): void {
     ledRunner.className = `led st-${runner.state}`;
@@ -153,6 +189,7 @@
     turnNow.textContent = String(runner.turn);
     const max = runner.maxTurns > 0 ? runner.maxTurns : defaultMaxTurns;
     turnMax.textContent = max > 0 ? String(max) : '–';
+    updateLoginBanner();
     updateControls();
   }
 
@@ -174,8 +211,8 @@
 
   function updateControls(): void {
     const st = runner.state;
-    const bothLoggedIn = chats.chatgpt.loggedIn && chats.gemini.loggedIn;
-    btnStart.disabled = st === 'running' || st === 'paused' || !bothLoggedIn;
+    const bothReady = chats.chatgpt.ready && chats.gemini.ready;
+    btnStart.disabled = st === 'running' || st === 'paused' || !bothReady;
     btnPause.disabled = st !== 'running';
     btnResume.disabled = st !== 'paused';
     btnStop.disabled = st !== 'running' && st !== 'paused';

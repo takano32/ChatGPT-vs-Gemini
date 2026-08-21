@@ -21,6 +21,19 @@
     'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
     'Home', 'End', ' ', 'Spacebar',
   ]);
+  // 遮断したポインタ操作(スクロールバーのつまみ等)も「利用者がスクロールしようとしている」事実は
+  // ページ側のスクロール追従(Chat.ts の follower、main world)に伝える必要がある。ワールドをまたぐので
+  // <html> の data 属性で渡す: cvgIntent=最後の操作時刻(ms)、cvgDown=押下中なら '1'。
+  const noteIntent = (e) => {
+    const html = document.documentElement; // document_start では未生成のことがあるので都度取る
+    if (!html) return;
+    if (e.type === 'pointerdown' || e.type === 'mousedown' || e.type === 'touchstart') {
+      html.dataset.cvgIntent = String(Date.now());
+      html.dataset.cvgDown = '1';
+    } else if (e.type === 'pointerup' || e.type === 'mouseup' || e.type === 'touchend') {
+      html.dataset.cvgDown = '0';
+    }
+  };
   const block = (e) => {
     if (!read(LOCK) || !e.isTrusted) return;
     if (
@@ -29,6 +42,7 @@
     ) {
       return; // スクロール系キーは許可
     }
+    noteIntent(e);
     e.stopImmediatePropagation();
     if (e.cancelable) e.preventDefault();
   };

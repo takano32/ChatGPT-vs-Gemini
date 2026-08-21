@@ -39,6 +39,8 @@ interface TranscriptPayload {
 }
 
 interface ChatStatus {
+  loading: boolean;
+  ready: boolean;
   loggedIn: boolean;
   rateLimited: boolean;
 }
