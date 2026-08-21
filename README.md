@@ -5,11 +5,11 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 - Electron + TypeScript(バンドラなし、tsc のみ)
 - 画面: 上 50% が管理ペイン、下 50% が ChatGPT / Gemini(50% / 50%)。比率とチャットペインのズーム(既定 75%)は設定で変更可
 - 会話ログは SQLite に保存(FTS5 trigram による日本語全文検索付き)
-- API は使わず、ログイン済みの無料 Web UI を DOM 操作で駆動する
+- API は使わず、無料 Web UI を DOM 操作で駆動する。**ログインなし(ゲスト)でそのまま使える**。ログインは任意
 
 ## インストール
 
-[配布サイト](https://takano32.github.io/ChatGPT-vs-Gemini/)で OS に合ったものを選ぶ([Releases](https://github.com/takano32/ChatGPT-vs-Gemini/releases) には全形式がある)。無料アカウントで ChatGPT と Gemini にログインできれば使える。
+[配布サイト](https://takano32.github.io/ChatGPT-vs-Gemini/)で OS に合ったものを選ぶ([Releases](https://github.com/takano32/ChatGPT-vs-Gemini/releases) には全形式がある)。アカウントは不要。
 
 - **macOS**: `.dmg` を開き、`ChatGPT vs Gemini` を Applications にドラッグ。Apple シリコン用(arm64)と Intel 用(x64)がある。いまは**未署名**なので初回は「開発元を確認できない」または「壊れている」と言われる。システム設定 → プライバシーとセキュリティ → 「このまま開く」で起動できる(ターミナルなら `xattr -d com.apple.quarantine "/Applications/ChatGPT vs Gemini.app"`)。
 - **Windows**: `ChatGPT-vs-Gemini-Setup-<版>.exe` を実行(ユーザー単位にインストール、管理者権限不要)。SmartScreen の「Windows によって PC が保護されました」は「詳細情報」→「実行」で進む。インストールしない portable 版、zip、msi もある。
@@ -17,9 +17,9 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 
 ## 使い方
 
-1. 初回起動時は ChatGPT / Gemini それぞれのペインで手動ログインする。セッションは保存され、次回以降は不要。未ログインのあいだは管理ペインにバナーが出る。
+1. 起動するとそのまま使える(既定はゲスト利用)。ChatGPT / Gemini のペインでログインしてもよく、ログインすると会話がサイト側の履歴に残り、利用制限が緩くなることがある。セッションは保存され、次回以降は不要。
 2. 議論テーマを入力し、▲▼ で最大ターン数(1 AI 発言 = 1 ターン)を決めて「開始」。「一時停止」「再開」「停止」で進行を制御する。
-3. 議論中はチャットペインの操作がロックされる(スクロールは可)。回答は入力欄の直上に追従表示される。
+3. 議論中はチャットペインの操作がロックされる(スクロールは可)。待機中はペインを自由に操作でき、ログインや手動のチャットもできる。回答は入力欄の直上に追従表示される。
 4. 「経過」ボタンでライブ表示と経過表示を切り替える。経過表示は発言を話者チップ付きの対話形式で並べ、Markdown としてコピーできる。
 5. ☰ メニュー
    - 設定: ターン数・先攻・ターン間待機・検知パラメータ(ポーリング/安定判定/タイムアウト)・レイアウト比率・ズーム・3 種のプロンプトテンプレート
@@ -29,10 +29,10 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 ## 注意事項
 
 - OpenAI / Google とは無関係の非公式ツール。
-- ログイン済みの Web UI を自動操作する。各サービスの利用規約は自分で確認すること。自動操作によって一時的な利用制限などアカウントへの影響が出る可能性があり、利用は自己責任で。
+- Web UI を自動操作する(ゲスト利用・ログイン利用のどちらでも)。各サービスの利用規約は自分で確認すること。自動操作によって一時的な利用制限などアカウントへの影響が出る可能性があり、利用は自己責任で。
 - チャットペインは User-Agent を Firefox として送る(Electron のままでは Google のログインが完了しないため)。
 - ChatGPT / Gemini の画面構成が変わると動かなくなる。直す場所は `src/chat/selectors.ts`。
-- 会話の本文はローカルの SQLite に平文で保存され、ログインセッションも端末に残る(消し方は「トラブルシューティング」)。
+- 会話の本文はローカルの SQLite に平文で保存され、ログインした場合はそのセッションも端末に残る(消し方は「トラブルシューティング」)。
 
 ## 対応 OS と検証状況
 
@@ -65,7 +65,7 @@ Electron の userData(Linux: `~/.config/ChatGPT vs Gemini`、macOS: `~/Library/A
 
 - **日本語が □ になる(Linux)**: CJK フォントと絵文字フォント(例: `noto-fonts-cjk`、`noto-fonts-emoji`)を入れてアプリを再起動する。
 - **起動直後にペインが白い / 読み込めない**: ネットワーク切替直後に起きやすい。自動で再読込するので少し待つ。長く続くなら一度終了して起動し直す。
-- **「未ログイン」のまま**: そのペインの中で手動ログインする。ログイン状態は次回も保持される。
+- **「ページを読み込めていません」と出る**: そのペインが ChatGPT / Gemini の画面になっていない。少し待つか、一度終了して起動し直す。ログインは必須ではない。
 - **議論が途中で止まる**: レート制限を検知すると一時停止になるので、時間を置いて「再開」(同じターンをやり直す)。応答が長すぎてタイムアウトする場合は ☰ → 設定 の「1 応答の上限」を伸ばす。
 - **設定がおかしくなった**: `settings.json` を削除すると既定値に戻る。
 - **初期化したい(別アカウントでログインし直す・履歴を消す)**: アプリを終了し、「データの保存先」のうち必要なものだけ削除する。`Partitions/` がログインセッション、`data.db`(と `-wal` / `-shm`)が履歴、`settings.json` が設定。
@@ -77,6 +77,7 @@ npm install
 npm start        # ビルドして起動
 npm run build    # tsc + アセットコピー
 npm run typecheck
+npm test         # ページ側スクリプト(executeJavaScript に渡す JS)の構文検査
 npm run pack     # 配布物の中身(release/*-unpacked/)だけ作る
 npm run dist     # 実行中の OS 向けの配布物を release/ に作る
 ```
@@ -112,6 +113,7 @@ src/
     └── api.d.ts          # shared/types のミラー(renderer ビルド用)
 scripts/
 ├── copy-assets.mjs       # HTML/CSS・chat-preload.js・アイコンを dist/ へコピー
+├── check-page-scripts.mjs # ページ側スクリプトの構文検査(npm test)
 └── smoke.mjs             # パッケージ済みアプリの認証なし起動テスト(CI 用)
 .github/workflows/
 ├── build.yml             # 共通: ランナー × アーキ × 形式のジョブでパッケージ化と起動テスト(ネイティブランナー)
