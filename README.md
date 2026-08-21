@@ -7,6 +7,14 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 - 会話ログは SQLite に保存(FTS5 trigram による日本語全文検索付き)
 - API は使わず、ログイン済みの無料 Web UI を DOM 操作で駆動する
 
+## インストール
+
+[配布サイト](https://takano32.github.io/ChatGPT-vs-Gemini/)で OS に合ったものを選ぶ([Releases](https://github.com/takano32/ChatGPT-vs-Gemini/releases) には全形式がある)。無料アカウントで ChatGPT と Gemini にログインできれば使える。
+
+- **macOS**: `.dmg` を開き、`ChatGPT vs Gemini` を Applications にドラッグ。Apple シリコン用(arm64)と Intel 用(x64)がある。いまは**未署名**なので初回は「開発元を確認できない」または「壊れている」と言われる。システム設定 → プライバシーとセキュリティ → 「このまま開く」で起動できる(ターミナルなら `xattr -d com.apple.quarantine "/Applications/ChatGPT vs Gemini.app"`)。
+- **Windows**: `ChatGPT vs Gemini Setup 0.1.0.exe` を実行(ユーザー単位にインストール、管理者権限不要)。SmartScreen の「Windows によって PC が保護されました」は「詳細情報」→「実行」で進む。インストールしない portable 版、zip、msi もある。
+- **Linux**: deb(Ubuntu / Debian)、rpm(Fedora)、pacman(Arch)のパッケージを推奨。AppImage は `chmod +x` して実行する(Chromium のサンドボックスは無効で動く)。tar.gz は展開して `chatgpt-vs-gemini` を実行。
+
 ## 使い方
 
 1. 初回起動時は ChatGPT / Gemini それぞれのペインで手動ログインする。セッションは保存され、次回以降は不要。未ログインのあいだは管理ペインにバナーが出る。
@@ -17,6 +25,24 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
    - 設定: ターン数・先攻・ターン間待機・検知パラメータ(ポーリング/安定判定/タイムアウト)・レイアウト比率・ズーム・3 種のプロンプトテンプレート
    - 履歴: 過去の議論の一覧と本文
    - 検索: 全発言の全文検索(3 文字未満は LIKE に切り替え)
+
+## 注意事項
+
+- OpenAI / Google とは無関係の非公式ツール。
+- ログイン済みの Web UI を自動操作する。各サービスの利用規約は自分で確認すること。自動操作によって一時的な利用制限などアカウントへの影響が出る可能性があり、利用は自己責任で。
+- チャットペインは User-Agent を Firefox として送る(Electron のままでは Google のログインが完了しないため)。
+- ChatGPT / Gemini の画面構成が変わると動かなくなる。直す場所は `src/chat/selectors.ts`。
+- 会話の本文はローカルの SQLite に平文で保存され、ログインセッションも端末に残る(消し方は「トラブルシューティング」)。
+
+## 対応 OS と検証状況
+
+| OS | 配布形式 | 確認状況 |
+|---|---|---|
+| Linux(x64 / arm64) | AppImage, deb, rpm, pacman, tar.gz | arm64(ChromeOS Crostini)で実機確認。x64 は CI の起動テストのみ |
+| macOS(Apple シリコン / Intel) | dmg, zip | CI の起動テストのみ。未署名 |
+| Windows(x64 / arm64) | インストーラ, portable, zip, msi(x64 のみ) | CI の起動テストのみ。未署名 |
+
+CI の起動テストはログインなしで「パッケージが起動し、DB と全文検索が動く」ところまで。実際の議論は Linux arm64 でのみ確認している。
 
 ## 動作の仕組み
 
@@ -34,6 +60,15 @@ Electron の userData(Linux: `~/.config/ChatGPT vs Gemini`、macOS: `~/Library/A
 - `settings.json` — 設定(☰ → 設定 で編集したもの)
 - `data.db` — 会話ログ(SQLite、WAL)
 - ログインセッション — `persist:chatgpt` / `persist:gemini` パーティション
+
+## トラブルシューティング
+
+- **日本語が □ になる(Linux)**: CJK フォントと絵文字フォント(例: `noto-fonts-cjk`、`noto-fonts-emoji`)を入れてアプリを再起動する。
+- **起動直後にペインが白い / 読み込めない**: ネットワーク切替直後に起きやすい。自動で再読込するので少し待つ。長く続くなら一度終了して起動し直す。
+- **「未ログイン」のまま**: そのペインの中で手動ログインする。ログイン状態は次回も保持される。
+- **議論が途中で止まる**: レート制限を検知すると一時停止になるので、時間を置いて「再開」(同じターンをやり直す)。応答が長すぎてタイムアウトする場合は ☰ → 設定 の「1 応答の上限」を伸ばす。
+- **設定がおかしくなった**: `settings.json` を削除すると既定値に戻る。
+- **初期化したい(別アカウントでログインし直す・履歴を消す)**: アプリを終了し、「データの保存先」のうち必要なものだけ削除する。`Partitions/` がログインセッション、`data.db`(と `-wal` / `-shm`)が履歴、`settings.json` が設定。
 
 ## 開発
 
@@ -76,7 +111,11 @@ src/
     ├── transcript.html / transcript.css / transcript.ts  # 経過表示
     └── api.d.ts          # shared/types のミラー(renderer ビルド用)
 scripts/
-└── copy-assets.mjs       # HTML/CSS と chat-preload.js を dist/ へコピー
+├── copy-assets.mjs       # HTML/CSS・chat-preload.js・アイコンを dist/ へコピー
+└── smoke.mjs             # パッケージ済みアプリの認証なし起動テスト(CI 用)
+.github/workflows/
+├── ci.yml                # push/PR: 3 OS で型検査・ビルド・パッケージ・起動テスト
+└── release.yml           # v* タグ: 全形式を draft Release に添付
 electron-builder.yml      # 配布物の設定(形式・対象アーキ・識別子)
 build/                    # アイコンなどのビルド資材(配布物には含まれない)
 ```
