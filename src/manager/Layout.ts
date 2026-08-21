@@ -1,5 +1,6 @@
 import { WebContentsView, shell } from 'electron';
 import type { WebContents } from 'electron';
+import { SPEAKER_LABELS } from '../shared/types';
 import { Settings } from './Settings';
 import { Window } from './Window';
 
@@ -13,6 +14,19 @@ export interface LayoutMountConfig {
 }
 
 export type PaneName = 'admin' | 'chatgpt' | 'gemini' | 'transcript';
+/** 自動復旧(再読込)の対象になるチャットペイン */
+export type ChatPaneName = 'chatgpt' | 'gemini';
+
+// 読込失敗の自動再読込の上限回数。間隔は 2, 4, 8, 16, 30, 30, ... 秒なので約 3.5 分は粘る。
+// それでも駄目なら(ネットワークが長く切れている等)通知してやめる
+const LOAD_RETRY_MAX = 10;
+// 描画プロセスが落ちたらこの時間のあとに読み込み直す
+const CRASH_RELOAD_DELAY_MS = 1000;
+// 読み込むたびに落ちるページで無限ループしないよう、この時間内に上限を超えて落ちたら再読込をやめる
+const CRASH_WINDOW_MS = 60000;
+const CRASH_RELOAD_MAX = 3;
+// 'unresponsive' のあと、この時間応答が戻らなければ('responsive' で解除)読み込み直す
+const HANG_RELOAD_AFTER_MS = 30000;
 
 // SSO ログインのポップアップをアプリ内(同一 partition)で許可するホスト。
 // 完全一致またはドットサフィックス一致。
@@ -53,10 +67,23 @@ export class Layout {
   private readonly window: Window;
   private readonly settings: Settings;
   private views: Partial<Record<PaneName, WebContentsView>> = {};
+  /**
+   * チャットペインの自動復旧(読込失敗・異常終了・ハングの再読込、証明書エラー)の通知先。
+   * message は利用者向けの日本語 1 行。Application が管理ペインのログに WARN で流す
+   */
+  onPaneNotice: ((pane: ChatPaneName, message: string) => void) | null = null;
 
   constructor(window: Window, settings: Settings) {
     this.window = window;
     this.settings = settings;
+  }
+
+  private notify(pane: ChatPaneName, message: string): void {
+    try {
+      if (this.onPaneNotice) this.onPaneNotice(pane, message);
+    } catch {
+      // 通知先の失敗でペインの復旧を止めない
+    }
   }
 
   mount(config: LayoutMountConfig): void {
@@ -78,11 +105,13 @@ export class Layout {
     this.views.admin = admin;
 
     this.views.chatgpt = this.createChatView(
+      'chatgpt',
       config.chatgpt.url,
       config.chatgpt.partition,
       config.chatPreload,
     );
     this.views.gemini = this.createChatView(
+      'gemini',
       config.gemini.url,
       config.gemini.partition,
       config.chatPreload,
@@ -139,7 +168,12 @@ export class Layout {
     return t ? t.getVisible() : false;
   }
 
-  private createChatView(url: string, partition: string, preload: string): WebContentsView {
+  private createChatView(
+    pane: ChatPaneName,
+    url: string,
+    partition: string,
+    preload: string,
+  ): WebContentsView {
     const view = new WebContentsView({
       webPreferences: {
         partition,
@@ -150,7 +184,7 @@ export class Layout {
       },
     });
     const wc = view.webContents;
-    this.hardenChatContents(wc, partition.replace('persist:', ''));
+    this.hardenChatContents(wc, pane);
     // 遷移でズームがリセットされ得るため、読み込み完了ごとに再適用
     wc.on('did-finish-load', () => {
       const z = Math.min(3, Math.max(0.25, this.settings.get().layout.chatZoom || 1));
@@ -158,19 +192,38 @@ export class Layout {
     });
     // ログイン画面へのリダイレクト等で reject し得るため握りつぶす
     void wc.loadURL(url).catch(() => {});
-    this.reloadOnLoadFailure(wc, url);
+    // 自動復旧。いずれも何が起きて次に何をするかを onPaneNotice で知らせる
+    this.reloadOnLoadFailure(wc, pane, url);
+    this.reloadOnCrashOrHang(wc, pane);
+    this.noticeCertificateError(wc, pane);
     return view;
   }
 
   // メインフレームの読み込みが失敗したら(起動直後のネットワーク切替等、実測: ERR_NETWORK_CHANGED)
-  // エラーページのまま放置せず、指数バックオフで再読込する。成功したらバックオフを戻す。
-  private reloadOnLoadFailure(wc: WebContents, url: string): void {
+  // エラーページのまま放置せず、指数バックオフで再読込する。成功したら回数を戻す。
+  // 上限まで再読込しても駄目なら、それ以上は試さずに通知だけ出す(起動し直しを案内)
+  private reloadOnLoadFailure(wc: WebContents, pane: ChatPaneName, url: string): void {
+    const name = SPEAKER_LABELS[pane];
     let failures = 0;
     let timer: NodeJS.Timeout | null = null;
-    wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
+    wc.on('did-fail-load', (_e, code, desc, _url, isMainFrame) => {
       if (!isMainFrame || code === -3 /* ABORTED はリダイレクトで頻発する正常系 */) return;
       failures += 1;
+      const reason = desc || String(code); // desc は ERR_NETWORK_CHANGED のような名前
+      if (failures > LOAD_RETRY_MAX) {
+        this.notify(
+          pane,
+          `${name} のページを ${LOAD_RETRY_MAX} 回再読込しても読み込めませんでした(${reason})。` +
+            '自動の再読込をやめます。ネットワークを確認し、アプリを終了して起動し直してください',
+        );
+        return;
+      }
       const delay = Math.min(30000, 2000 * 2 ** Math.min(failures - 1, 4));
+      this.notify(
+        pane,
+        `${name} のページを読み込めませんでした(${reason})。` +
+          `${delay / 1000} 秒後に再読込します(${failures}/${LOAD_RETRY_MAX} 回目)`,
+      );
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         timer = null;
@@ -184,6 +237,93 @@ export class Layout {
     });
     wc.on('destroyed', () => {
       if (timer) clearTimeout(timer);
+    });
+  }
+
+  // 描画プロセスが落ちたら少し待って読み込み直す。ハングが一定時間続いたらプロセスを止めて読み込み直す。
+  // 読み込むたびに落ちるページで無限ループしないよう、短時間に繰り返したら再読込をやめて通知する
+  private reloadOnCrashOrHang(wc: WebContents, pane: ChatPaneName): void {
+    const name = SPEAKER_LABELS[pane];
+    let recentCrashes: number[] = []; // 直近 CRASH_WINDOW_MS 内に落ちた時刻
+    let reloadTimer: NodeJS.Timeout | null = null;
+    let hangTimer: NodeJS.Timeout | null = null;
+    // ハング解消のためにこちらから止めた終了は、異常終了として数えない(reload も自分で呼ぶ)
+    let killedForHang = false;
+
+    const cancelHangTimer = (): void => {
+      if (hangTimer) clearTimeout(hangTimer);
+      hangTimer = null;
+    };
+
+    wc.on('render-process-gone', (_e, details) => {
+      cancelHangTimer(); // 落ちたプロセスのハング計測は無意味(新しいプロセスを誤って止めない)
+      if (details.reason === 'clean-exit') return;
+      if (killedForHang) {
+        killedForHang = false;
+        return;
+      }
+      const now = Date.now();
+      recentCrashes = recentCrashes.filter((t) => now - t <= CRASH_WINDOW_MS);
+      recentCrashes.push(now);
+      if (recentCrashes.length > CRASH_RELOAD_MAX) {
+        this.notify(
+          pane,
+          `${name} の画面が ${CRASH_WINDOW_MS / 1000} 秒間に ${recentCrashes.length} 回止まりました(${details.reason})。` +
+            'しばらく再読込を見合わせます。続くようならアプリを終了して起動し直してください',
+        );
+        return;
+      }
+      this.notify(
+        pane,
+        `${name} の画面が予期せず終了しました(${details.reason})。` +
+          `${CRASH_RELOAD_DELAY_MS / 1000} 秒後に読み込み直します`,
+      );
+      if (reloadTimer) clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => {
+        reloadTimer = null;
+        if (!wc.isDestroyed()) wc.reload();
+      }, CRASH_RELOAD_DELAY_MS);
+    });
+
+    wc.on('unresponsive', () => {
+      if (hangTimer) return; // 計測中
+      hangTimer = setTimeout(() => {
+        hangTimer = null;
+        // 既に落ちていれば render-process-gone 側で読み込み直す
+        if (wc.isDestroyed() || wc.isCrashed()) return;
+        this.notify(
+          pane,
+          `${name} の画面が ${HANG_RELOAD_AFTER_MS / 1000} 秒以上応答しないため、読み込み直します`,
+        );
+        // ハングした描画プロセスは reload に応じられないので、Electron のドキュメントにある
+        // unresponsive からの回復手順どおり、プロセスを止めてから reload する(新しいプロセスで読み込まれる)
+        killedForHang = true;
+        wc.forcefullyCrashRenderer();
+        wc.reload();
+      }, HANG_RELOAD_AFTER_MS);
+    });
+    wc.on('responsive', cancelHangTimer);
+    wc.on('did-finish-load', () => {
+      // 読み込みを終えられた = 応答している。こちらから止めた終了の印もここで消す
+      cancelHangTimer();
+      killedForHang = false;
+    });
+    wc.on('destroyed', () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      cancelHangTimer();
+    });
+  }
+
+  // 証明書エラーは Electron の既定どおり拒否する(callback を呼ばなければ拒否)。黙って失敗させず通知だけ出す。
+  // 続けて did-fail-load(ERR_CERT_*)が来るので、再読込は reloadOnLoadFailure に任せる
+  private noticeCertificateError(wc: WebContents, pane: ChatPaneName): void {
+    wc.on('certificate-error', (_e, _url, error, _cert, _callback, isMainFrame) => {
+      if (!isMainFrame) return;
+      this.notify(
+        pane,
+        `${SPEAKER_LABELS[pane]} の証明書エラー(${error})のため、このページの表示を中止しました。` +
+          'パソコンの日時や Wi-Fi の利用登録を確認してください',
+      );
     });
   }
 

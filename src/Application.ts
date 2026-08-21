@@ -193,6 +193,20 @@ export class Application {
       this.renderTranscript(m.conversationId);
     });
     this.runner.on('log', (l: LogEntry) => this.sendToAdmin(IPC.evLog, l));
+    // チャットペインの自動復旧(読込失敗・異常終了・ハングの再読込、証明書エラー)の通知。
+    // 議論の進行とは別の話なので Runner の log は通さず、そのまま管理ペインのログに WARN で出す
+    // 管理ペインが購読を始める前(起動直後のオフライン等)に来た通知は捨てずに溜め、読込完了後に流す
+    const admin = this.manager.layout.view('admin').webContents;
+    const pending: LogEntry[] = [];
+    admin.once('did-finish-load', () => {
+      for (const e of pending) this.sendToAdmin(IPC.evLog, e);
+      pending.length = 0;
+    });
+    this.manager.layout.onPaneNotice = (_pane, message) => {
+      const entry: LogEntry = { level: 'warn', message, ts: new Date().toISOString() };
+      if (admin.isLoading()) pending.push(entry);
+      else this.sendToAdmin(IPC.evLog, entry);
+    };
   }
 
   private renderTranscript(conversationId: number): void {
