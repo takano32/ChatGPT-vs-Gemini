@@ -385,7 +385,7 @@
             chatZoom: Math.min(3, Math.max(0.25, numVal(inChatZoom, cur.layout.chatZoom))),
           },
           debate: {
-            maxTurns: Math.max(1, Math.floor(numVal(inMaxTurns, cur.debate.maxTurns))),
+            maxTurns: Math.min(99, Math.max(1, Math.floor(numVal(inMaxTurns, cur.debate.maxTurns)))),
             firstSpeaker: selFirstSpeaker.value === 'gemini' ? 'gemini' : 'chatgpt',
             openingTemplate: taOpening.value,
             counterTemplate: taCounter.value,
