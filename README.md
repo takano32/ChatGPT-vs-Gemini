@@ -114,7 +114,7 @@ scripts/
 ├── copy-assets.mjs       # HTML/CSS・chat-preload.js・アイコンを dist/ へコピー
 └── smoke.mjs             # パッケージ済みアプリの認証なし起動テスト(CI 用)
 .github/workflows/
-├── build.yml             # 共通: OS × アーキの 6 ジョブでパッケージ化と起動テスト(ネイティブランナー)
+├── build.yml             # 共通: ランナー × アーキ × 形式のジョブでパッケージ化と起動テスト(ネイティブランナー)
 ├── ci.yml                # push/PR: build.yml を呼ぶ(main への push は全形式を Artifacts に)
 ├── release.yml           # v* タグ: build.yml → 最終ジョブが全成果物を draft Release に添付
 └── pages.yml             # docs/ を GitHub Pages へ

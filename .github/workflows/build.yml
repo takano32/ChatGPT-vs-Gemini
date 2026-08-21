@@ -1,4 +1,4 @@
-# 共通ビルド(ci.yml / release.yml から呼ぶ)。OS × アーキの 6 ジョブを並列に走らせ、
+# 共通ビルド(ci.yml / release.yml から呼ぶ)。ランナー × アーキ × 形式のジョブを並列に走らせ、
 # それぞれネイティブのランナーでパッケージ化→認証なしスモーク→Artifacts へ。Release には触らない。
 # actions はメジャータグ、Node は lts/*、ランナーは最新に追従する(メジャー更新時だけ手で上げる)。
 name: Build
@@ -18,18 +18,28 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    env:
-      XZ_DEFAULTS: -T0   # deb の xz 圧縮(fpm が tar -J で呼ぶ)を全コアで行う
     strategy:
       fail-fast: false
+      # 1 行 = 1 ジョブ = ランナー × アーキ × 形式の組。
+      # Linux は形式ごとに分けている: electron-builder は deb → rpm → pacman を 1 プロセス内で直列に作り
+      # 圧縮が律速になるため。1 アーキ 1 ジョブに戻すときは 4 行を targets "AppImage deb rpm pacman tar.gz" の
+      # 1 行にまとめ、smoke を true にするだけでよい。
+      # smoke: 認証なし起動テスト(scripts/smoke.mjs)。同じ unpacked を複数ジョブで試しても意味がないので
+      #        Linux はアーキごとに 1 ジョブ(AppImage 担当)でだけ行う。
       matrix:
         include:
-          - { name: linux-x64,     os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: AppImage deb rpm pacman tar.gz }
-          - { name: linux-arm64,   os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: AppImage deb rpm pacman tar.gz }
-          - { name: mac-arm64,     os: macos-latest,     platform: --mac,   arch: --arm64, targets: dmg zip }
-          - { name: mac-x64,       os: macos-15-intel,   platform: --mac,   arch: --x64,   targets: dmg zip }
-          - { name: windows-x64,   os: windows-latest,   platform: --win,   arch: --x64,   targets: nsis portable zip msi }
-          - { name: windows-arm64, os: windows-11-arm,   platform: --win,   arch: --arm64, targets: nsis portable zip }  # 同梱 WiX が arm64 未対応のため msi なし
+          - { name: linux-x64-appimage,   os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: AppImage tar.gz, smoke: true }
+          - { name: linux-x64-deb,        os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: deb,             smoke: false }
+          - { name: linux-x64-rpm,        os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: rpm,             smoke: false }
+          - { name: linux-x64-pacman,     os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: pacman,          smoke: false }
+          - { name: linux-arm64-appimage, os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: AppImage tar.gz, smoke: true }
+          - { name: linux-arm64-deb,      os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: deb,             smoke: false }
+          - { name: linux-arm64-rpm,      os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: rpm,             smoke: false }
+          - { name: linux-arm64-pacman,   os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: pacman,          smoke: false }
+          - { name: mac-arm64,            os: macos-latest,     platform: --mac,   arch: --arm64, targets: dmg zip,         smoke: true }
+          - { name: mac-x64,              os: macos-15-intel,   platform: --mac,   arch: --x64,   targets: dmg zip,         smoke: true }
+          - { name: windows-x64,          os: windows-latest,   platform: --win,   arch: --x64,   targets: nsis portable zip msi, smoke: true }
+          - { name: windows-arm64,        os: windows-11-arm,   platform: --win,   arch: --arm64, targets: nsis portable zip,     smoke: true }  # 同梱 WiX が arm64 未対応のため msi なし
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -48,13 +58,13 @@ jobs:
         if: inputs.full
         run: npx electron-builder ${{ matrix.platform }} ${{ matrix.targets }} ${{ matrix.arch }} --publish never
       - name: Pack (unpacked app only)
-        if: ${{ !inputs.full }}
+        if: ${{ !inputs.full && matrix.smoke }}
         run: npx electron-builder ${{ matrix.platform }} dir ${{ matrix.arch }} --publish never
       - name: Smoke test (Linux, under Xvfb)
-        if: runner.os == 'Linux'
+        if: ${{ matrix.smoke && runner.os == 'Linux' }}
         run: xvfb-run -a node scripts/smoke.mjs
       - name: Smoke test
-        if: runner.os != 'Linux'
+        if: ${{ matrix.smoke && runner.os != 'Linux' }}
         run: node scripts/smoke.mjs
       - uses: actions/upload-artifact@v7
         if: inputs.full
