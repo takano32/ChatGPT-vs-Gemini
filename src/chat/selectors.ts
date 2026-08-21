@@ -56,6 +56,10 @@ export const CHATGPT_SELECTORS: SiteSelectors = {
     '上限に達しました',
     'Too many requests',
     'unusual activity',
+    // ゲストの送信上限(2026-08-21 実測): 「Message limit reached / You have reached the anonymous message limit.」
+    // 入力欄が disabled になり、応答要素は空のまま残る
+    'anonymous message limit',
+    'Message limit reached',
   ],
   errorPatterns: ['Something went wrong', '問題が発生しました', 'エラーが発生しました'],
   authCookiePrefix: '__Secure-next-auth.session-token', // 実測: @.chatgpt.com

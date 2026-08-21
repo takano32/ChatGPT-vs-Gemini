@@ -372,6 +372,10 @@ export abstract class Chat {
         `${this.displayName} の入力欄が見つかりません。下のパネルでページの状態を確認してください`,
       );
     }
+    // 送信前に制限文言を見る(ゲストの送信上限では入力欄が無効化され、文字が入らず送信失敗に化けるため)
+    if (await this.isRateLimited()) {
+      throw new ChatError('rate-limited', this.displayName);
+    }
 
     const baseline = await this.captureBaseline();
 
