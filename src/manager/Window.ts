@@ -1,4 +1,5 @@
-import { BaseWindow } from 'electron';
+import { BaseWindow, app } from 'electron';
+import * as path from 'path';
 import { EventEmitter } from 'events';
 import { Settings } from './Settings';
 
@@ -21,6 +22,8 @@ export class Window extends EventEmitter {
       minWidth: 1000,
       minHeight: 700,
       title: 'ChatGPT vs Gemini',
+      // macOS はバンドルのアイコンが使われる。Linux/Windows はウィンドウに明示する
+      ...(process.platform === 'darwin' ? {} : { icon: path.join(app.getAppPath(), 'dist/icon.png') }),
     });
     this.win = win;
 
