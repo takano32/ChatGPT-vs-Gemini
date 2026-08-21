@@ -104,7 +104,7 @@ export class Runner extends EventEmitter {
     this.state = 'running';
     let conversation: Conversation;
     try {
-      conversation = new Conversation(this.repository.createConversation(topic));
+      conversation = new Conversation(this.repository.createConversation(topic, debate.maxTurns));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.state = 'error';

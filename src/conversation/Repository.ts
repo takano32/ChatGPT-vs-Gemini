@@ -15,6 +15,7 @@ interface ConversationRow {
   status: string;
   created_at: string;
   updated_at: string;
+  max_turns: number | null;
 }
 
 interface MessageRow {
@@ -36,7 +37,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   title TEXT NOT NULL,
   status TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  max_turns INTEGER
 );
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +49,22 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 `;
+
+// スキーマの版管理。既存 DB への変更(列追加など)はここに追記し、init() が PRAGMA user_version を見て
+// 未適用のものだけ順に当てる。新規 DB は SCHEMA_SQL で最終形を作るので、各移行は冪等に書く。
+type Db = InstanceType<typeof Database>;
+function hasColumn(db: Db, table: string, column: string): boolean {
+  const cols = db.pragma(`table_info(${table})`) as Array<{ name: string }>;
+  return cols.some((c) => c.name === column);
+}
+const MIGRATIONS: Array<(db: Db) => void> = [
+  // v1: 会話ごとの最大ターン数(経過ビュー・Markdown の (n/N) を、その会話で使った値にする)
+  (db) => {
+    if (!hasColumn(db, 'conversations', 'max_turns')) {
+      db.exec('ALTER TABLE conversations ADD COLUMN max_turns INTEGER');
+    }
+  },
+];
 
 // FTS5 external content パターン(trigram で日本語 3 文字以上の部分一致に対応)
 const FTS_SQL = `
@@ -105,13 +123,22 @@ export class Repository {
       );
     }
 
+    const version = Number(this.db.pragma('user_version', { simple: true }));
+    if (version < MIGRATIONS.length) {
+      const db = this.db;
+      db.transaction(() => {
+        for (let v = version; v < MIGRATIONS.length; v++) MIGRATIONS[v]!(db);
+        db.pragma(`user_version = ${MIGRATIONS.length}`);
+      })();
+    }
+
     // 前回クラッシュ等で残った実行中状態を復旧(v1 は再起動後の再開を保証しない)
     this.db
       .prepare("UPDATE conversations SET status = 'stopped' WHERE status IN ('running', 'paused')")
       .run();
 
     this.stmtInsertConversation = this.db.prepare(
-      'INSERT INTO conversations (title, status, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      'INSERT INTO conversations (title, status, created_at, updated_at, max_turns) VALUES (?, ?, ?, ?, ?)',
     );
     this.stmtUpdateStatus = this.db.prepare(
       'UPDATE conversations SET status = ?, updated_at = ? WHERE id = ?',
@@ -123,7 +150,7 @@ export class Repository {
       'INSERT INTO messages (conversation_id, speaker, content, created_at) VALUES (?, ?, ?, ?)',
     );
     this.stmtListConversations = this.db.prepare(
-      'SELECT id, title, status, created_at, updated_at FROM conversations ORDER BY updated_at DESC',
+      'SELECT id, title, status, created_at, updated_at, max_turns FROM conversations ORDER BY updated_at DESC',
     );
     this.stmtGetMessages = this.db.prepare(
       'SELECT id, conversation_id, speaker, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC',
@@ -162,15 +189,16 @@ export class Repository {
     );
   }
 
-  createConversation(title: string): ConversationRecord {
+  createConversation(title: string, maxTurns: number): ConversationRecord {
     const now = new Date().toISOString();
-    const info = this.stmtInsertConversation.run(title, 'running', now, now);
+    const info = this.stmtInsertConversation.run(title, 'running', now, now, maxTurns);
     return {
       id: Number(info.lastInsertRowid),
       title,
       status: 'running',
       createdAt: now,
       updatedAt: now,
+      maxTurns,
     };
   }
 
@@ -241,6 +269,7 @@ export class Repository {
       status: row.status as ConversationStatus,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      maxTurns: row.max_turns ?? null,
     };
   }
 

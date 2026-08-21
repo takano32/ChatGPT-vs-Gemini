@@ -22,6 +22,8 @@ export interface ConversationRecord {
   status: ConversationStatus;
   createdAt: string; // ISO 8601
   updatedAt: string;
+  /** 開始時の最大ターン数。列追加前に作られた会話は null */
+  maxTurns: number | null;
 }
 
 export interface MessageRecord {

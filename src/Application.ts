@@ -164,7 +164,7 @@ export class Application {
       const conv = this.repository.listConversations().find((c) => c.id === conversationId);
       const messages = this.repository.getMessages(conversationId);
       if (messages.length === 0) return false;
-      const maxTurns = this.manager.settings.get().debate.maxTurns;
+      const maxTurns = conv?.maxTurns ?? Math.max(messages.length, 1); // 旧データは n/n
       const emoji: Record<string, string> = { chatgpt: '🟢', gemini: '🔵' };
       const label: Record<string, string> = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
       const parts: string[] = [];
@@ -216,7 +216,8 @@ export class Application {
         conversationId,
         title: conv ? conv.title : '',
         status: conv ? conv.status : null,
-        maxTurns: this.manager.settings.get().debate.maxTurns,
+        // その会話で使った上限。列追加前の会話は発言数を上限として表示する
+        maxTurns: conv?.maxTurns ?? Math.max(messages.length, 1),
         messages,
       };
       this.manager.layout.view('transcript').webContents.send(IPC.evTranscript, payload);

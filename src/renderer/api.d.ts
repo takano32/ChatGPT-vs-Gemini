@@ -14,6 +14,7 @@ interface ConversationRecord {
   status: ConversationStatus;
   createdAt: string; // ISO 8601
   updatedAt: string;
+  maxTurns: number | null;
 }
 
 interface MessageRecord {
