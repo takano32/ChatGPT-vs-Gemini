@@ -15,6 +15,9 @@ export interface SiteSelectors {
   // ゲスト(未ログイン)利用中にサイトが出すログイン要求ダイアログを閉じるボタンの文言(部分一致、大小無視)。
   // 両サイトともログインなしで使える(2026-08-21 実測)。ダイアログは実測では出なかったが備えておく。
   dismissPatterns: string[];
+  // ゲスト(未ログイン)利用中にサイトが出す勧誘要素のうち、隠してよいものの文言(部分一致、大小無視)。
+  // 文言を含む最小のカード/トーストを display:none にする。ログインの入口(ヘッダーのボタン)は対象にしない。
+  hidePatterns: string[];
   rateLimitPatterns: string[]; // 本文に現れる制限文言(ja/en 両方)
   // 応答の代わりにエラー吹き出しが応答要素として描画されたときの文言(ja/en)。
   // 実測: ChatGPT は会話リクエストが失敗すると assistant ロールの要素に
@@ -43,6 +46,9 @@ export const CHATGPT_SELECTORS: SiteSelectors = {
   assistantMessages: '[data-message-author-role="assistant"], li[data-message-role="assistant"]',
   messageContent: '.markdown, [data-assistant-markdown]', // 変種の li は読み上げ用「ChatGPT said:」を含むため本文だけ取る
   dismissPatterns: ['Stay logged out', 'ログアウトしたまま', 'ログインせずに'],
+  // 実測(2026-08-21): トースト「You'll get smarter responses…」とサイドバーのカード「Get responses tailored to you」。
+  // ヘッダーの「Log in」「Sign up for free」はログインの入口なので残す
+  hidePatterns: ['smarter responses', 'Get responses tailored to you'],
   rateLimitPatterns: [
     'You have reached',
     'You’ve reached',
@@ -66,6 +72,7 @@ export const GEMINI_SELECTORS: SiteSelectors = {
   stopButton: 'button[aria-label="回答を停止"], button:has(mat-icon[fonticon="stop"])',
   assistantMessages: 'message-content', // 応答のみ(ユーザ発言は別要素)
   dismissPatterns: ['Not now', '後で', 'ログインせずに', 'Continue without'],
+  hidePatterns: [], // 実測では常設の勧誘はヘッダーの「Sign in」のみ(残す)
   rateLimitPatterns: ['しばらくしてからもう一度', 'try again later', '上限に達しました'],
   errorPatterns: ['問題が発生しました', 'Something went wrong', 'もう一度お試しください'],
   authCookiePrefix: '__Secure-1PSID', // 実測: @.google.com(Google セッション)

@@ -153,6 +153,51 @@ export abstract class Chat {
     return ok === true;
   }
 
+  // ゲスト UI の片付け(ページ常駐)。hidePatterns の文言を含む最小のカード/トーストを隠す。
+  // 入力欄・応答一覧・header/nav/main を含む要素は隠さない(ログインの入口も残る)。
+  // MutationObserver で変化のたびに(300ms に 1 回まで)適用する。状態は window.__cvgTidy(遷移で消える)。
+  async ensureTidy(): Promise<void> {
+    const s = this.selectors;
+    if (s.hidePatterns.length === 0) return;
+    await this.js(
+      `(() => {
+        if (window.__cvgTidy) return true;
+        const HIDE = ${JSON.stringify(s.hidePatterns.map((p) => p.toLowerCase()))};
+        const INPUT = ${JSON.stringify(s.input)};
+        const MSG = ${JSON.stringify(s.assistantMessages)};
+        const st = { timer: 0 };
+        window.__cvgTidy = st;
+        const textOf = (e) => (e.innerText || '').replace(/\s+/g, ' ').trim();
+        const isProtected = (e) =>
+          e === document.body || e === document.documentElement ||
+          e.matches('main, header, nav, form') || e.querySelector(INPUT) || e.querySelector(MSG);
+        const hideNags = () => {
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          let n;
+          while ((n = walker.nextNode())) {
+            const t = n.textContent.toLowerCase();
+            if (!HIDE.some((p) => t.includes(p))) continue;
+            let el = n.parentElement;
+            if (!el || el.style.display === 'none') continue;
+            // カードの境界まで上る: 親の本文が短い(300 文字未満)あいだは同じカードとみなす
+            while (el.parentElement && !isProtected(el.parentElement) && textOf(el.parentElement).length < 300) {
+              el = el.parentElement;
+            }
+            if (isProtected(el)) continue;
+            el.style.setProperty('display', 'none', 'important');
+          }
+        };
+        const run = () => { st.timer = 0; try { hideNags(); } catch (e) {} };
+        const schedule = () => { if (!st.timer) st.timer = setTimeout(run, 300); };
+        new MutationObserver(schedule).observe(document.documentElement, {
+          childList: true, subtree: true, characterData: true,
+        });
+        schedule();
+        return true;
+      })()`,
+    );
+  }
+
   // ゲスト利用中にサイトが出すログイン要求ダイアログを閉じる。閉じたら true。
   private async dismissLoginNag(): Promise<boolean> {
     const patterns = this.selectors.dismissPatterns.map((p) => p.toLowerCase());

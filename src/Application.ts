@@ -277,6 +277,9 @@ export class Application {
     const [chatgpt, gemini] = await Promise.all([probe(this.chatGPT), probe(this.gemini)]);
     // 遷移や再読込でページ側のロック状態が剥がれることがあるので、現在の議論状態を定期的に再適用する
     this.applyInteractionLock(this.runner.status.state);
+    // ゲスト UI の片付け(勧誘要素を隠す)。遷移で消えるので ready のたびに入れ直す(入っていれば何もしない)
+    if (chatgpt.ready) void this.chatGPT.ensureTidy();
+    if (gemini.ready) void this.gemini.ensureTidy();
     return { chatgpt, gemini };
   }
 
