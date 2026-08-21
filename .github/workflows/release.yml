@@ -14,7 +14,7 @@ jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
-      full: true
+      upload: true
       retention-days: 14
 
   publish:

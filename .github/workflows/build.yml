@@ -1,10 +1,12 @@
 # 共通ビルド(ci.yml / release.yml から呼ぶ)。Release には触らず Artifacts に置くだけ。
 # ランナーはバージョンを書かない *-latest の 3 種だけを使い、もう片方のアーキはクロスビルドする
 # (Electron も better-sqlite3 も配布済みバイナリなのでツールチェーン不要)。
+# PR でも全形式を作る(Dependabot の electron / electron-builder 更新で配布物の段階だけが壊れるのを
+# マージ前に見つけるため)。Artifacts への保存だけ upload 入力で制御する。
 # - build:          OS × アーキの 6 ジョブ。パッケージ化 → 認証なし起動スモーク(scripts/smoke.mjs)。
 #                   スモークはランナーのアーキと一致するジョブでだけ動く(x64 Linux/Windows、arm64 mac)。
 #                   Linux はここでは AppImage と tar.gz だけ作る。
-# - linux-packages: deb / rpm / pacman × 2 アーキの 6 ジョブ(full のときだけ)。electron-builder はこれらを
+# - linux-packages: deb / rpm / pacman × 2 アーキの 6 ジョブ。electron-builder はこれらを
 #                   1 プロセス内で直列に作り圧縮が律速になるため、形式ごとに分けて並列化している。
 #                   1 アーキ 1 ジョブに戻すときは、このジョブを消して build の Linux 行の targets に
 #                   "deb rpm pacman" を足すだけでよい。
@@ -14,8 +16,8 @@ name: Build
 on:
   workflow_call:
     inputs:
-      full:
-        description: 全形式を作って Artifacts に残す(false なら unpacked とスモークだけ)
+      upload:
+        description: 成果物を Artifacts に残す(PR では false)
         type: boolean
         default: true
       retention-days:
@@ -51,11 +53,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - name: Build distributables
-        if: inputs.full
         run: npx electron-builder ${{ matrix.platform }} ${{ matrix.targets }} --${{ matrix.arch }} --publish never
-      - name: Pack (unpacked app only)
-        if: ${{ !inputs.full }}
-        run: npx electron-builder ${{ matrix.platform }} dir --${{ matrix.arch }} --publish never
       # クロスビルドしたアーキは起動できないので、ランナーのアーキと一致するときだけスモークを走らせる
       - name: Smoke test (Linux, under Xvfb)
         if: runner.os == 'Linux' && ((matrix.arch == 'x64' && runner.arch == 'X64') || (matrix.arch == 'arm64' && runner.arch == 'ARM64'))
@@ -64,7 +62,7 @@ jobs:
         if: runner.os != 'Linux' && ((matrix.arch == 'x64' && runner.arch == 'X64') || (matrix.arch == 'arm64' && runner.arch == 'ARM64'))
         run: node scripts/smoke.mjs
       - uses: actions/upload-artifact@v7
-        if: inputs.full
+        if: inputs.upload
         with:
           name: ${{ matrix.name }}
           retention-days: ${{ inputs.retention-days }}
@@ -79,7 +77,6 @@ jobs:
 
   linux-packages:
     name: ${{ matrix.name }}
-    if: inputs.full
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -106,6 +103,7 @@ jobs:
       - run: npm run build
       - run: npx electron-builder --linux ${{ matrix.target }} --${{ matrix.arch }} --publish never
       - uses: actions/upload-artifact@v7
+        if: inputs.upload
         with:
           name: ${{ matrix.name }}
           retention-days: ${{ inputs.retention-days }}
