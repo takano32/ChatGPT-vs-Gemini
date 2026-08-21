@@ -1,4 +1,4 @@
-# v* タグの push で 6 ターゲットを並列ビルドし、最後の 1 ジョブが全部集めて draft Release を作る
+# v* タグの push で build.yml の全ジョブを並列に走らせ、最後の 1 ジョブが Artifacts を全部集めて draft Release を作る
 # (公開は人が行う)。手動実行(workflow_dispatch)ではビルドと Artifacts だけで Release には触らない。
 name: Release
 

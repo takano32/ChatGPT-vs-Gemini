@@ -1,5 +1,10 @@
-# 共通ビルド(ci.yml / release.yml から呼ぶ)。ランナー × アーキ × 形式のジョブを並列に走らせ、
-# それぞれネイティブのランナーでパッケージ化→認証なしスモーク→Artifacts へ。Release には触らない。
+# 共通ビルド(ci.yml / release.yml から呼ぶ)。Release には触らず Artifacts に置くだけ。
+# - build:          ランナー × アーキの 6 ジョブ。パッケージ化 → 認証なし起動スモーク(scripts/smoke.mjs)。
+#                   Linux はここでは AppImage と tar.gz だけ作る。
+# - linux-packages: deb / rpm / pacman × 2 アーキの 6 ジョブ(full のときだけ)。electron-builder はこれらを
+#                   1 プロセス内で直列に作り圧縮が律速になるため、形式ごとに分けて並列化している。
+#                   1 アーキ 1 ジョブに戻すときは、このジョブを消して build の Linux 行の targets に
+#                   "deb rpm pacman" を足すだけでよい。
 # actions はメジャータグ、Node は lts/*、ランナーは最新に追従する(メジャー更新時だけ手で上げる)。
 name: Build
 
@@ -20,51 +25,39 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      # 1 行 = 1 ジョブ = ランナー × アーキ × 形式の組。
-      # Linux は形式ごとに分けている: electron-builder は deb → rpm → pacman を 1 プロセス内で直列に作り
-      # 圧縮が律速になるため。1 アーキ 1 ジョブに戻すときは 4 行を targets "AppImage deb rpm pacman tar.gz" の
-      # 1 行にまとめ、smoke を true にするだけでよい。
-      # smoke: 認証なし起動テスト(scripts/smoke.mjs)。同じ unpacked を複数ジョブで試しても意味がないので
-      #        Linux はアーキごとに 1 ジョブ(AppImage 担当)でだけ行う。
       matrix:
         include:
-          - { name: linux-x64-appimage,   os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: AppImage tar.gz, smoke: true }
-          - { name: linux-x64-deb,        os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: deb,             smoke: false }
-          - { name: linux-x64-rpm,        os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: rpm,             smoke: false }
-          - { name: linux-x64-pacman,     os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: pacman,          smoke: false }
-          - { name: linux-arm64-appimage, os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: AppImage tar.gz, smoke: true }
-          - { name: linux-arm64-deb,      os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: deb,             smoke: false }
-          - { name: linux-arm64-rpm,      os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: rpm,             smoke: false }
-          - { name: linux-arm64-pacman,   os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: pacman,          smoke: false }
-          - { name: mac-arm64,            os: macos-latest,     platform: --mac,   arch: --arm64, targets: dmg zip,         smoke: true }
-          - { name: mac-x64,              os: macos-15-intel,   platform: --mac,   arch: --x64,   targets: dmg zip,         smoke: true }
-          - { name: windows-x64,          os: windows-latest,   platform: --win,   arch: --x64,   targets: nsis portable zip msi, smoke: true }
-          - { name: windows-arm64,        os: windows-11-arm,   platform: --win,   arch: --arm64, targets: nsis portable zip,     smoke: true }  # 同梱 WiX が arm64 未対応のため msi なし
+          - { name: linux-x64,     os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: AppImage tar.gz }
+          - { name: linux-arm64,   os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: AppImage tar.gz }
+          - { name: mac-arm64,     os: macos-latest,     platform: --mac,   arch: --arm64, targets: dmg zip }
+          - { name: mac-x64,       os: macos-26-intel,   platform: --mac,   arch: --x64,   targets: dmg zip }
+          - { name: windows-x64,   os: windows-latest,   platform: --win,   arch: --x64,   targets: nsis portable zip msi }
+          - { name: windows-arm64, os: windows-11-arm,   platform: --win,   arch: --arm64, targets: nsis portable zip }  # 同梱 WiX が arm64 未対応のため msi なし
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: npm
-      - name: Install Linux packaging tools (rpm, pacman, Xvfb)
+      - name: Install Xvfb for the smoke test
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends rpm libarchive-tools xvfb
+          sudo apt-get install -y --no-install-recommends xvfb
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      - name: Build all distributables
+      - name: Build distributables
         if: inputs.full
         run: npx electron-builder ${{ matrix.platform }} ${{ matrix.targets }} ${{ matrix.arch }} --publish never
       - name: Pack (unpacked app only)
-        if: ${{ !inputs.full && matrix.smoke }}
+        if: ${{ !inputs.full }}
         run: npx electron-builder ${{ matrix.platform }} dir ${{ matrix.arch }} --publish never
       - name: Smoke test (Linux, under Xvfb)
-        if: ${{ matrix.smoke && runner.os == 'Linux' }}
+        if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/smoke.mjs
       - name: Smoke test
-        if: ${{ matrix.smoke && runner.os != 'Linux' }}
+        if: runner.os != 'Linux'
         run: node scripts/smoke.mjs
       - uses: actions/upload-artifact@v7
         if: inputs.full
@@ -78,7 +71,39 @@ jobs:
             release/*.exe
             release/*.msi
             release/*.AppImage
-            release/*.deb
-            release/*.rpm
-            release/*.pacman
             release/*.tar.gz
+
+  linux-packages:
+    name: ${{ matrix.name }}
+    if: inputs.full
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64-deb,      os: ubuntu-latest,    arch: --x64,   target: deb,    apt: "" }
+          - { name: linux-x64-rpm,      os: ubuntu-latest,    arch: --x64,   target: rpm,    apt: rpm }
+          - { name: linux-x64-pacman,   os: ubuntu-latest,    arch: --x64,   target: pacman, apt: libarchive-tools }
+          - { name: linux-arm64-deb,    os: ubuntu-24.04-arm, arch: --arm64, target: deb,    apt: "" }
+          - { name: linux-arm64-rpm,    os: ubuntu-24.04-arm, arch: --arm64, target: rpm,    apt: rpm }
+          - { name: linux-arm64-pacman, os: ubuntu-24.04-arm, arch: --arm64, target: pacman, apt: libarchive-tools }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - name: Install packaging tool (${{ matrix.apt }})
+        if: matrix.apt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ${{ matrix.apt }}
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --linux ${{ matrix.target }} ${{ matrix.arch }} --publish never
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.name }}
+          retention-days: ${{ inputs.retention-days }}
+          if-no-files-found: error
+          path: release/*.${{ matrix.target }}

@@ -19,6 +19,12 @@ npmRebuild: false
 
 mac:
   category: public.app-category.utilities
+  # Developer ID の署名・公証はしない(方針)。ただし証明書が無いと v26 は署名を完全にスキップし、
+  # Apple シリコンでは配布物が「壊れている」扱いで「このまま開く」の経路が使えなくなる。
+  # ad-hoc 署名にしておくと Gatekeeper の「開発元を確認できない」→「このまま開く」で起動できる。
+  # ad-hoc では hardenedRuntime を切る必要がある。
+  identity: "-"
+  hardenedRuntime: false
   target:
     - target: dmg
       arch: [x64, arm64]

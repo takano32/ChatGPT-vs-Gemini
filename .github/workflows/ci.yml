@@ -1,4 +1,4 @@
-# push / PR ごとに 6 ターゲット(OS × アーキ)を並列にビルドして起動スモーク。
+# push / PR ごとに build.yml の全ジョブ(ランナー × アーキ、全形式のときは Linux の形式別ジョブも)を並列に走らせる。
 # PR は unpacked とスモークだけ、main への push と手動実行は全形式を Artifacts に 7 日間残す。
 name: CI
 
