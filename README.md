@@ -1,4 +1,5 @@
 # ChatGPT vs Gemini
+[English](README.en.md)
 
 ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士で議論させるデスクトップアプリ。
 
@@ -77,7 +78,7 @@ npm install
 npm start        # ビルドして起動
 npm run build    # tsc + アセットコピー
 npm run typecheck
-npm test         # ページ側スクリプトの構文検査と Repository(SQLite)のテスト(ビルド後に実行)
+npm test         # ページ側スクリプトの構文検査と Repository / 設定 / Markdown 書き出しのテスト(ビルド後に実行)
 npm run pack     # 配布物の中身(release/*-unpacked/)だけ作る
 npm run dist     # 実行中の OS 向けの配布物を release/ に作る
 ```
@@ -95,7 +96,7 @@ src/
 ├── manager/              # アプリケーションインフラ
 │   ├── Manager.ts
 │   ├── Window.ts         # BaseWindow 管理
-│   ├── Layout.ts         # 4 ビュー配置(管理・ChatGPT・Gemini・経過表示)、UA 固定、読込失敗の再読込
+│   ├── Layout.ts         # 4 ビュー配置(管理・ChatGPT・Gemini・経過表示)、UA 固定、読込失敗/クラッシュ/ハングの再読込
 │   └── Settings.ts       # settings.json
 ├── conversation/         # ドメイン
 │   ├── Conversation.ts
@@ -115,8 +116,10 @@ scripts/
 ├── copy-assets.mjs       # HTML/CSS・chat-preload.js・アイコンを dist/ へコピー
 ├── check-page-scripts.mjs # ページ側スクリプトの構文検査(npm test)
 └── smoke.mjs             # パッケージ済みアプリの認証なし起動テスト(CI 用)
-test/
-└── repository.test.mjs   # Repository の自動テスト(node:test。dist/ を対象にするのでビルド後に npm test)
+test/                     # 自動テスト(node:test。dist/ を対象にするのでビルド後に npm test)
+├── repository.test.mjs   # Repository(SQLite / FTS5 / マイグレーション)
+├── settings.test.mjs     # settings.json の正規化
+└── markdown.test.mjs     # 経過の Markdown 書き出し
 .github/workflows/
 ├── build.yml             # 共通: ランナー × アーキ × 形式のジョブでパッケージ化と起動テスト(ネイティブランナー)
 ├── ci.yml                # push/PR: build.yml を呼ぶ(main への push は全形式を Artifacts に)

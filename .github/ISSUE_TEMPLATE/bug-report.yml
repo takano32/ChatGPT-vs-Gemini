@@ -1,0 +1,62 @@
+# 一般のバグ報告・質問・要望のフォーム(GitHub issue forms 形式)。
+# 「ChatGPT / Gemini の画面が変わって動かない」は selector-broken.yml のほうを使う。
+name: バグ報告・質問
+description: 画面変更以外の不具合、使い方の質問、要望。Discussions は使っていないので質問もここでどうぞ
+body:
+  - type: markdown
+    attributes:
+      value: |
+        報告ありがとうございます。「入力欄が見つからない」「送信が始まらない」「応答を拾えない」など ChatGPT / Gemini の画面変更が疑われる場合は、[セレクタの不具合](https://github.com/takano32/ChatGPT-vs-Gemini/issues/new?template=selector-broken.yml) のフォームを使ってください。
+        質問や要望のときは、当てはまらない欄は空のままで構いません。
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 種類
+      options:
+        - 不具合
+        - 質問
+        - 要望
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 何が起きたか / 聞きたいこと
+      description: 不具合なら「期待した動き」と「実際の動き」を分けて書いてください。
+      placeholder: |
+        期待: 「停止」を押すと議論が止まる
+        実際: 「停止」を押しても次のターンが送信される
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 起動から症状が出るまでの操作を順に。
+      placeholder: |
+        1. アプリを起動する(ゲストのまま)
+        2. テーマに「…」を入れ、ターン数を 4 にして「開始」
+        3. 2 ターン目の途中で「停止」を押す
+  - type: input
+    id: version
+    attributes:
+      label: アプリの版
+      description: "ダウンロードしたファイル名に含まれる版(例: `ChatGPT-vs-Gemini-Setup-0.2.0.exe` なら v0.2.0)。"
+      placeholder: v0.2.0
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      description: 種類・バージョン・アーキテクチャ(分かれば)と、使った配布形式(dmg / Setup.exe / deb / AppImage など)。
+      placeholder: Ubuntu 24.04 (x64), AppImage
+  - type: textarea
+    id: log
+    attributes:
+      label: 管理ペインのログ
+      description: 上段の管理ペインに出ている WARN / ERROR の行があれば、そのまま貼ってください。
+      render: text
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: スクリーンショット(任意)
+      description: この欄に画像をドラッグ&ドロップすると添付できます。議論テーマなど見られたくない部分は隠してください。

@@ -1,0 +1,91 @@
+# ChatGPT / Gemini の画面構成が変わって動かなくなったときの報告フォーム(GitHub issue forms 形式)。
+# 直す場所は src/chat/selectors.ts の 1 ファイルで、手順は docs/selectors.md。調査に要る情報をここで集める。
+name: セレクタの不具合(ChatGPT / Gemini の画面が変わって動かない)
+description: 入力欄が見つからない・送信が始まらない・応答を拾えない、など「画面構成の変更」が疑われるときの報告
+title: "[セレクタ] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        報告ありがとうございます。先に [docs/selectors.md の §0](https://github.com/takano32/ChatGPT-vs-Gemini/blob/main/docs/selectors.md#0-まず切り分けるセレクタ以外の原因) で、ネットワーク(ペインが白い)やレート制限(WARN「レート制限中のため一時停止しました」)ではないことを確認してください。
+        **毎ターン同じ WARN / ERROR が出る、ペインでは応答が見えているのに議論が進まない**、という症状がセレクタの典型です。
+        分からない項目は「不明」のままで構いません。
+  - type: dropdown
+    id: site
+    attributes:
+      label: どちらのサイトで起きるか
+      options:
+        - ChatGPT
+        - Gemini
+        - 両方
+    validations:
+      required: true
+  - type: dropdown
+    id: login
+    attributes:
+      label: ログイン状態
+      description: 管理ペインの LED のツールチップや「ゲスト」タグで分かります。両サイトで違う場合は「症状」欄に書いてください。
+      options:
+        - ゲスト(ログインなし)
+        - ログイン済み
+        - 不明
+    validations:
+      required: true
+  - type: dropdown
+    id: chatgpt-variant
+    attributes:
+      label: ChatGPT の画面構成
+      description: ChatGPT には DOM の変種が 2 つあります([docs/selectors.md §4](https://github.com/takano32/ChatGPT-vs-Gemini/blob/main/docs/selectors.md#4-2026-08-21-時点の実測))。見分け方が分からなければ「不明」で構いません。
+      options:
+        - 従来(chatgpt.com の通常の画面)
+        - デスクトップアプリ風(新しい画面構成)
+        - 不明
+        - 該当なし(Gemini だけの症状)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: アプリの版
+      description: "ダウンロードしたファイル名に含まれる版(例: `ChatGPT-vs-Gemini-Setup-0.2.0.exe` なら v0.2.0)。"
+      placeholder: v0.2.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      description: 種類・バージョン・アーキテクチャ(分かれば)。
+      placeholder: Ubuntu 24.04 (x64) / macOS 15 (Apple シリコン) / Windows 11 (x64)
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: 症状
+      description: 何をしたら、何が起きたか。いつから起きたか(それまで動いていたか)も分かれば。
+      placeholder: |
+        例: 「開始」を押すと ChatGPT に本文が入るが送信されず、約 5 秒後に Enter で送られる。3 ターン目で ERROR になる。
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: 管理ペインのログ(WARN / ERROR の行)
+      description: 上段の管理ペインに出ている WARN / ERROR の行をそのまま貼ってください。文言から疑うべき箇所が絞れます([docs/selectors.md §3](https://github.com/takano32/ChatGPT-vs-Gemini/blob/main/docs/selectors.md#3-エラーコードとログ文言の対応))。
+      render: text
+      placeholder: |
+        WARN ChatGPT の応答が現れません。送信をやり直します
+        ERROR エラーで中断しました: ChatGPT への送信が 3 回とも応答に至りませんでした
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: スクリーンショット
+      description: 症状が出ているときのアプリ全体(管理ペインと下段のペイン)。この欄に画像をドラッグ&ドロップすると添付できます。議論テーマなど見られたくない部分は隠してください。
+  - type: textarea
+    id: dom
+    attributes:
+      label: 採取した DOM 情報(任意)
+      description: "[docs/selectors.md §5](https://github.com/takano32/ChatGPT-vs-Gemini/blob/main/docs/selectors.md#5-調べ方) の手順で `probe.mjs` などを使って採取した結果(入力欄・ボタン・応答要素の候補)があれば貼ってください。なくても構いません。"
+      render: text
