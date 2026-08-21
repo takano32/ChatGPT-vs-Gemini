@@ -115,18 +115,18 @@
   const $ = (id) => document.getElementById(id);
   const mb = (n) => (n / 1048576).toFixed(0) + ' MB';
   const OS_LABEL = { win: 'Windows', mac: 'macOS', linux: 'Linux' };
-  const ARCH_LABEL = { x64: 'Intel / AMD(64bit)', arm64: 'ARM(64bit)' };
+  const ARCH_LABEL = { x64: 'Intel / AMD(64bit)', arm64: 'ARM(64bit)', universal: 'Intel / AMD / ARM(64bit)' };
   const MAC_ARCH_LABEL = { x64: 'Intel', arm64: 'Apple シリコン(M1 以降)' };
 
   // 配布物のファイル名から OS・アーキ・種類を読む(GitHub はスペースをハイフンに置き換える)
   function classify(asset) {
     const n = asset.name;
     if (/^latest.*\.yml$/.test(n)) return null;
-    const arch = /arm64|aarch64/i.test(n) ? 'arm64' : 'x64';
+    let arch = /arm64|aarch64/i.test(n) ? 'arm64' : 'x64';
     let os, kind;
     if (/\.dmg$/.test(n)) { os = 'mac'; kind = 'dmg'; }
     else if (/-mac\.zip$/.test(n)) { os = 'mac'; kind = 'zip'; }
-    else if (/\.exe$/.test(n)) { os = 'win'; kind = /Setup/i.test(n) ? 'installer' : 'portable'; }
+    else if (/\.exe$/.test(n)) { os = 'win'; kind = /Setup/i.test(n) ? 'installer' : 'portable'; arch = 'universal'; } // x64 / ARM64 両対応の 1 ファイル
     else if (/\.msi$/.test(n)) { os = 'win'; kind = 'msi'; }
     else if (/-win\.zip$/.test(n)) { os = 'win'; kind = 'zip'; }
     else if (/\.AppImage$/.test(n)) { os = 'linux'; kind = 'AppImage'; }
@@ -185,8 +185,8 @@
     } else {
       const arch = env.arch ?? 'x64';
       const kind = env.os === 'win' ? 'installer' : 'deb';
-      const main = pick(env.os, arch, kind) ?? pick(env.os, 'x64', kind);
-      $('primary-os').textContent = `${OS_LABEL[env.os]}(${ARCH_LABEL[main?.arch ?? arch]})用`;
+      const main = env.os === 'win' ? pick('win', 'universal', 'installer') : (pick(env.os, arch, kind) ?? pick(env.os, 'x64', kind));
+      $('primary-os').textContent = env.os === 'win' ? 'Windows 用(64bit。Intel / AMD / ARM 共通)' : `${OS_LABEL[env.os]}(${ARCH_LABEL[main?.arch ?? arch]})用`;
       let html = main ? button(main, `${OS_LABEL[env.os]} 用をダウンロード`, ver) : '';
       if (env.os === 'linux') {
         for (const k of ['rpm', 'pacman', 'AppImage']) {

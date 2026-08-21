@@ -40,7 +40,7 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 |---|---|---|
 | Linux(x64 / arm64) | AppImage, deb, rpm, pacman, tar.gz | arm64(ChromeOS Crostini)で実機確認。両アーキとも CI の起動テスト |
 | macOS(Apple シリコン / Intel) | dmg, zip | CI の起動テストのみ。未署名 |
-| Windows(x64 / arm64) | インストーラ, portable, zip, msi(x64 のみ) | CI の起動テストのみ。未署名 |
+| Windows(x64 / arm64) | インストーラ・portable(両アーキ入りの 1 ファイル), zip(アーキ別), msi(x64 のみ) | CI の起動テストのみ。未署名 |
 
 CI の起動テストは 6 ターゲットすべてをネイティブのランナーで行い、ログインなしで「パッケージが起動し、DB と全文検索が動く」ところまで確認する。実際の議論は Linux arm64 でのみ確認している。
 

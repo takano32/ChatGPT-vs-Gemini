@@ -3,9 +3,11 @@
 # (Electron も better-sqlite3 も配布済みバイナリなのでツールチェーン不要)。
 # PR でも全形式を作る(Dependabot の electron / electron-builder 更新で配布物の段階だけが壊れるのを
 # マージ前に見つけるため)。Artifacts への保存だけ upload 入力で制御する。
-# - build:          OS × アーキの 6 ジョブ。パッケージ化 → 認証なし起動スモーク(scripts/smoke.mjs)。
+# - build:          OS × アーキの 5 ジョブ。パッケージ化 → 認証なし起動スモーク(scripts/smoke.mjs)。
 #                   スモークはランナーのアーキと一致するジョブでだけ動く(x64 Linux/Windows、arm64 mac)。
 #                   Linux はここでは AppImage と tar.gz だけ作る。
+#                   Windows は 1 ジョブで両アーキを作る: electron-builder の NSIS / portable は両アーキ入りの
+#                   1 ファイルを作る設計で、アーキ別に別プロセスで作ると同名ファイルが衝突する。
 # - linux-packages: deb / rpm / pacman × 2 アーキの 6 ジョブ。electron-builder はこれらを
 #                   1 プロセス内で直列に作り圧縮が律速になるため、形式ごとに分けて並列化している。
 #                   1 アーキ 1 ジョブに戻すときは、このジョブを消して build の Linux 行の targets に
@@ -32,12 +34,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-x64,     os: ubuntu-latest,  platform: --linux, arch: x64,   targets: AppImage tar.gz }
-          - { name: linux-arm64,   os: ubuntu-latest,  platform: --linux, arch: arm64, targets: AppImage tar.gz }
-          - { name: mac-arm64,     os: macos-latest,   platform: --mac,   arch: arm64, targets: dmg zip }
-          - { name: mac-x64,       os: macos-latest,   platform: --mac,   arch: x64,   targets: dmg zip }
-          - { name: windows-x64,   os: windows-latest, platform: --win,   arch: x64,   targets: nsis portable zip msi }
-          - { name: windows-arm64, os: windows-latest, platform: --win,   arch: arm64, targets: nsis portable zip }  # 同梱 WiX が arm64 未対応のため msi なし
+          # args は electron-builder にそのまま渡す。arch はスモークをランナーのアーキと照合するためだけに使う。
+          - { name: linux-x64,   os: ubuntu-latest,  args: --linux AppImage tar.gz --x64,   arch: x64 }
+          - { name: linux-arm64, os: ubuntu-latest,  args: --linux AppImage tar.gz --arm64, arch: arm64 }
+          - { name: mac-arm64,   os: macos-latest,   args: --mac dmg zip --arm64,           arch: arm64 }
+          - { name: mac-x64,     os: macos-latest,   args: --mac dmg zip --x64,             arch: x64 }
+          - { name: windows,     os: windows-latest, args: --win,                           arch: x64 }  # 形式とアーキは electron-builder.yml の win.target どおり(msi は x64 のみ)
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -53,7 +55,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - name: Build distributables
-        run: npx electron-builder ${{ matrix.platform }} ${{ matrix.targets }} --${{ matrix.arch }} --publish never
+        run: npx electron-builder ${{ matrix.args }} --publish never
       # クロスビルドしたアーキは起動できないので、ランナーのアーキと一致するときだけスモークを走らせる
       - name: Smoke test (Linux, under Xvfb)
         if: runner.os == 'Linux' && ((matrix.arch == 'x64' && runner.arch == 'X64') || (matrix.arch == 'arm64' && runner.arch == 'ARM64'))
