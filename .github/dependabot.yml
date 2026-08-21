@@ -1,0 +1,18 @@
+# 依存の更新 PR を自動で出す。npm の `^` と actions のメジャータグでは拾えない
+# メジャー更新を含めて最新に追従するため。minor/patch は 1 本にまとめ、メジャーは個別に出す。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
