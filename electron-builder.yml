@@ -29,7 +29,11 @@ mac:
       arch: [x64, arm64]
     - target: zip
       arch: [x64, arm64]
-  # 署名・公証の方針が決まるまで未署名。未署名で hardenedRuntime を有効にすると起動しないことがある。
+  # Developer ID による署名・公証は行わない(利用者決定 2026-08-21)。
+  # 証明書なしだと v26 は署名を完全にスキップし ad-hoc にも落ちないため、Apple シリコンで
+  # 確実に起動するよう ad-hoc 署名を明示する。ad-hoc では hardenedRuntime を切る必要がある。
+  # 利用者側の初回起動は Gatekeeper の「このまま開く」が必要(README / 配布サイト参照)。
+  identity: "-"
   hardenedRuntime: false
   # better-sqlite3 の他 OS 向けプリビルドを落とす(node_modules には否定パターンのみ効く。アーキ別の絞り込みは不可)
   files:

@@ -1,5 +1,6 @@
 # push / PR ごとに 3 OS で型検査・ビルド・パッケージ・認証なしスモークを行う。
 # main への push と手動実行では全形式を作って Artifacts に 7 日間残す(Release には上げない)。
+# actions はメジャータグ、Node は lts/*、ランナーは *-latest で最新に追従する(メジャー更新時だけ手で上げる)。
 name: CI
 
 on:
@@ -26,14 +27,11 @@ jobs:
           - { name: linux, os: ubuntu-latest, args: --linux }
           - { name: mac, os: macos-latest, args: --mac }
           - { name: windows, os: windows-latest, args: --win }
-    env:
-      # 署名・公証の方針が決まるまで macOS は未署名で作る
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: lts/*   # 最新 LTS に追従
           cache: npm
       - name: Install Linux packaging tools (rpm, pacman, Xvfb)
         if: runner.os == 'Linux'
@@ -54,7 +52,7 @@ jobs:
       - name: Build all distributables
         if: github.event_name != 'pull_request'
         run: npx electron-builder ${{ matrix.args }} --publish never
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@v7
         if: github.event_name != 'pull_request'
         with:
           name: ${{ matrix.name }}
