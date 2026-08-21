@@ -46,9 +46,10 @@ export const CHATGPT_SELECTORS: SiteSelectors = {
   assistantMessages: '[data-message-author-role="assistant"], li[data-message-role="assistant"]',
   messageContent: '.markdown, [data-assistant-markdown]', // 変種の li は読み上げ用「ChatGPT said:」を含むため本文だけ取る
   dismissPatterns: ['Stay logged out', 'ログアウトしたまま', 'ログインせずに'],
-  // 実測(2026-08-21): トースト「You'll get smarter responses…」とサイドバーのカード「Get responses tailored to you」。
-  // ヘッダーの「Log in」「Sign up for free」はログインの入口なので残す
-  hidePatterns: ['smarter responses', 'Get responses tailored to you'],
+  // 実測(2026-08-21): 一時的に出るトースト「You'll get smarter responses…」だけを隠す。
+  // サイドバーのカード「Get responses tailored to you」とヘッダーの「Log in」「Sign up for free」は残す
+  // (サイドバーを触るとレイアウトが崩れる。ログインの入口でもある)
+  hidePatterns: ['smarter responses'],
   rateLimitPatterns: [
     'You have reached',
     'You’ve reached',

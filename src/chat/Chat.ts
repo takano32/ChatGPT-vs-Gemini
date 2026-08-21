@@ -170,9 +170,13 @@ export abstract class Chat {
         const st = { timer: 0, dismissed: 0 };
         window.__cvgTidy = st;
         const textOf = (e) => (e.innerText || '').replace(/\s+/g, ' ').trim();
+        // 隠してよいのは小さなカード/トーストだけ。ランドマーク要素と大きな部品(子孫 40 超)は対象外
+        const MAX_DESCENDANTS = 40;
         const isProtected = (e) =>
           e === document.body || e === document.documentElement ||
-          e.matches('main, header, nav, form') || e.querySelector(INPUT) || e.querySelector(MSG);
+          e.matches('main, header, nav, aside, footer, form') ||
+          e.querySelectorAll('*').length > MAX_DESCENDANTS ||
+          e.querySelector(INPUT) || e.querySelector(MSG);
         const dismissDialogs = () => {
           if (DISMISS.length === 0) return;
           const dialogs = [...document.querySelectorAll('[role="dialog"], dialog, mat-dialog-container')]
@@ -193,8 +197,9 @@ export abstract class Chat {
             const t = n.textContent.toLowerCase();
             if (!HIDE.some((p) => t.includes(p))) continue;
             let el = n.parentElement;
-            if (!el || el.style.display === 'none') continue;
-            // カードの境界まで上る: 親の本文が短い(300 文字未満)あいだは同じカードとみなす
+            // 見えていない文言(閉じたドロップダウンの中身など)は対象外
+            if (!el || el.style.display === 'none' || el.getClientRects().length === 0) continue;
+            // カードの境界まで上る: 親が小さく(子孫 40 以下)本文も短い(300 文字未満)あいだは同じカードとみなす
             while (el.parentElement && !isProtected(el.parentElement) && textOf(el.parentElement).length < 300) {
               el = el.parentElement;
             }
