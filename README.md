@@ -3,7 +3,7 @@
 ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士で議論させるデスクトップアプリ。
 
 - Electron + TypeScript
-- 画面: 上 30% が管理ペイン、下 70% が ChatGPT / Gemini(50% / 50%)
+- 画面: 上 50% が管理ペイン、下 50% が ChatGPT / Gemini(50% / 50%)。比率とチャットペインのズーム(既定 75%)は設定で変更可
 - 会話ログは SQLite に保存(FTS5 trigram による日本語全文検索付き)
 - API は使わず、ログイン済みの無料 Web UI を DOM 操作で駆動する
 
