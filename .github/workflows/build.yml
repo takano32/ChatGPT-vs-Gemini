@@ -1,5 +1,8 @@
 # 共通ビルド(ci.yml / release.yml から呼ぶ)。Release には触らず Artifacts に置くだけ。
-# - build:          ランナー × アーキの 6 ジョブ。パッケージ化 → 認証なし起動スモーク(scripts/smoke.mjs)。
+# ランナーはバージョンを書かない *-latest の 3 種だけを使い、もう片方のアーキはクロスビルドする
+# (Electron も better-sqlite3 も配布済みバイナリなのでツールチェーン不要)。
+# - build:          OS × アーキの 6 ジョブ。パッケージ化 → 認証なし起動スモーク(scripts/smoke.mjs)。
+#                   スモークはランナーのアーキと一致するジョブでだけ動く(x64 Linux/Windows、arm64 mac)。
 #                   Linux はここでは AppImage と tar.gz だけ作る。
 # - linux-packages: deb / rpm / pacman × 2 アーキの 6 ジョブ(full のときだけ)。electron-builder はこれらを
 #                   1 プロセス内で直列に作り圧縮が律速になるため、形式ごとに分けて並列化している。
@@ -27,12 +30,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-x64,     os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: AppImage tar.gz }
-          - { name: linux-arm64,   os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: AppImage tar.gz }
-          - { name: mac-arm64,     os: macos-latest,     platform: --mac,   arch: --arm64, targets: dmg zip }
-          - { name: mac-x64,       os: macos-26-intel,   platform: --mac,   arch: --x64,   targets: dmg zip }
-          - { name: windows-x64,   os: windows-latest,   platform: --win,   arch: --x64,   targets: nsis portable zip msi }
-          - { name: windows-arm64, os: windows-11-arm,   platform: --win,   arch: --arm64, targets: nsis portable zip }  # 同梱 WiX が arm64 未対応のため msi なし
+          - { name: linux-x64,     os: ubuntu-latest,  platform: --linux, arch: x64,   targets: AppImage tar.gz }
+          - { name: linux-arm64,   os: ubuntu-latest,  platform: --linux, arch: arm64, targets: AppImage tar.gz }
+          - { name: mac-arm64,     os: macos-latest,   platform: --mac,   arch: arm64, targets: dmg zip }
+          - { name: mac-x64,       os: macos-latest,   platform: --mac,   arch: x64,   targets: dmg zip }
+          - { name: windows-x64,   os: windows-latest, platform: --win,   arch: x64,   targets: nsis portable zip msi }
+          - { name: windows-arm64, os: windows-latest, platform: --win,   arch: arm64, targets: nsis portable zip }  # 同梱 WiX が arm64 未対応のため msi なし
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -49,15 +52,16 @@ jobs:
       - run: npm run build
       - name: Build distributables
         if: inputs.full
-        run: npx electron-builder ${{ matrix.platform }} ${{ matrix.targets }} ${{ matrix.arch }} --publish never
+        run: npx electron-builder ${{ matrix.platform }} ${{ matrix.targets }} --${{ matrix.arch }} --publish never
       - name: Pack (unpacked app only)
         if: ${{ !inputs.full }}
-        run: npx electron-builder ${{ matrix.platform }} dir ${{ matrix.arch }} --publish never
+        run: npx electron-builder ${{ matrix.platform }} dir --${{ matrix.arch }} --publish never
+      # クロスビルドしたアーキは起動できないので、ランナーのアーキと一致するときだけスモークを走らせる
       - name: Smoke test (Linux, under Xvfb)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && ((matrix.arch == 'x64' && runner.arch == 'X64') || (matrix.arch == 'arm64' && runner.arch == 'ARM64'))
         run: xvfb-run -a node scripts/smoke.mjs
       - name: Smoke test
-        if: runner.os != 'Linux'
+        if: runner.os != 'Linux' && ((matrix.arch == 'x64' && runner.arch == 'X64') || (matrix.arch == 'arm64' && runner.arch == 'ARM64'))
         run: node scripts/smoke.mjs
       - uses: actions/upload-artifact@v7
         if: inputs.full
@@ -76,17 +80,17 @@ jobs:
   linux-packages:
     name: ${{ matrix.name }}
     if: inputs.full
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-x64-deb,      os: ubuntu-latest,    arch: --x64,   target: deb,    apt: "" }
-          - { name: linux-x64-rpm,      os: ubuntu-latest,    arch: --x64,   target: rpm,    apt: rpm }
-          - { name: linux-x64-pacman,   os: ubuntu-latest,    arch: --x64,   target: pacman, apt: libarchive-tools }
-          - { name: linux-arm64-deb,    os: ubuntu-24.04-arm, arch: --arm64, target: deb,    apt: "" }
-          - { name: linux-arm64-rpm,    os: ubuntu-24.04-arm, arch: --arm64, target: rpm,    apt: rpm }
-          - { name: linux-arm64-pacman, os: ubuntu-24.04-arm, arch: --arm64, target: pacman, apt: libarchive-tools }
+          - { name: linux-x64-deb,      arch: x64,   target: deb,    apt: "" }
+          - { name: linux-x64-rpm,      arch: x64,   target: rpm,    apt: rpm }
+          - { name: linux-x64-pacman,   arch: x64,   target: pacman, apt: libarchive-tools }
+          - { name: linux-arm64-deb,    arch: arm64, target: deb,    apt: "" }
+          - { name: linux-arm64-rpm,    arch: arm64, target: rpm,    apt: rpm }
+          - { name: linux-arm64-pacman, arch: arm64, target: pacman, apt: libarchive-tools }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -100,7 +104,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends ${{ matrix.apt }}
       - run: npm ci
       - run: npm run build
-      - run: npx electron-builder --linux ${{ matrix.target }} ${{ matrix.arch }} --publish never
+      - run: npx electron-builder --linux ${{ matrix.target }} --${{ matrix.arch }} --publish never
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
