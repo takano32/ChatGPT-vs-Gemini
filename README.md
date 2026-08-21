@@ -31,7 +31,7 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 - OpenAI / Google とは無関係の非公式ツール。
 - Web UI を自動操作する(ゲスト利用・ログイン利用のどちらでも)。各サービスの利用規約は自分で確認すること。自動操作によって一時的な利用制限などアカウントへの影響が出る可能性があり、利用は自己責任で。
 - チャットペインは User-Agent を Firefox として送る(Electron のままでは Google のログインが完了しないため)。
-- ChatGPT / Gemini の画面構成が変わると動かなくなる。直す場所は `src/chat/selectors.ts`。
+- ChatGPT / Gemini の画面構成が変わると動かなくなる。直す場所は `src/chat/selectors.ts`、手順は [docs/selectors.md](docs/selectors.md)。
 - 会話の本文はローカルの SQLite に平文で保存され、ログインした場合はそのセッションも端末に残る(消し方は「トラブルシューティング」)。
 
 ## 対応 OS と検証状況
