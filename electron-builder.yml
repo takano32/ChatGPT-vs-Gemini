@@ -75,4 +75,11 @@ linux:
     - "!node_modules/better-sqlite3/prebuilds/{darwin,linuxmusl,win32}-*"
 
 deb:
-  packageCategory: utils
+  packageCategory: utils   # 圧縮は Debian の既定どおり xz(古い dpkg は zstd を読めない)
+
+# rpm / pacman は各ディストリの既定に合わせて zstd(xz より数倍速く、CI の Linux ジョブは
+# deb → rpm → pacman が直列に走るためここが律速になる)。
+rpm:
+  compression: zstd        # Fedora 31 以降の既定
+pacman:
+  compression: zstd        # Arch の makepkg 既定
