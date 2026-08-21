@@ -1,23 +1,20 @@
 # electron-builder(v26)の設定。
 # 表示名は package.json の productName(ChatGPT vs Gemini)。userData もそこから決まる(Electron の慣習)。
 # 機械用の識別子(npm name / Linux 実行ファイル名 / deb・rpm パッケージ名)は chatgpt-vs-gemini。
-# CI(.github/workflows/build.yml)は OS × アーキごとに形式とアーキを CLI で指定して並列に作る。
-# ここの target はローカルの `npm run dist` 用の既定。Release への添付は CI の最終ジョブが gh で行う。
+# CI(.github/workflows/build.yml)は形式とアーキを CLI で指定して並列に作る。ここの target は
+# ローカルの `npm run dist` 用の既定。Release への添付は CI の最終ジョブが gh で行う。
 appId: io.github.takano32.ChatGPTvsGemini
-copyright: Copyright © 2026 takano32
 
 directories:
-  output: release        # tsc の出力 dist/ と分ける
-  buildResources: build  # icon.png などの資材(配布物には含まれない)
+  output: release   # 既定の dist/ は tsc の出力先と衝突する
 
 files:
   - dist/**
   - "!dist/**/*.map"
   - package.json
 
-asar: true
 # better-sqlite3 v13 は Node-API のプリビルドを同梱しており再ビルド不要。
-# node-gyp を起動させない(CI でツールチェーンに依存しない)。
+# 既定の再ビルドは node-gyp を起動するだけ(ツールチェーン依存)なので切る。
 npmRebuild: false
 
 mac:
@@ -27,15 +24,6 @@ mac:
       arch: [x64, arm64]
     - target: zip
       arch: [x64, arm64]
-  # Developer ID による署名・公証は行わない(利用者決定 2026-08-21)。
-  # 証明書なしだと v26 は署名を完全にスキップし ad-hoc にも落ちないため、Apple シリコンで
-  # 確実に起動するよう ad-hoc 署名を明示する。ad-hoc では hardenedRuntime を切る必要がある。
-  # 利用者側の初回起動は Gatekeeper の「このまま開く」が必要(README / 配布サイト参照)。
-  identity: "-"
-  hardenedRuntime: false
-  # better-sqlite3 の他 OS 向けプリビルドを落とす(node_modules には否定パターンのみ効く。アーキ別の絞り込みは不可)
-  files:
-    - "!node_modules/better-sqlite3/prebuilds/{linux,linuxmusl,win32}-*"
 
 win:
   target:
@@ -45,21 +33,14 @@ win:
       arch: [x64, arm64]
     - target: zip
       arch: [x64, arm64]
-    - target: msi          # 同梱の WiX が arm64 未対応のため x64 のみ
+    - target: msi   # 同梱の WiX が arm64 未対応のため x64 のみ
       arch: [x64]
-  files:
-    - "!node_modules/better-sqlite3/prebuilds/{darwin,linux,linuxmusl}-*"
-
-nsis:
-  oneClick: true
-  perMachine: false      # ユーザー単位インストール(管理者権限不要)
 
 linux:
-  executableName: chatgpt-vs-gemini
-  # .desktop のファイル名と StartupWMClass を package.json の desktopName(Electron の app_id)に揃える
-  syncDesktopName: true
   category: Utility
   synopsis: ChatGPT と Gemini を議論させるデスクトップアプリ
+  # .desktop のファイル名と StartupWMClass を package.json の desktopName(Electron の app_id)に揃える
+  syncDesktopName: true
   target:
     - target: AppImage
       arch: [x64, arm64]
@@ -71,17 +52,6 @@ linux:
       arch: [x64, arm64]
     - target: tar.gz
       arch: [x64, arm64]
-  files:
-    - "!node_modules/better-sqlite3/prebuilds/{darwin,linuxmusl,win32}-*"
 
 deb:
-  packageCategory: utils   # 圧縮は Debian の既定どおり xz(古い dpkg は zstd を読めない)
-
-# CI の Linux ジョブは deb → rpm → pacman が直列に走り圧縮が律速になるため、各形式の圧縮を軽くする
-# (deb の xz は CI 側の XZ_DEFAULTS=-T0 で多スレッド化)。
-rpm:
-  # 圧縮は xz(多スレッド、electron-builder 既定)。同梱の fpm 1.17 は rpm の zstd に未対応。
-  # fpm の既定レベル 9 は遅いわりにサイズ差が小さいので xz 標準の 6 にする。
-  fpm: ["--rpm-compression-level", "6"]
-pacman:
-  compression: zstd        # Arch の makepkg 既定
+  packageCategory: utils
