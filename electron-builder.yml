@@ -1,6 +1,8 @@
 # electron-builder(v26)の設定。
 # 表示名は package.json の productName(ChatGPT vs Gemini)。userData もそこから決まる(Electron の慣習)。
 # 機械用の識別子(npm name / Linux 実行ファイル名 / deb・rpm パッケージ名)は chatgpt-vs-gemini。
+# CI(.github/workflows/build.yml)は OS × アーキごとに形式とアーキを CLI で指定して並列に作る。
+# ここの target はローカルの `npm run dist` 用の既定。Release への添付は CI の最終ジョブが gh で行う。
 appId: io.github.takano32.ChatGPTvsGemini
 copyright: Copyright © 2026 takano32
 
@@ -17,10 +19,6 @@ asar: true
 # better-sqlite3 v13 は Node-API のプリビルドを同梱しており再ビルド不要。
 # node-gyp を起動させない(CI でツールチェーンに依存しない)。
 npmRebuild: false
-
-publish:
-  provider: github
-  releaseType: draft     # タグ push → CI が draft に添付 → 人が確認して公開
 
 mac:
   category: public.app-category.utilities

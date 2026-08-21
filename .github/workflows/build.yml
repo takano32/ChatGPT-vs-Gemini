@@ -1,0 +1,72 @@
+# 共通ビルド(ci.yml / release.yml から呼ぶ)。OS × アーキの 6 ジョブを並列に走らせ、
+# それぞれネイティブのランナーでパッケージ化→認証なしスモーク→Artifacts へ。Release には触らない。
+# actions はメジャータグ、Node は lts/*、ランナーは最新に追従する(メジャー更新時だけ手で上げる)。
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      full:
+        description: 全形式を作って Artifacts に残す(false なら unpacked とスモークだけ)
+        type: boolean
+        default: true
+      retention-days:
+        type: number
+        default: 7
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64,     os: ubuntu-latest,    platform: --linux, arch: --x64,   targets: AppImage deb rpm pacman tar.gz }
+          - { name: linux-arm64,   os: ubuntu-24.04-arm, platform: --linux, arch: --arm64, targets: AppImage deb rpm pacman tar.gz }
+          - { name: mac-arm64,     os: macos-latest,     platform: --mac,   arch: --arm64, targets: dmg zip }
+          - { name: mac-x64,       os: macos-15-intel,   platform: --mac,   arch: --x64,   targets: dmg zip }
+          - { name: windows-x64,   os: windows-latest,   platform: --win,   arch: --x64,   targets: nsis portable zip msi }
+          - { name: windows-arm64, os: windows-11-arm,   platform: --win,   arch: --arm64, targets: nsis portable zip }  # 同梱 WiX が arm64 未対応のため msi なし
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - name: Install Linux packaging tools (rpm, pacman, Xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm libarchive-tools xvfb
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Build all distributables
+        if: inputs.full
+        run: npx electron-builder ${{ matrix.platform }} ${{ matrix.targets }} ${{ matrix.arch }} --publish never
+      - name: Pack (unpacked app only)
+        if: ${{ !inputs.full }}
+        run: npx electron-builder ${{ matrix.platform }} dir ${{ matrix.arch }} --publish never
+      - name: Smoke test (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/smoke.mjs
+      - name: Smoke test
+        if: runner.os != 'Linux'
+        run: node scripts/smoke.mjs
+      - uses: actions/upload-artifact@v7
+        if: inputs.full
+        with:
+          name: ${{ matrix.name }}
+          retention-days: ${{ inputs.retention-days }}
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.msi
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.pacman
+            release/*.tar.gz

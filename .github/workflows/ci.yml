@@ -1,6 +1,5 @@
-# push / PR ごとに 3 OS で型検査・ビルド・パッケージ・認証なしスモークを行う。
-# main への push と手動実行では全形式を作って Artifacts に 7 日間残す(Release には上げない)。
-# actions はメジャータグ、Node は lts/*、ランナーは *-latest で最新に追従する(メジャー更新時だけ手で上げる)。
+# push / PR ごとに 6 ターゲット(OS × アーキ)を並列にビルドして起動スモーク。
+# PR は unpacked とスモークだけ、main への push と手動実行は全形式を Artifacts に 7 日間残す。
 name: CI
 
 on:
@@ -18,54 +17,7 @@ concurrency:
 
 jobs:
   build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: linux, os: ubuntu-latest, args: --linux }
-          - { name: mac, os: macos-latest, args: --mac }
-          - { name: windows, os: windows-latest, args: --win }
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: lts/*   # 最新 LTS に追従
-          cache: npm
-      - name: Install Linux packaging tools (rpm, pacman, Xvfb)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends rpm libarchive-tools xvfb
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run build
-      - name: Pack (unpacked app for this runner's arch)
-        run: npx electron-builder ${{ matrix.args }} dir --publish never
-      - name: Smoke test (Linux, under Xvfb)
-        if: runner.os == 'Linux'
-        run: xvfb-run -a node scripts/smoke.mjs
-      - name: Smoke test
-        if: runner.os != 'Linux'
-        run: node scripts/smoke.mjs
-      - name: Build all distributables
-        if: github.event_name != 'pull_request'
-        run: npx electron-builder ${{ matrix.args }} --publish never
-      - uses: actions/upload-artifact@v7
-        if: github.event_name != 'pull_request'
-        with:
-          name: ${{ matrix.name }}
-          retention-days: 7
-          if-no-files-found: error
-          path: |
-            release/*.dmg
-            release/*.zip
-            release/*.exe
-            release/*.msi
-            release/*.AppImage
-            release/*.deb
-            release/*.rpm
-            release/*.pacman
-            release/*.tar.gz
-            release/latest*.yml
+    uses: ./.github/workflows/build.yml
+    with:
+      full: ${{ github.event_name != 'pull_request' }}
+      retention-days: 7
