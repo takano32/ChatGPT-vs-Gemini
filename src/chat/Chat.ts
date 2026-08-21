@@ -153,25 +153,40 @@ export abstract class Chat {
     return ok === true;
   }
 
-  // ゲスト UI の片付け(ページ常駐)。hidePatterns の文言を含む最小のカード/トーストを隠す。
+  // ゲスト UI の片付け(ページ常駐)。hidePatterns の文言を含む最小のカード/トーストを隠し、
+  // ログイン要求ダイアログ(dismissPatterns)は出た瞬間に閉じる(送信時だけだと再試行のロスと積み上がりが起きる)。
   // 入力欄・応答一覧・header/nav/main を含む要素は隠さない(ログインの入口も残る)。
   // MutationObserver で変化のたびに(300ms に 1 回まで)適用する。状態は window.__cvgTidy(遷移で消える)。
   async ensureTidy(): Promise<void> {
     const s = this.selectors;
-    if (s.hidePatterns.length === 0) return;
+    if (s.hidePatterns.length === 0 && s.dismissPatterns.length === 0) return;
     await this.js(
       `(() => {
         if (window.__cvgTidy) return true;
         const HIDE = ${JSON.stringify(s.hidePatterns.map((p) => p.toLowerCase()))};
+        const DISMISS = ${JSON.stringify(s.dismissPatterns.map((p) => p.toLowerCase()))};
         const INPUT = ${JSON.stringify(s.input)};
         const MSG = ${JSON.stringify(s.assistantMessages)};
-        const st = { timer: 0 };
+        const st = { timer: 0, dismissed: 0 };
         window.__cvgTidy = st;
         const textOf = (e) => (e.innerText || '').replace(/\s+/g, ' ').trim();
         const isProtected = (e) =>
           e === document.body || e === document.documentElement ||
           e.matches('main, header, nav, form') || e.querySelector(INPUT) || e.querySelector(MSG);
+        const dismissDialogs = () => {
+          if (DISMISS.length === 0) return;
+          const dialogs = [...document.querySelectorAll('[role="dialog"], dialog, mat-dialog-container')]
+            .filter((d) => d.open || d.getClientRects().length > 0)
+            .filter((d) => /log ?in|sign ?in|ログイン/i.test(d.innerText || ''));
+          for (const d of dialogs) {
+            for (const b of d.querySelectorAll('a, button')) {
+              const t = (b.textContent || '').trim().toLowerCase();
+              if (t && DISMISS.some((p) => t.includes(p))) { b.click(); st.dismissed++; break; }
+            }
+          }
+        };
         const hideNags = () => {
+          if (HIDE.length === 0) return;
           const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
           let n;
           while ((n = walker.nextNode())) {
@@ -187,7 +202,7 @@ export abstract class Chat {
             el.style.setProperty('display', 'none', 'important');
           }
         };
-        const run = () => { st.timer = 0; try { hideNags(); } catch (e) {} };
+        const run = () => { st.timer = 0; try { hideNags(); dismissDialogs(); } catch (e) {} };
         const schedule = () => { if (!st.timer) st.timer = setTimeout(run, 300); };
         new MutationObserver(schedule).observe(document.documentElement, {
           childList: true, subtree: true, characterData: true,
