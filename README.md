@@ -38,11 +38,11 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 
 | OS | 配布形式 | 確認状況 |
 |---|---|---|
-| Linux(x64 / arm64) | AppImage, deb, rpm, pacman, tar.gz | arm64(ChromeOS Crostini)で実機確認。x64 は CI の起動テストのみ |
+| Linux(x64 / arm64) | AppImage, deb, rpm, pacman, tar.gz | arm64(ChromeOS Crostini)で実機確認。両アーキとも CI の起動テスト |
 | macOS(Apple シリコン / Intel) | dmg, zip | CI の起動テストのみ。未署名 |
 | Windows(x64 / arm64) | インストーラ, portable, zip, msi(x64 のみ) | CI の起動テストのみ。未署名 |
 
-CI の起動テストはログインなしで「パッケージが起動し、DB と全文検索が動く」ところまで。実際の議論は Linux arm64 でのみ確認している。
+CI の起動テストは 6 ターゲットすべてをネイティブのランナーで行い、ログインなしで「パッケージが起動し、DB と全文検索が動く」ところまで確認する。実際の議論は Linux arm64 でのみ確認している。
 
 ## 動作の仕組み
 
@@ -114,8 +114,10 @@ scripts/
 ├── copy-assets.mjs       # HTML/CSS・chat-preload.js・アイコンを dist/ へコピー
 └── smoke.mjs             # パッケージ済みアプリの認証なし起動テスト(CI 用)
 .github/workflows/
-├── ci.yml                # push/PR: 3 OS で型検査・ビルド・パッケージ・起動テスト
-└── release.yml           # v* タグ: 全形式を draft Release に添付
+├── build.yml             # 共通: OS × アーキの 6 ジョブでパッケージ化と起動テスト(ネイティブランナー)
+├── ci.yml                # push/PR: build.yml を呼ぶ(main への push は全形式を Artifacts に)
+├── release.yml           # v* タグ: build.yml → 最終ジョブが全成果物を draft Release に添付
+└── pages.yml             # docs/ を GitHub Pages へ
 electron-builder.yml      # 配布物の設定(形式・対象アーキ・識別子)
 build/                    # アイコンなどのビルド資材(配布物には含まれない)
 ```
