@@ -1,22 +1,48 @@
 {
   "name": "chatgpt-vs-gemini",
+  "productName": "ChatGPT vs Gemini",
+  "desktopName": "io.github.takano32.ChatGPTvsGemini.desktop",
   "version": "0.1.0",
   "description": "ChatGPT と Gemini をブラウザ画面のまま議論させるデスクトップアプリ",
+  "private": true,
   "license": "MPL-2.0",
-  "author": "takano32",
+  "author": {
+    "name": "takano32",
+    "email": "takano32@gmail.com",
+    "url": "https://github.com/takano32"
+  },
+  "homepage": "https://takano32.github.io/ChatGPT-vs-Gemini/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/takano32/ChatGPT-vs-Gemini.git"
+  },
+  "bugs": {
+    "url": "https://github.com/takano32/ChatGPT-vs-Gemini/issues"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node scripts/copy-assets.mjs",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "start": "npm run build && electron ."
+    "start": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.2.0",
     "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
     "typescript": "^7.0.2"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"
+  },
+  "allowScripts": {
+    "electron": true,
+    "better-sqlite3": false,
+    "electron-winstaller": false
   }
 }

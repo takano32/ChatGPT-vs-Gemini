@@ -29,7 +29,7 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 
 ## データの保存先
 
-Electron の userData(Linux: `~/.config/chatgpt-vs-gemini`、macOS: `~/Library/Application Support/chatgpt-vs-gemini`、Windows: `%APPDATA%\chatgpt-vs-gemini`)に置く。
+Electron の userData(Linux: `~/.config/ChatGPT vs Gemini`、macOS: `~/Library/Application Support/ChatGPT vs Gemini`、Windows: `%APPDATA%\ChatGPT vs Gemini`)に置く。
 
 - `settings.json` — 設定(☰ → 設定 で編集したもの)
 - `data.db` — 会話ログ(SQLite、WAL)
@@ -42,7 +42,11 @@ npm install
 npm start        # ビルドして起動
 npm run build    # tsc + アセットコピー
 npm run typecheck
+npm run pack     # 配布物の中身(release/*-unpacked/)だけ作る
+npm run dist     # 実行中の OS 向けの配布物を release/ に作る
 ```
+
+配布物は [electron-builder](https://www.electron.build/) で作る(設定は `electron-builder.yml`)。Linux で deb / rpm / pacman を作るには `rpmbuild` と `bsdtar` が必要(Debian/Ubuntu: `apt install rpm libarchive-tools`、Arch: `pacman -S rpm-tools libxcrypt-compat`)。
 
 ## 構成
 
@@ -73,6 +77,8 @@ src/
     └── api.d.ts          # shared/types のミラー(renderer ビルド用)
 scripts/
 └── copy-assets.mjs       # HTML/CSS と chat-preload.js を dist/ へコピー
+electron-builder.yml      # 配布物の設定(形式・対象アーキ・識別子)
+build/                    # アイコンなどのビルド資材(配布物には含まれない)
 ```
 
 ## ライセンス

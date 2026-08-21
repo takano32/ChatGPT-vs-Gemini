@@ -1,0 +1,76 @@
+# electron-builder(v26)の設定。
+# 表示名は package.json の productName(ChatGPT vs Gemini)。userData もそこから決まる(Electron の慣習)。
+# 機械用の識別子(npm name / Linux 実行ファイル名 / deb・rpm パッケージ名)は chatgpt-vs-gemini。
+appId: io.github.takano32.ChatGPTvsGemini
+copyright: Copyright © 2026 takano32
+
+directories:
+  output: release        # tsc の出力 dist/ と分ける
+  buildResources: build  # icon.png などの資材(配布物には含まれない)
+
+files:
+  - dist/**
+  - "!dist/**/*.map"
+  - package.json
+
+asar: true
+# better-sqlite3 v13 は Node-API のプリビルドを同梱しており再ビルド不要。
+# node-gyp を起動させない(CI でツールチェーンに依存しない)。
+npmRebuild: false
+
+publish:
+  provider: github
+  releaseType: draft     # タグ push → CI が draft に添付 → 人が確認して公開
+
+mac:
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  # 署名・公証の方針が決まるまで未署名。未署名で hardenedRuntime を有効にすると起動しないことがある。
+  hardenedRuntime: false
+  # better-sqlite3 の他 OS 向けプリビルドを落とす(node_modules には否定パターンのみ効く。アーキ別の絞り込みは不可)
+  files:
+    - "!node_modules/better-sqlite3/prebuilds/{linux,linuxmusl,win32}-*"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+    - target: portable
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+    - target: msi          # 同梱の WiX が arm64 未対応のため x64 のみ
+      arch: [x64]
+  files:
+    - "!node_modules/better-sqlite3/prebuilds/{darwin,linux,linuxmusl}-*"
+
+nsis:
+  oneClick: true
+  perMachine: false      # ユーザー単位インストール(管理者権限不要)
+
+linux:
+  executableName: chatgpt-vs-gemini
+  # .desktop のファイル名と StartupWMClass を package.json の desktopName(Electron の app_id)に揃える
+  syncDesktopName: true
+  category: Utility
+  synopsis: ChatGPT と Gemini を議論させるデスクトップアプリ
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+    - target: rpm
+      arch: [x64, arm64]
+    - target: pacman
+      arch: [x64, arm64]
+    - target: tar.gz
+      arch: [x64, arm64]
+  files:
+    - "!node_modules/better-sqlite3/prebuilds/{darwin,linuxmusl,win32}-*"
+
+deb:
+  packageCategory: utils
