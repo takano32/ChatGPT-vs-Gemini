@@ -1,0 +1,71 @@
+# v* タグの push で 3 OS の全形式を作り、同名の draft Release に添付する(公開は人が行う)。
+# 手動実行(workflow_dispatch)では Release に触らず Artifacts にだけ残す(流れの検証用)。
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, os: ubuntu-24.04, args: --linux }
+          - { name: mac, os: macos-15, args: --mac }
+          - { name: windows, os: windows-2025, args: --win }
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Linux packaging tools (rpm, pacman, Xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm libarchive-tools xvfb
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Pack (unpacked app for this runner's arch)
+        run: npx electron-builder ${{ matrix.args }} dir --publish never
+      - name: Smoke test (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/smoke.mjs
+      - name: Smoke test
+        if: runner.os != 'Linux'
+        run: node scripts/smoke.mjs
+      - name: Build and attach to the draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder ${{ matrix.args }} --publish always
+      - name: Build (manual run, no publish)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: npx electron-builder ${{ matrix.args }} --publish never
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ${{ matrix.name }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.msi
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.pacman
+            release/*.tar.gz
+            release/latest*.yml

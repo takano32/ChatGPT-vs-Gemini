@@ -1,0 +1,73 @@
+# push / PR ごとに 3 OS で型検査・ビルド・パッケージ・認証なしスモークを行う。
+# main への push と手動実行では全形式を作って Artifacts に 7 日間残す(Release には上げない)。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, os: ubuntu-24.04, args: --linux }
+          - { name: mac, os: macos-15, args: --mac }
+          - { name: windows, os: windows-2025, args: --win }
+    env:
+      # 署名・公証の方針が決まるまで macOS は未署名で作る
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Linux packaging tools (rpm, pacman, Xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm libarchive-tools xvfb
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Pack (unpacked app for this runner's arch)
+        run: npx electron-builder ${{ matrix.args }} dir --publish never
+      - name: Smoke test (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/smoke.mjs
+      - name: Smoke test
+        if: runner.os != 'Linux'
+        run: node scripts/smoke.mjs
+      - name: Build all distributables
+        if: github.event_name != 'pull_request'
+        run: npx electron-builder ${{ matrix.args }} --publish never
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: github.event_name != 'pull_request'
+        with:
+          name: ${{ matrix.name }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.msi
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.pacman
+            release/*.tar.gz
+            release/latest*.yml

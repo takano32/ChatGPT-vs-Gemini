@@ -22,6 +22,9 @@ import type {
 
 const CHAT_STATUS_POLL_MS = 5000;
 const CHAT_STATUS_FAST_POLL_MS = 1000;
+// CI の認証なしスモークテスト用。設定時は初期化直後に自己診断して終了する(scripts/smoke.mjs 参照)
+const SMOKE_TEST_ENV = 'CVG_SMOKE_TEST';
+const SMOKE_TIMEOUT_MS = 60000;
 
 export class Application {
   private manager!: Manager;
@@ -85,6 +88,42 @@ export class Application {
     this.registerIpc();
     this.forwardEvents();
     this.startChatStatusPolling();
+
+    if (process.env[SMOKE_TEST_ENV]) void this.runSmokeTest();
+  }
+
+  // ログイン不要で確認できる範囲だけを見る: asar からの読込、ネイティブモジュール
+  // (better-sqlite3)と FTS5 trigram、管理ペインの描画。結果を 1 行で stdout に出して終了する。
+  private async runSmokeTest(): Promise<void> {
+    const fail = (reason: string): void => {
+      console.error(`CVG_SMOKE_FAIL ${reason}`);
+      app.exit(1);
+    };
+    const timer = setTimeout(() => fail('timeout'), SMOKE_TIMEOUT_MS);
+    try {
+      const admin = this.manager.layout.view('admin').webContents;
+      if (admin.isLoading()) {
+        await new Promise<void>((resolve) => admin.once('did-finish-load', () => resolve()));
+      }
+      const title = (await admin.executeJavaScript('document.title')) as string;
+      const searchHits = this.repository.search('スモークテスト').length; // 3 文字以上 → FTS5 経路
+      const conversations = this.repository.listConversations().length;
+      const result = {
+        title,
+        userData: app.getPath('userData'),
+        conversations,
+        searchHits,
+        electron: process.versions.electron,
+        platform: process.platform,
+        arch: process.arch,
+      };
+      clearTimeout(timer);
+      console.log(`CVG_SMOKE_OK ${JSON.stringify(result)}`);
+      app.exit(0);
+    } catch (err) {
+      clearTimeout(timer);
+      fail(err instanceof Error ? err.message : String(err));
+    }
   }
 
   private registerIpc(): void {
