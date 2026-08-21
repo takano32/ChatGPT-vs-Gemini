@@ -1,4 +1,4 @@
-# chatgpt-vs-gemini
+# ChatGPT-vs-Gemini
 
 ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士で議論させるデスクトップアプリ。
 
