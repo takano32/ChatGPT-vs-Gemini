@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // 議論エンジン。2 つの Chat を交互に叩き、応答を中継しながら Repository に記録する。
 // 制約: start() は同時に 1 本のみ。pause 中の stop() は resume より優先される。
 

@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // パッケージ済み(unpacked)アプリの認証なしスモークテスト。CI で各 OS ごとに実行する。
 // アプリは CVG_SMOKE_TEST=1 で起動すると初期化直後に自己診断して終了する(src/Application.ts)。
 // 使い方: npx electron-builder --<os> dir && node scripts/smoke.mjs   (Linux は xvfb-run -a を前置)

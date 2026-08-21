@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // 経過(会話 1 件ぶんの発言列)を gist 形式の Markdown 文字列に組み立てる純粋関数。
 // Electron や DB に触らないので、node:test から dist/conversation/markdown.js を読み込んでそのまま検査できる
 // (test/markdown.test.mjs)。クリップボードへ書くのは呼び出し側(Application)の仕事。

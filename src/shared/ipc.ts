@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // IPC チャンネル名と preload が renderer に公開する API の契約。
 // チャンネル名を知るのは main と preload だけ。renderer は window.api 経由でのみ通信する。
 

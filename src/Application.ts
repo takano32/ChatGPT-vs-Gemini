@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // Composition Root。各コンポーネントの組み立てと IPC の仲介だけを行い、ロジックは持たない。
 
 import { app, clipboard, dialog, ipcMain } from 'electron';

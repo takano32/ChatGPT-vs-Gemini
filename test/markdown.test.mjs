@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // 経過の Markdown 書き出し(transcriptToMarkdown)の自動テスト。node:test だけで動く(依存追加なし)。
 // テスト対象はコンパイル済みの dist/conversation/markdown.js なので、`npm run build` のあとに `npm test` で走る。
 // 純粋関数なので DB も Electron も要らず、入力(タイトル・発言・最大ターン数)に対する文字列をそのまま比べる。

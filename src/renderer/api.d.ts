@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // src/shared と手動同期(types.ts / ipc.ts のミラー)。
 // renderer ビルドは ../shared を import できないため、純粋な ambient 宣言として持つ。
 // src/shared 側を変更したら必ずここも追従させること。

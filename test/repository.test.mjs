@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // Repository(SQLite + FTS5)の自動テスト。node:test だけで動く(依存追加なし)。
 // テスト対象はコンパイル済みの dist/conversation/Repository.js なので、`npm run build` のあとに `npm test` で走る。
 // テストごとに os.tmpdir() 配下へ新しい DB を作り、終了時に消す(互いに独立)。

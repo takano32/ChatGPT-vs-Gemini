@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // 議論経過ビュー。main から TranscriptPayload を受け取り、各発言を
 // 話者チップ + ターン番号 + Markdown レンダリングの対話形式で表示する。
 // AI 応答は信頼できないため、DOM は textContent と要素生成のみで組み立て、

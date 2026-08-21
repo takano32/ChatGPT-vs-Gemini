@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // 2 サイトの DOM 知識はこのファイルに集約する。
 // 以下のセレクタは 2026-08-21 にログイン済みの実 UI を CDP で実測して確定した値。
 // 構造が変わったらここだけ直す。

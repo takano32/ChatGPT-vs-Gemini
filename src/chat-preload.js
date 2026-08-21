@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // チャットビュー(ChatGPT/Gemini)用 preload。
 // document_start(ページ本体のスクリプトより前)で毎回走るため、遷移をまたいでも
 // 隙間なく操作ロックが効く。ロック状態は localStorage に持たせて遷移を越えて継続する。

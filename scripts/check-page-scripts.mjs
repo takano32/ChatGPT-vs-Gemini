@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // src/chat/Chat.ts がページ側(executeJavaScript)へ渡すスクリプトの構文検査。
 // テンプレートリテラルの中は TS/Electron では検査されず、エスケープや改行の扱いを誤ると
 // 実行時に無言で失敗する(js() は例外を握りつぶす)。dist/chat/Chat.js から該当テンプレートを取り出し、

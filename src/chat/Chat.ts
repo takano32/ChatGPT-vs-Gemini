@@ -1,3 +1,6 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // サイト非依存のチャット自動操作アルゴリズム。
 // 制約: main プロセスには DOM 型が無い。ページ操作は全て自己完結 IIFE 文字列を
 // executeJavaScript に渡す形で行い、セレクタや本文は JSON.stringify で埋め込む。
