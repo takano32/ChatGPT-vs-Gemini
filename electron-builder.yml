@@ -80,6 +80,8 @@ deb:
 # rpm / pacman は各ディストリの既定に合わせて zstd(xz より数倍速く、CI の Linux ジョブは
 # deb → rpm → pacman が直列に走るためここが律速になる)。
 rpm:
-  compression: zstd        # Fedora 31 以降の既定
+  # v26 の rpm.compression は zstd を受け付けない(v27 で追加)ため fpm 引数で上書きする
+  # (electron-builder の --rpm-compression xzmt の後ろに付くので後勝ち)。Fedora 31 以降の既定。
+  fpm: ["--rpm-compression", "zstd"]
 pacman:
   compression: zstd        # Arch の makepkg 既定
