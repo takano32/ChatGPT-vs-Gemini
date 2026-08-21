@@ -18,6 +18,8 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    env:
+      XZ_DEFAULTS: -T0   # deb の xz 圧縮(fpm が tar -J で呼ぶ)を全コアで行う
     strategy:
       fail-fast: false
       matrix:
