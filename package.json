@@ -29,7 +29,7 @@
     "start": "npm run build && electron .",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
-    "test": "node scripts/check-page-scripts.mjs"
+    "test": "node scripts/check-page-scripts.mjs && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

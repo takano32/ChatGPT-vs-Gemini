@@ -77,7 +77,7 @@ npm install
 npm start        # ビルドして起動
 npm run build    # tsc + アセットコピー
 npm run typecheck
-npm test         # ページ側スクリプト(executeJavaScript に渡す JS)の構文検査
+npm test         # ページ側スクリプトの構文検査と Repository(SQLite)のテスト(ビルド後に実行)
 npm run pack     # 配布物の中身(release/*-unpacked/)だけ作る
 npm run dist     # 実行中の OS 向けの配布物を release/ に作る
 ```
@@ -115,6 +115,8 @@ scripts/
 ├── copy-assets.mjs       # HTML/CSS・chat-preload.js・アイコンを dist/ へコピー
 ├── check-page-scripts.mjs # ページ側スクリプトの構文検査(npm test)
 └── smoke.mjs             # パッケージ済みアプリの認証なし起動テスト(CI 用)
+test/
+└── repository.test.mjs   # Repository の自動テスト(node:test。dist/ を対象にするのでビルド後に npm test)
 .github/workflows/
 ├── build.yml             # 共通: ランナー × アーキ × 形式のジョブでパッケージ化と起動テスト(ネイティブランナー)
 ├── ci.yml                # push/PR: build.yml を呼ぶ(main への push は全形式を Artifacts に)
