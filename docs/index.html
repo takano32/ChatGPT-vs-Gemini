@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatGPT vs Gemini</title>
+<meta name="description" content="ChatGPT と Gemini を、あなたのパソコンの上で議論させる無料のデスクトップアプリ。Windows / macOS / Linux 対応。">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0b0f1c; --panel: #121a2e; --panel-2: #18213a; --line: #26314f;
+    --text: #e8ecf7; --muted: #9aa6c4; --green: #2fd39a; --blue: #6aa6ff; --purple: #7b5cf0;
+    --accent: #6aa6ff; --danger: #ff8a8a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; line-height: 1.7; }
+  a { color: var(--blue); }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 64px; }
+  header { display: flex; align-items: center; gap: 20px; padding: 48px 0 24px; }
+  header img { width: 96px; height: 96px; flex: none; }
+  h1 { margin: 0; font-size: 2rem; letter-spacing: .01em; }
+  h1 .vs { color: var(--muted); font-weight: 400; font-size: 1.2rem; margin: 0 .2em; }
+  .tagline { margin: 4px 0 0; color: var(--muted); font-size: 1.05rem; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin: 20px 0; }
+  .card h2 { margin: 0 0 12px; font-size: 1.2rem; }
+  .primary { text-align: center; padding: 32px 24px; }
+  .primary .os { color: var(--muted); margin-bottom: 8px; }
+  .btn { display: inline-block; padding: 14px 26px; border-radius: 12px; font-weight: 700; text-decoration: none; color: #0b0f1c;
+         background: linear-gradient(135deg, var(--green), var(--blue)); margin: 6px; box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+  .btn:hover { filter: brightness(1.08); }
+  .btn small { display: block; font-weight: 400; font-size: .85rem; opacity: .85; }
+  .btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); box-shadow: none; }
+  .hint { color: var(--muted); font-size: .92rem; margin-top: 10px; }
+  .meta { color: var(--muted); font-size: .9rem; margin-top: 14px; }
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ol.steps li { counter-increment: s; padding-left: 44px; position: relative; }
+  ol.steps li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 30px; height: 30px; border-radius: 50%;
+                        background: var(--panel-2); border: 1px solid var(--line); display: grid; place-items: center; font-weight: 700; }
+  details { border-top: 1px solid var(--line); padding: 10px 0; }
+  details:first-of-type { border-top: 0; }
+  summary { cursor: pointer; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td .size { color: var(--muted); white-space: nowrap; }
+  .tag { display: inline-block; font-size: .75rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; }
+  .note { border-left: 3px solid var(--purple); padding-left: 14px; color: var(--muted); }
+  .hidden { display: none; }
+  code { background: var(--panel-2); padding: 1px 6px; border-radius: 6px; font-size: .9em; }
+  footer { color: var(--muted); font-size: .9rem; margin-top: 40px; }
+  @media (max-width: 600px) { header { flex-direction: column; align-items: flex-start; } h1 { font-size: 1.6rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="icon.svg" alt="">
+    <div>
+      <h1>ChatGPT <span class="vs">vs</span> Gemini</h1>
+      <p class="tagline">ChatGPT と Gemini を、あなたのパソコンの上で議論させる無料アプリ</p>
+    </div>
+  </header>
+
+  <section class="card primary" id="primary">
+    <div class="os" id="primary-os">最新版を確認しています…</div>
+    <div id="primary-buttons"></div>
+    <div class="hint" id="primary-hint"></div>
+    <div class="meta" id="primary-meta"></div>
+  </section>
+
+  <section class="card">
+    <h2>はじめかた</h2>
+    <ol class="steps">
+      <li><strong>ダウンロードして開く</strong>。いまは配布物に署名が無いため、初回だけ OS の警告を通す必要がある(下の「警告が出たとき」)。</li>
+      <li><strong>ChatGPT と Gemini にログイン</strong>。画面の下半分に両方のサイトが並ぶので、それぞれ普段どおりログインする(無料アカウントで可)。次回からは不要。</li>
+      <li><strong>テーマを入れて「開始」</strong>。上の欄に議論させたいテーマを書き、ターン数を選んで開始。あとは眺めるだけ。「経過」ボタンで対話形式の記録に切り替えられる。</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>警告が出たとき</h2>
+    <details>
+      <summary>macOS: 「開発元を確認できない」「壊れているため開けません」</summary>
+      <p>アプリが未署名のために出る警告です。<strong>システム設定 → プライバシーとセキュリティ</strong> を開き、下のほうにある「"ChatGPT vs Gemini" は…」の横の <strong>「このまま開く」</strong> を押してください。ターミナルを使える人は <code>xattr -d com.apple.quarantine "/Applications/ChatGPT vs Gemini.app"</code> でも同じです。</p>
+    </details>
+    <details>
+      <summary>Windows: 「Windows によって PC が保護されました」</summary>
+      <p>SmartScreen の警告です。<strong>「詳細情報」</strong> を押すと出てくる <strong>「実行」</strong> で進めます。インストールはユーザー単位で、管理者権限は要りません。</p>
+    </details>
+    <details>
+      <summary>Linux: AppImage が起動しない</summary>
+      <p>ダウンロード後に実行権限を付けてください: <code>chmod +x ChatGPT-vs-Gemini-*.AppImage</code>。Ubuntu / Debian は <code>.deb</code>、Fedora は <code>.rpm</code>、Arch は <code>.pacman</code> のほうが簡単です。</p>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>すべてのダウンロード</h2>
+    <div id="all"></div>
+  </section>
+
+  <section class="card">
+    <h2>使う前に</h2>
+    <p class="note">OpenAI / Google とは無関係の非公式ツールです。ログイン済みの ChatGPT / Gemini の画面を自動操作するので、各サービスの利用規約はご自身で確認してください。自動操作により一時的な利用制限など、アカウントに影響が出る可能性があります。利用は自己責任でお願いします。会話の記録とログイン状態はあなたのパソコンの中にだけ保存されます。</p>
+  </section>
+
+  <footer>
+    ソースコード・使い方の詳細・不具合報告: <a href="https://github.com/takano32/ChatGPT-vs-Gemini">GitHub</a> ／ ライセンス MPL-2.0 ／ © 2026 takano32
+  </footer>
+</div>
+
+<script>
+(async () => {
+  const REPO = 'takano32/ChatGPT-vs-Gemini';
+  const $ = (id) => document.getElementById(id);
+  const mb = (n) => (n / 1048576).toFixed(0) + ' MB';
+  const OS_LABEL = { win: 'Windows', mac: 'macOS', linux: 'Linux' };
+  const ARCH_LABEL = { x64: 'Intel / AMD(64bit)', arm64: 'ARM(64bit)' };
+  const MAC_ARCH_LABEL = { x64: 'Intel', arm64: 'Apple シリコン(M1 以降)' };
+
+  // 配布物のファイル名から OS・アーキ・種類を読む(GitHub はスペースをハイフンに置き換える)
+  function classify(asset) {
+    const n = asset.name;
+    if (/^latest.*\.yml$/.test(n)) return null;
+    const arch = /arm64|aarch64/i.test(n) ? 'arm64' : 'x64';
+    let os, kind;
+    if (/\.dmg$/.test(n)) { os = 'mac'; kind = 'dmg'; }
+    else if (/-mac\.zip$/.test(n)) { os = 'mac'; kind = 'zip'; }
+    else if (/\.exe$/.test(n)) { os = 'win'; kind = /Setup/i.test(n) ? 'installer' : 'portable'; }
+    else if (/\.msi$/.test(n)) { os = 'win'; kind = 'msi'; }
+    else if (/-win\.zip$/.test(n)) { os = 'win'; kind = 'zip'; }
+    else if (/\.AppImage$/.test(n)) { os = 'linux'; kind = 'AppImage'; }
+    else if (/\.deb$/.test(n)) { os = 'linux'; kind = 'deb'; }
+    else if (/\.rpm$/.test(n)) { os = 'linux'; kind = 'rpm'; }
+    else if (/\.pacman$/.test(n)) { os = 'linux'; kind = 'pacman'; }
+    else if (/\.tar\.gz$/.test(n)) { os = 'linux'; kind = 'tar.gz'; }
+    else return null;
+    return { os, arch, kind, name: n, url: asset.browser_download_url, size: asset.size };
+  }
+  const KIND_LABEL = {
+    dmg: 'ディスクイメージ(おすすめ)', zip: 'zip', installer: 'インストーラ(おすすめ)', portable: 'インストール不要版', msi: 'MSI',
+    AppImage: 'AppImage', deb: 'deb(Ubuntu / Debian)', rpm: 'rpm(Fedora)', pacman: 'pacman(Arch)', 'tar.gz': 'tar.gz',
+  };
+  const KIND_ORDER = ['installer', 'dmg', 'deb', 'rpm', 'pacman', 'AppImage', 'portable', 'zip', 'msi', 'tar.gz'];
+
+  async function detect() {
+    const ua = navigator.userAgent;
+    let os = null;
+    if (/Windows/.test(ua)) os = 'win';
+    else if (/Mac OS X|Macintosh/.test(ua)) os = 'mac';
+    else if (/Linux|X11|CrOS/.test(ua)) os = 'linux';
+    if (/iPhone|iPad|Android/.test(ua)) os = null;
+    let arch = null;
+    try {
+      const h = await navigator.userAgentData?.getHighEntropyValues?.(['architecture']);
+      if (h?.architecture) arch = h.architecture === 'arm' ? 'arm64' : 'x64';
+    } catch {}
+    if (!arch && /aarch64|arm64/i.test(ua)) arch = 'arm64';
+    return { os, arch };
+  }
+
+  function button(a, label, sub, secondary) {
+    return `<a class="btn${secondary ? ' secondary' : ''}" href="${a.url}">${label}<small>${sub} ・ ${mb(a.size)}</small></a>`;
+  }
+
+  function renderPrimary(assets, rel, env) {
+    const pick = (os, arch, kind) => assets.find((a) => a.os === os && a.arch === arch && a.kind === kind);
+    const ver = rel.tag_name;
+    if (!env.os) {
+      $('primary-os').textContent = 'このアプリは Windows / macOS / Linux のパソコン用です';
+      $('primary-buttons').innerHTML = `<a class="btn secondary" href="#all">ダウンロード一覧を見る</a>`;
+    } else if (env.os === 'mac') {
+      $('primary-os').textContent = 'macOS 用';
+      const arm = pick('mac', 'arm64', 'dmg'), intel = pick('mac', 'x64', 'dmg');
+      let html = '';
+      if (env.arch === 'x64') {
+        if (intel) html += button(intel, 'Intel Mac 用をダウンロード', ver);
+        if (arm) html += button(arm, 'Apple シリコン用', ver, true);
+      } else {
+        if (arm) html += button(arm, 'Apple シリコン用をダウンロード', ver + ' ・ M1 以降');
+        if (intel) html += button(intel, 'Intel Mac 用', ver, true);
+      }
+      $('primary-buttons').innerHTML = html;
+      $('primary-hint').textContent = 'どちらか分からないときは、Apple メニュー → 「この Mac について」の「チップ」を見てください(Apple M1 / M2 / M3 … なら Apple シリコン)。';
+    } else {
+      const arch = env.arch ?? 'x64';
+      const kind = env.os === 'win' ? 'installer' : 'deb';
+      const main = pick(env.os, arch, kind) ?? pick(env.os, 'x64', kind);
+      $('primary-os').textContent = `${OS_LABEL[env.os]}(${ARCH_LABEL[main?.arch ?? arch]})用`;
+      let html = main ? button(main, `${OS_LABEL[env.os]} 用をダウンロード`, ver) : '';
+      if (env.os === 'linux') {
+        for (const k of ['rpm', 'pacman', 'AppImage']) {
+          const a = pick('linux', main?.arch ?? arch, k);
+          if (a) html += button(a, KIND_LABEL[k], ver, true);
+        }
+        $('primary-hint').textContent = 'Ubuntu / Debian は deb、Fedora は rpm、Arch は pacman。どれでもない場合は AppImage。';
+      } else {
+        $('primary-hint').textContent = 'インストールせずに使いたい場合は、下の一覧から「インストール不要版」を選んでください。';
+      }
+      $('primary-buttons').innerHTML = html;
+    }
+    const date = new Date(rel.published_at).toLocaleDateString('ja-JP');
+    $('primary-meta').innerHTML = `最新版 ${ver}(${date}) ・ <a href="${rel.html_url}">リリースノート</a>`;
+  }
+
+  function renderAll(assets) {
+    const groups = { win: [], mac: [], linux: [] };
+    for (const a of assets) groups[a.os].push(a);
+    let html = '';
+    for (const os of ['win', 'mac', 'linux']) {
+      const list = groups[os].sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.arch.localeCompare(b.arch));
+      if (!list.length) continue;
+      html += `<h3>${OS_LABEL[os]}</h3><table><tbody>`;
+      for (const a of list) {
+        const archLabel = os === 'mac' ? MAC_ARCH_LABEL[a.arch] : ARCH_LABEL[a.arch];
+        html += `<tr><td>${KIND_LABEL[a.kind]}<span class="tag">${archLabel}</span></td><td><a href="${a.url}">${a.name}</a></td><td class="size">${mb(a.size)}</td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+    $('all').innerHTML = html;
+  }
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (res.status === 404) throw new Error('no-release');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rel = await res.json();
+    const assets = rel.assets.map(classify).filter(Boolean);
+    const env = await detect();
+    renderPrimary(assets, rel, env);
+    renderAll(assets);
+  } catch (err) {
+    const preparing = err.message === 'no-release';
+    $('primary-os').textContent = preparing ? '最初のリリースを準備中です' : '最新版の情報を取得できませんでした';
+    $('primary-buttons').innerHTML = `<a class="btn secondary" href="https://github.com/${REPO}/releases">GitHub のリリース一覧を開く</a>`;
+    $('all').innerHTML = `<p class="hint">${preparing ? '公開されると、ここに全形式の一覧が出ます。' : 'しばらくしてから再読み込みしてください。'}</p>`;
+  }
+})();
+</script>
+</body>
+</html>
