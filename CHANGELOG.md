@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-21
+
+v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
+
 ### Added
 
 - 手編集した `settings.json` の不正な値(範囲外・型違い・欠落)を読込時と保存時に安全な値へ丸めるようにした
@@ -69,6 +73,7 @@
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/takano32/ChatGPT-vs-Gemini/releases/tag/v0.1.0
