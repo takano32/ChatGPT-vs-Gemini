@@ -1,0 +1,112 @@
+// 経過の Markdown 書き出し(transcriptToMarkdown)の自動テスト。node:test だけで動く(依存追加なし)。
+// テスト対象はコンパイル済みの dist/conversation/markdown.js なので、`npm run build` のあとに `npm test` で走る。
+// 純粋関数なので DB も Electron も要らず、入力(タイトル・発言・最大ターン数)に対する文字列をそのまま比べる。
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { transcriptToMarkdown } from '../dist/conversation/markdown.js';
+
+// MessageRecord を手早く作る。id / conversationId / createdAt は出力に関係しないので固定値でよい
+function message(speaker, content, id = 1) {
+  return { id, conversationId: 100, speaker, content, createdAt: '2026-08-21T00:00:00.000Z' };
+}
+
+test('1 件: 見出し・話者行・引用・区切り線の形が gist 形式になる', () => {
+  const md = transcriptToMarkdown('猫と犬はどちらが賢いか', [message('chatgpt', '猫派です。')], 4);
+  assert.equal(
+    md,
+    [
+      '# 猫と犬はどちらが賢いか',
+      '',
+      '🟢 **ChatGPT** (1/4)',
+      '',
+      '> 猫派です。',
+      '',
+      '* * *',
+      '',
+    ].join('\n'),
+  );
+  assert.ok(md.endsWith('* * *\n'), '末尾は区切り線と改行 1 つで終わる');
+  assert.ok(!md.includes('2026-08-21'), '日時や id は出力に含めない');
+});
+
+test('複数件: 発言順に並び、話者ごとの絵文字とラベルが付き、番号が 1 から増える', () => {
+  const messages = [
+    message('chatgpt', '最初の主張', 1),
+    message('gemini', '反論', 2),
+    message('chatgpt', '再反論', 3),
+  ];
+  assert.equal(
+    transcriptToMarkdown('三往復', messages, 3),
+    [
+      '# 三往復',
+      '',
+      '🟢 **ChatGPT** (1/3)',
+      '',
+      '> 最初の主張',
+      '',
+      '* * *',
+      '',
+      '🔵 **Gemini** (2/3)',
+      '',
+      '> 反論',
+      '',
+      '* * *',
+      '',
+      '🟢 **ChatGPT** (3/3)',
+      '',
+      '> 再反論',
+      '',
+      '* * *',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('本文の改行・空行・"> " : 行ごとに "> " を付け、空行も "> " になり、元の "> " は "> > " になる', () => {
+  const content = '1 行目\n\n> 相手の言葉の引用\n最後の行';
+  const md = transcriptToMarkdown('引用の扱い', [message('gemini', content)], 2);
+  assert.equal(
+    md,
+    [
+      '# 引用の扱い',
+      '',
+      '🔵 **Gemini** (1/2)',
+      '',
+      '> 1 行目',
+      '> ',
+      '> > 相手の言葉の引用',
+      '> 最後の行',
+      '',
+      '* * *',
+      '',
+    ].join('\n'),
+  );
+
+  // 本文が改行で終わるときは "> " だけの行が 1 つ増える(split の結果をそのまま引用にする)
+  const trailing = transcriptToMarkdown('末尾改行', [message('chatgpt', '本文\n')], 1);
+  assert.ok(trailing.includes('> 本文\n> \n\n* * *\n'), trailing);
+});
+
+test('空の messages: 見出しだけになる(コピーしないと判断するのは呼び出し側)', () => {
+  assert.equal(transcriptToMarkdown('まだ発言がない会話', [], 5), '# まだ発言がない会話\n');
+});
+
+test('maxTurns の表記: 分母は発言数ではなく渡した maxTurns、分子は発言の通し番号', () => {
+  const messages = [message('chatgpt', 'a', 1), message('gemini', 'b', 2)];
+  const md = transcriptToMarkdown('上限 10', messages, 10);
+  const counters = [...md.matchAll(/\((\d+)\/(\d+)\)/g)].map((m) => `${m[1]}/${m[2]}`);
+  assert.deepEqual(counters, ['1/10', '2/10']);
+
+  // 旧データ向けに Application 側が「発言数」を maxTurns として渡す場合は n/n になる
+  assert.deepEqual(
+    [...transcriptToMarkdown('旧データ', messages, messages.length).matchAll(/\((\d+\/\d+)\)/g)].map((m) => m[1]),
+    ['1/2', '2/2'],
+  );
+});
+
+test('タイトルが空のときは「議論」を見出しにする。空でなければそのまま使う', () => {
+  const messages = [message('chatgpt', 'こんにちは')];
+  assert.ok(transcriptToMarkdown('', messages, 1).startsWith('# 議論\n\n'));
+  assert.ok(transcriptToMarkdown('AI の未来', messages, 1).startsWith('# AI の未来\n\n'));
+  assert.equal(transcriptToMarkdown('', [], 1), '# 議論\n', '発言が無くても既定の見出しになる');
+});

@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { Manager } from './manager/Manager';
 import { Repository } from './conversation/Repository';
 import { Runner } from './conversation/Runner';
+import { transcriptToMarkdown } from './conversation/markdown';
 import { Chat } from './chat/Chat';
 import { ChatGPT } from './chat/ChatGPT';
 import { Gemini } from './chat/Gemini';
@@ -165,20 +166,8 @@ export class Application {
       const messages = this.repository.getMessages(conversationId);
       if (messages.length === 0) return false;
       const maxTurns = conv?.maxTurns ?? Math.max(messages.length, 1); // 旧データは n/n
-      const emoji: Record<string, string> = { chatgpt: '🟢', gemini: '🔵' };
-      const label: Record<string, string> = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
-      const parts: string[] = [];
-      parts.push(`# ${conv ? conv.title : '議論'}`);
-      parts.push('');
-      messages.forEach((m, i) => {
-        parts.push(`${emoji[m.speaker]} **${label[m.speaker]}** (${i + 1}/${maxTurns})`);
-        parts.push('');
-        for (const line of m.content.split('\n')) parts.push(`> ${line}`);
-        parts.push('');
-        parts.push('* * *');
-        parts.push('');
-      });
-      clipboard.writeText(parts.join('\n'));
+      // タイトルが空なら関数側で「議論」になる(UI は空テーマで開始できないので通常は到達しない)
+      clipboard.writeText(transcriptToMarkdown(conv ? conv.title : '', messages, maxTurns));
       return true;
     } catch {
       return false;
