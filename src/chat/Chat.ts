@@ -354,6 +354,9 @@ export abstract class Chat {
         if (attempt > 1) {
           this.throwIfAborted(); // 停止後に「再試行します」と出さない
           this.notify(`${this.displayName} への送信を再試行します(${attempt}/${SEND_ATTEMPTS} 回目)`);
+          // ゲスト利用では送信しようとした瞬間にログイン要求ダイアログが出て送信が塞がれる
+          // (実測: Gemini は 4 回答えた後)。再試行の前に閉じる
+          await this.dismissLoginNag();
         }
         try {
           started = await this.submit(text, baseline, ignoreStop);
