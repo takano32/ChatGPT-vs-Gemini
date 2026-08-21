@@ -12,7 +12,7 @@ ChatGPT と Gemini をブラウザ画面のまま並べて表示し、AI 同士�
 [配布サイト](https://takano32.github.io/ChatGPT-vs-Gemini/)で OS に合ったものを選ぶ([Releases](https://github.com/takano32/ChatGPT-vs-Gemini/releases) には全形式がある)。無料アカウントで ChatGPT と Gemini にログインできれば使える。
 
 - **macOS**: `.dmg` を開き、`ChatGPT vs Gemini` を Applications にドラッグ。Apple シリコン用(arm64)と Intel 用(x64)がある。いまは**未署名**なので初回は「開発元を確認できない」または「壊れている」と言われる。システム設定 → プライバシーとセキュリティ → 「このまま開く」で起動できる(ターミナルなら `xattr -d com.apple.quarantine "/Applications/ChatGPT vs Gemini.app"`)。
-- **Windows**: `ChatGPT vs Gemini Setup 0.1.0.exe` を実行(ユーザー単位にインストール、管理者権限不要)。SmartScreen の「Windows によって PC が保護されました」は「詳細情報」→「実行」で進む。インストールしない portable 版、zip、msi もある。
+- **Windows**: `ChatGPT-vs-Gemini-Setup-<版>.exe` を実行(ユーザー単位にインストール、管理者権限不要)。SmartScreen の「Windows によって PC が保護されました」は「詳細情報」→「実行」で進む。インストールしない portable 版、zip、msi もある。
 - **Linux**: deb(Ubuntu / Debian)、rpm(Fedora)、pacman(Arch)のパッケージを推奨。AppImage は `chmod +x` して実行する(Chromium のサンドボックスは無効で動く)。tar.gz は展開して `chatgpt-vs-gemini` を実行。
 
 ## 使い方
