@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-23
+
 ### Added
 
 - 議論テーマを複数行で入力できるようにした(Shift+Enter で改行、Enter で開始)。経過の Markdown では 1 行目が見出し、残りはその下の段落になる([#1](https://github.com/takano32/ChatGPT-vs-Gemini/issues/1))
@@ -83,7 +85,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.1.0...v0.2.0
