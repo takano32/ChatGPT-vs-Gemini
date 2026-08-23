@@ -200,7 +200,7 @@
       $('primary-buttons').innerHTML = html;
     }
     const date = new Date(rel.published_at).toLocaleDateString('ja-JP');
-    $('primary-meta').innerHTML = `最新版 ${ver}(${date}) ・ <a href="${rel.html_url}">リリースノート</a>`;
+    $('primary-meta').innerHTML = `最新版 ${ver}(${date}) ・ <a href="https://github.com/${REPO}/releases">リリース一覧</a>`;
   }
 
   function renderAll(assets) {
