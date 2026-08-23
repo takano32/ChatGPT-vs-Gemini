@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-23
+
 ### Changed
 
 - 経過の Markdown 書き出しで、本文を引用ブロック(`> `)にするのをやめた。GitHub の gist に貼ると引用は灰色で薄く表示され読みにくかったため、話者行を `###` 見出しにして本文はそのまま段落で出す。区切り線は `---`
@@ -77,7 +79,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/takano32/ChatGPT-vs-Gemini/releases/tag/v0.1.0
