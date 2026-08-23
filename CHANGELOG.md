@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-23
+
+### Fixed
+
+- 履歴の詳細で本文をスクロールすると「← 一覧 / 題名 / 保存 / 削除」のヘッダが見えなくなっていた。上に固定した
+
 ## [0.6.0] - 2026-08-23
 
 ### Added
@@ -217,7 +223,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.2...v0.5.3

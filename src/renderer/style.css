@@ -545,7 +545,12 @@ button { font-family: var(--mono); }
 .badge-done    { color: var(--gpt); border-color: var(--gpt-soft); background: var(--gpt-tint); }
 .badge-error   { color: var(--red); border-color: var(--red-soft); background: var(--red-tint); }
 
-.hist-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+/* 詳細のヘッダ(← 一覧 / 題名 / 保存 / 削除)はパネルをスクロールしても見えるように上に固定 */
+.hist-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  position: sticky; top: -10px; z-index: 1; padding: 10px 0 6px; background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
 .hist-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text); cursor: text; }
 .hist-title:hover, .hist-title:focus-visible { text-decoration: underline dotted var(--dim); outline: none; }
 .hist-title-input {
