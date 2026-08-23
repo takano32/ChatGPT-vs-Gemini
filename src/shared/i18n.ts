@@ -60,11 +60,18 @@ const STRINGS: Table = {
   },
   'chat.stopCleared': { ja: '{name} に残っていた生成状態を解除しました', en: 'Cleared a stale generating state on {name}' },
   'chat.retrySend': { ja: '{name} への送信を再試行します({attempt}/{max} 回目)', en: 'Retrying send to {name} ({attempt}/{max})' },
-  'chat.sendNotStarted': { ja: '{name} への送信が開始しません', en: 'Sending to {name} did not start' },
+  'chat.sendNotStarted': {
+    ja: '{name} への送信が開始しません。{hint}',
+    en: 'Sending to {name} did not start. {hint}',
+  },
   'chat.resend': { ja: '{name} の{why}。送信をやり直します', en: '{name}: {why}. Sending again' },
   'chat.noResponseAfterRetries': {
-    ja: '{name} への送信が {max} 回とも応答に至りませんでした',
-    en: 'Sending to {name} got no response in {max} attempts',
+    ja: '{name} への送信が {max} 回とも応答に至りませんでした。{hint}',
+    en: 'Sending to {name} got no response in {max} attempts. {hint}',
+  },
+  'chat.selectorHint': {
+    ja: '下のパネルで {name} の画面を確認してください。何度も続くならサイトの画面が変わった可能性があります(GitHub の Issue で報告してください)',
+    en: "Check {name}'s page in the pane below. If it keeps happening, the site layout may have changed (please report it in a GitHub issue)",
   },
   'chat.why.noResponse': { ja: '応答が現れません', en: 'no response appeared' },
   'chat.why.errorResponse': { ja: '応答がエラーでした', en: 'the response was an error' },

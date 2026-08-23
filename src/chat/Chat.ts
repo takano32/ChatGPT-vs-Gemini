@@ -142,17 +142,18 @@ export abstract class Chat {
     }
   }
 
-  // 送信できる状態か: サイトの origin にいて入力欄が実在する。ログインの有無は問わない。
-  async isReady(): Promise<boolean> {
-    const url = this.view.webContents.getURL();
-    // startsWith だと類似ドメイン(例: chatgpt.com.evil.io)をすり抜けるため origin 厳密比較
-    let origin: string;
+  // サイトの origin にいるか。startsWith だと類似ドメイン(例: chatgpt.com.evil.io)をすり抜けるため厳密比較
+  isOnSite(): boolean {
     try {
-      origin = new URL(url).origin;
+      return new URL(this.view.webContents.getURL()).origin === this.origin;
     } catch {
       return false;
     }
-    if (origin !== this.origin) return false;
+  }
+
+  // 送信できる状態か: サイトの origin にいて入力欄が実在する。ログインの有無は問わない。
+  async isReady(): Promise<boolean> {
+    if (!this.isOnSite()) return false;
     const ok = await this.js<boolean>(
       `!!document.querySelector(${JSON.stringify(this.selectors.input)})`,
     );
@@ -455,7 +456,10 @@ export abstract class Chat {
 
       if (!started) {
         if (attempt === SEND_ATTEMPTS) {
-          throw new ChatError('send-failed', tm('chat.sendNotStarted', { name: this.displayName }));
+          throw new ChatError(
+            'send-failed',
+            tm('chat.sendNotStarted', { name: this.displayName, hint: tm('chat.selectorHint', { name: this.displayName }) }),
+          );
         }
         this.throwIfAborted();
         // 送信が始まらず、停止ボタンが出たままなら上と同じ固着。再読込してから次の試行へ
@@ -504,7 +508,11 @@ export abstract class Chat {
     }
     throw new ChatError(
       'send-failed',
-      tm('chat.noResponseAfterRetries', { name: this.displayName, max: SEND_ATTEMPTS }),
+      tm('chat.noResponseAfterRetries', {
+        name: this.displayName,
+        max: SEND_ATTEMPTS,
+        hint: tm('chat.selectorHint', { name: this.displayName }),
+      }),
     );
   }
 

@@ -295,14 +295,15 @@ export class Application {
       try {
         // 読込中のページへの executeJavaScript は読込完了まで返らないので、読込中は DOM 判定を飛ばす
         const loading = chat.isPageLoading();
+        const onSite = !loading && chat.isOnSite();
         const [ready, loggedIn, rateLimited] = await Promise.all([
           loading ? Promise.resolve(false) : chat.isReady(),
           chat.isAuthenticated(),
           loading ? Promise.resolve(false) : chat.isRateLimited(),
         ]);
-        return { loading, ready, loggedIn, rateLimited };
+        return { loading, onSite, ready, loggedIn, rateLimited };
       } catch {
-        return { loading: false, ready: false, loggedIn: false, rateLimited: false };
+        return { loading: false, onSite: false, ready: false, loggedIn: false, rateLimited: false };
       }
     };
     const [chatgpt, gemini] = await Promise.all([probe(this.chatGPT), probe(this.gemini)]);

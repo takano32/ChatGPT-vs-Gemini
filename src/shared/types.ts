@@ -59,6 +59,8 @@ export interface TranscriptPayload {
 export interface ChatStatus {
   /** ページ読込中(起動直後・新規チャットへの遷移中・ログイン操作中など)。ready の判定は保留 */
   loading: boolean;
+  /** サイトの origin にいる(ログインで別サイトへ出ている間は false)。ready でないときの案内の切り分け用 */
+  onSite: boolean;
   /** サイトの画面にいて入力欄がある = 送信できる。ログインは不要(両サイトともゲスト利用可) */
   ready: boolean;
   /** セッション Cookie がある。表示専用(ログインすると利用制限が緩くなる) */

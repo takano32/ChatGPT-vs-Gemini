@@ -126,8 +126,8 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
 
   let runner: RunnerStatus = { state: 'idle', conversationId: null, turn: 0, maxTurns: 0 };
   let chats: ChatStatusMap = {
-    chatgpt: { loading: true, ready: false, loggedIn: false, rateLimited: false },
-    gemini: { loading: true, ready: false, loggedIn: false, rateLimited: false },
+    chatgpt: { loading: true, onSite: false, ready: false, loggedIn: false, rateLimited: false },
+    gemini: { loading: true, onSite: false, ready: false, loggedIn: false, rateLimited: false },
   };
   // 「ログインなしで使えます」の案内を閉じたか(このセッションのみ)
   let guestNoticeDismissed = false;
@@ -164,11 +164,20 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
   // ready は落ちるので、文言は「読み込めない」ではなく「画面になっていない」にする。
   function updateLoginBanner(): void {
     const stuck: string[] = [];
+    const noInput: string[] = [];
     let loading = false;
     for (const [name, st] of [['ChatGPT', chats.chatgpt], ['Gemini', chats.gemini]] as const) {
       if (st.ready) continue;
       if (st.loading) loading = true;
+      else if (st.onSite) noInput.push(name);
       else stuck.push(name);
+    }
+    // サイトにいるのに入力欄が無い = 同意・確認の画面か、サイトの画面が変わった(セレクタ破損)
+    if (noInput.length > 0) {
+      loginBanner.className = 'login-banner warn';
+      loginBannerText.textContent = t('banner.noInput', { names: noInput.join(t('names.join')) });
+      loginBannerHint.textContent = t('banner.noInput.hint');
+      return;
     }
     if (stuck.length > 0) {
       loginBanner.className = 'login-banner warn';

@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-08-23
+
+### Changed
+
+- **入力欄が見つからないときの案内**: サイトにいるのに入力欄が無い(同意・確認の画面が出ている、またはサイトの画面が変わった)ときは、別サイトにいるとき(ログイン操作中)とは別の文言で「下のパネルの画面に従う / 直らなければ Issue で報告」を案内する
+- 送信が始まらない・応答が来ないまま再試行を使い切ったときのエラーに「下のパネルで確認、続くならサイトの画面が変わった可能性」の案内を付けた
+
 ## [0.5.1] - 2026-08-23
 
 ### Changed
@@ -189,7 +196,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.2...v0.4.3

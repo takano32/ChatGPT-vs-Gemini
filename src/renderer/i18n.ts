@@ -72,6 +72,11 @@ const STRINGS: Table = {
     ja: 'ログイン中なら完了後に戻ります。戻らなければ下のパネルで確認してください',
     en: 'If you are logging in, it returns when done. Otherwise check the pane below',
   },
+  'banner.noInput': { ja: '{names} の画面に入力欄が見つかりません', en: '{names}: no input box on the page' },
+  'banner.noInput.hint': {
+    ja: '下のパネルに同意や確認の画面が出ていればそれに従ってください。何も出ていなければサイトの画面が変わった可能性があります(再読込しても直らなければ GitHub の Issue で報告してください)',
+    en: 'If the pane below shows a consent or verification screen, follow it. Otherwise the site layout may have changed (if reloading does not help, please report it in a GitHub issue)',
+  },
   'banner.guest': { ja: '{names} はログインなしで使えます', en: '{names} can be used without logging in' },
   'banner.guest.hint': {
     ja: 'ログインすると、会話がサイト側の履歴に残り、利用制限が緩くなることがあります',
