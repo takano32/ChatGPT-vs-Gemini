@@ -15,6 +15,9 @@ export interface SiteSelectors {
   // 応答要素の中で本文だけを持つ要素(省略時は応答要素全体の innerText)。読み上げ用ラベルや
   // 操作ボタンの文言が本文に混ざるサイト/変種で指定する。
   messageContent?: string;
+  // 本文の中にあるが本文ではない要素(サイトが差し込む選択肢ボタンなど)。本文を読むときだけ一時的に
+  // display:none にして innerText から外す。文言ではなく要素で除くので言語に依存しない
+  excludeInContent?: string;
   // ゲスト(未ログイン)利用中にサイトが出すログイン要求ダイアログを閉じるボタンの文言(部分一致、大小無視)。
   // 両サイトともログインなしで使える(2026-08-21 実測)。ダイアログは実測では出なかったが備えておく。
   dismissPatterns: string[];
@@ -44,8 +47,10 @@ export const CHATGPT_SELECTORS: SiteSelectors = {
   partition: 'persist:chatgpt',
   input: '#prompt-textarea, #mobile-composer-prompt', // div.ProseMirror[contenteditable] / 変種は textarea
   // 変種側は aria-label(英語)にしか手掛かりが無い。匿名 UI は日本語環境でも英語で配信される(実測)。
-  sendButton: 'button[data-testid="send-button"], button[aria-label="Send message"]',
-  stopButton: 'button[data-testid="stop-button"], button[aria-label="Stop generating"]',
+  // aria-label は 2026-08-21 実測 "Send message" / "Stop generating"、2026-08-23 実測 "Send prompt" / "Stop answering"
+  // (data-testid は両日とも send-button / stop-button)
+  sendButton: 'button[data-testid="send-button"], button[aria-label="Send message"], button[aria-label="Send prompt"]',
+  stopButton: 'button[data-testid="stop-button"], button[aria-label="Stop generating"], button[aria-label="Stop answering"]',
   assistantMessages: '[data-message-author-role="assistant"], li[data-message-role="assistant"]',
   // 変種の li は読み上げ用「ChatGPT said:」を含むため本文だけ取る。
   // 2026-08-23 実測: 長めの回答は「writing block」(文書風の編集可能表示)で描かれ、.markdown の中に
@@ -82,6 +87,10 @@ export const GEMINI_SELECTORS: SiteSelectors = {
   sendButton: 'button[aria-label="プロンプトを送信"], button:has(mat-icon[fonticon="arrow_upward"])',
   stopButton: 'button[aria-label="回答を停止"], button:has(mat-icon[fonticon="stop"])',
   assistantMessages: 'message-content', // 応答のみ(ユーザ発言は別要素)
+  // 2026-08-23 実測: 議論が進むと Gemini が応答末尾に「次の展開を選択してください」+ 選択肢ボタンを
+  // <elicitations>(message-content > .markdown > .attachment-container > response-element の中)として
+  // 描画する。導入文もこの要素の中にあるので、要素ごと除くと本文だけが残る
+  excludeInContent: 'elicitations',
   dismissPatterns: ['Not now', '後で', 'ログインせずに', 'Continue without'],
   hidePatterns: [], // 実測では常設の勧誘はヘッダーの「Sign in」のみ(残す)
   rateLimitPatterns: ['しばらくしてからもう一度', 'try again later', '上限に達しました'],

@@ -187,6 +187,10 @@ export class Layout {
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
+        // 経過ビューを重ねるとチャットページは「非表示」扱いになり(document.hidden = true)、描画とタイマーが
+        // 止まって ChatGPT が回答中のまま固まる(2026-08-23 実測)。経過表示中も議論を進めるため、
+        // バックグラウンド抑制を切る(Page Visibility API にも効く)
+        backgroundThrottling: false,
       },
     });
     const wc = view.webContents;

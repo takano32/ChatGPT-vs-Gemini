@@ -904,11 +904,19 @@ export abstract class Chat {
         const last = count > 0 ? msgs[count - 1] : null;
         const lastKey = last ? keyOf(last) : null;
         const contentSel = ${JSON.stringify(s.messageContent ?? '')};
+        const excludeSel = ${JSON.stringify(s.excludeInContent ?? '')};
         const textOf = (el) => {
-          if (!contentSel) return (el.innerText || '').trim();
-          const all = [...el.querySelectorAll(contentSel)];
-          const leaves = all.filter((c) => !all.some((o) => o !== c && c.contains(o)));
-          return leaves.map((c) => (c.innerText || '').trim()).filter(Boolean).join('\\n\\n');
+          const hidden = excludeSel ? [...el.querySelectorAll(excludeSel)] : [];
+          const saved = hidden.map((h) => h.style.display);
+          for (const h of hidden) h.style.display = 'none';
+          try {
+            if (!contentSel) return (el.innerText || '').trim();
+            const all = [...el.querySelectorAll(contentSel)];
+            const leaves = all.filter((c) => !all.some((o) => o !== c && c.contains(o)));
+            return leaves.map((c) => (c.innerText || '').trim()).filter(Boolean).join('\\n\\n');
+          } finally {
+            hidden.forEach((h, i) => { h.style.display = saved[i]; });
+          }
         };
         const lastText = last ? textOf(last) : '';
         const lastWhole = last ? ((last.innerText || '').trim()) : '';

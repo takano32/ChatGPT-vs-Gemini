@@ -5,6 +5,15 @@
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-23
+
+### Fixed
+
+- Gemini が応答の末尾に出す「次の展開を選択してください」と選択肢ボタンの文言が、本文として保存され ChatGPT にも渡っていた。選択肢の要素(`<elicitations>`)を本文から除くようにした(文言ではなく要素で判定するので英語でも効く)
+- 議論中に「経過」を開くと、次の発言で自動的にライブ表示へ戻されていた。ライブへ戻すのは議論の開始時だけにした(経過の内容は発言ごとに更新される)
+- 経過表示中はチャットページが「非表示」扱いになって描画が止まり、ChatGPT が回答中のまま固まることがあった。チャットペインのバックグラウンド抑制を切り、経過表示中も議論が進むようにした
+- ChatGPT の送信 / 停止ボタンの新しい表示名(Send prompt / Stop answering)にも対応した
+
 ## [0.4.1] - 2026-08-23
 
 ### Changed
@@ -154,7 +163,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.8...v0.3.0

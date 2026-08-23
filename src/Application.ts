@@ -39,6 +39,7 @@ export class Application {
   private gemini!: Gemini;
   private statusTimer: NodeJS.Timeout | null = null;
   private transcriptVisible = false;
+  private lastRunnerState: RunnerStatus['state'] = 'idle';
 
   start(): void {
     if (!app.requestSingleInstanceLock()) {
@@ -199,9 +200,13 @@ export class Application {
       this.sendToAdmin(IPC.evRunnerStatus, s);
       // 議論中だけチャットペインの操作をロックする(待機中はログインや手動チャットができるように)
       this.applyInteractionLock(s.state);
-      // 議論開始でライブ表示に戻し、完了/停止/エラーで経過を前面に出す
+      // 議論開始(running への遷移)でライブ表示に戻し、完了/停止/エラーで経過を前面に出す。
+      // 進行中の status は発言ごとに流れるので、遷移のときだけ切り替える(利用者が途中で経過を開いても閉じない。
+      // 経過の内容は message ごとに更新される)
+      const wasRunning = this.lastRunnerState === 'running';
+      this.lastRunnerState = s.state;
       if (s.state === 'running') {
-        this.setTranscriptVisible(false);
+        if (!wasRunning) this.setTranscriptVisible(false);
       } else if (s.state === 'done' || s.state === 'stopped' || s.state === 'error') {
         if (s.conversationId !== null) this.renderTranscript(s.conversationId);
         this.setTranscriptVisible(true);
