@@ -128,6 +128,10 @@ const STRINGS: Table = {
     en: 'Quitting stops the debate here (the messages so far are kept in the history)',
   },
   'app.closeWhileRunning.quit': { ja: '終了', en: 'Quit' },
+  'app.deleteConversation': { ja: '「{title}」を削除しますか?', en: 'Delete "{title}"?' },
+  'app.deleteConversation.detail': { ja: '発言も一緒に消えます。元に戻せません', en: 'Its messages are deleted too. This cannot be undone' },
+  'app.deleteConversation.delete': { ja: '削除', en: 'Delete' },
+  'app.deleteConversation.cancel': { ja: 'キャンセル', en: 'Cancel' },
   'app.closeWhileRunning.cancel': { ja: '続ける', en: 'Keep going' },
   'md.untitled': { ja: '議論', en: 'Debate' },
 };

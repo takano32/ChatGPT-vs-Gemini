@@ -165,7 +165,10 @@
       <div id="history-detail" class="hidden">
         <div class="hist-head">
           <button type="button" id="btn-history-back" class="btn btn-small" data-i18n="history.back">← 一覧</button>
-          <span id="history-title" class="hist-title"></span>
+          <span id="history-title" class="hist-title" tabindex="0" role="button" data-i18n-title="history.rename.hint" title="クリックで名前を変更"></span>
+          <input id="history-title-input" class="hist-title-input hidden" type="text" spellcheck="false" autocomplete="off">
+          <button type="button" id="btn-history-save" class="btn btn-small" data-i18n="history.save" data-i18n-title="history.save.hint" title="Markdown ファイルに保存">保存</button>
+          <button type="button" id="btn-history-delete" class="btn btn-small btn-danger" data-i18n="history.delete">削除</button>
         </div>
         <div id="history-messages"></div>
       </div>

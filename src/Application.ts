@@ -5,6 +5,7 @@
 
 import { app, clipboard, dialog, ipcMain } from 'electron';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { Manager } from './manager/Manager';
 import { setMainLang, tm } from './shared/i18n';
 import { FileLog } from './shared/FileLog';
@@ -186,6 +187,65 @@ export class Application {
     ipcMain.handle(IPC.transcriptCopyMarkdown, (_e, conversationId: number) =>
       this.copyTranscriptMarkdown(Number(conversationId))
     );
+    ipcMain.handle(IPC.transcriptSaveMarkdown, (_e, conversationId: number) =>
+      this.saveTranscriptMarkdown(Number(conversationId))
+    );
+    ipcMain.handle(IPC.deleteConversation, (_e, conversationId: number) =>
+      this.deleteConversation(Number(conversationId))
+    );
+    ipcMain.handle(IPC.renameConversation, (_e, conversationId: number, title: string) => {
+      const id = Number(conversationId);
+      const ok = this.repository.renameConversation(id, String(title));
+      if (ok && this.transcriptConversationId === id) this.renderTranscript(id);
+      return ok;
+    });
+  }
+
+  // 会話の削除。元に戻せないので確認ダイアログを挟む(利用者の決定 2026-08-23)。議論中の会話は消さない
+  private async deleteConversation(id: number): Promise<boolean> {
+    const st = this.runner.status;
+    if ((st.state === 'running' || st.state === 'paused') && st.conversationId === id) return false;
+    const conv = this.repository.listConversations().find((c) => c.id === id);
+    if (!conv) return false;
+    const { response } = await dialog.showMessageBox(this.manager.window.base, {
+      type: 'warning',
+      message: tm('app.deleteConversation', { title: conv.title.split('\n')[0] ?? '' }),
+      detail: tm('app.deleteConversation.detail'),
+      buttons: [tm('app.deleteConversation.delete'), tm('app.deleteConversation.cancel')],
+      defaultId: 1,
+      cancelId: 1,
+    });
+    if (response !== 0) return false;
+    const ok = this.repository.deleteConversation(id);
+    // 経過表示がその会話を出していたら、空の状態に戻す
+    if (ok && this.transcriptConversationId === id) {
+      this.transcriptConversationId = null;
+      const payload: TranscriptPayload = { conversationId: 0, title: '', status: null, maxTurns: 1, mode: null, messages: [] };
+      this.manager.layout.view('transcript').webContents.send(IPC.evTranscript, payload);
+      if (this.transcriptVisible) this.setTranscriptVisible(false);
+    }
+    return ok;
+  }
+
+  // 経過を Markdown ファイルに保存。既定のファイル名は議題の 1 行目 + 日付(OS が使えない文字は置き換える)
+  private async saveTranscriptMarkdown(conversationId: number): Promise<boolean> {
+    try {
+      const conv = this.repository.listConversations().find((c) => c.id === conversationId);
+      const messages = this.repository.getMessages(conversationId);
+      if (!conv || messages.length === 0) return false;
+      const maxTurns = conv.maxTurns ?? Math.max(messages.length, 1);
+      const head = (conv.title.split('\n')[0] ?? '').trim().replace(/[\\/:*?"<>|]/g, '_').slice(0, 60) || tm('md.untitled');
+      const date = conv.createdAt.slice(0, 10);
+      const { canceled, filePath } = await dialog.showSaveDialog(this.manager.window.base, {
+        defaultPath: path.join(app.getPath('documents'), `${head} ${date}.md`),
+        filters: [{ name: 'Markdown', extensions: ['md'] }],
+      });
+      if (canceled || !filePath) return false;
+      fs.writeFileSync(filePath, transcriptToMarkdown(conv.title, messages, maxTurns), 'utf8');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // 経過を gist 形式 Markdown にしてクリップボードへ。派生データなので DB には保存しない。
@@ -274,8 +334,12 @@ export class Application {
     });
   }
 
+  // 経過表示がいま出している会話(削除・改名の追従用)
+  private transcriptConversationId: number | null = null;
+
   private renderTranscript(conversationId: number): void {
     try {
+      this.transcriptConversationId = conversationId;
       const conv = this.repository
         .listConversations()
         .find((c) => c.id === conversationId);

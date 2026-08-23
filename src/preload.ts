@@ -36,12 +36,16 @@ const api: RendererApi = {
   search: (query) => ipcRenderer.invoke(IPC.search, query),
   listConversations: () => ipcRenderer.invoke(IPC.listConversations),
   getMessages: (conversationId) => ipcRenderer.invoke(IPC.getMessages, conversationId),
+  deleteConversation: (conversationId) => ipcRenderer.invoke(IPC.deleteConversation, conversationId),
+  renameConversation: (conversationId, title) => ipcRenderer.invoke(IPC.renameConversation, conversationId, title),
   getChatStatus: () => ipcRenderer.invoke(IPC.chatStatus),
   toggleTranscript: () => ipcRenderer.invoke(IPC.transcriptToggle),
   showConversationTranscript: (conversationId) =>
     ipcRenderer.invoke(IPC.transcriptShowConversation, conversationId),
   copyTranscriptMarkdown: (conversationId) =>
     ipcRenderer.invoke(IPC.transcriptCopyMarkdown, conversationId),
+  saveTranscriptMarkdown: (conversationId) =>
+    ipcRenderer.invoke(IPC.transcriptSaveMarkdown, conversationId),
 
   onLog: (cb) => subscribe(IPC.evLog, cb),
   onRunnerStatus: (cb) => subscribe(IPC.evRunnerStatus, cb),

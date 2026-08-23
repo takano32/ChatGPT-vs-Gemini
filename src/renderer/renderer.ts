@@ -118,6 +118,9 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
   const historyTitle = must<HTMLElement>('history-title');
   const historyMessages = must<HTMLElement>('history-messages');
   const btnHistoryBack = must<HTMLButtonElement>('btn-history-back');
+  const historyTitleInput = must<HTMLInputElement>('history-title-input');
+  const btnHistorySave = must<HTMLButtonElement>('btn-history-save');
+  const btnHistoryDelete = must<HTMLButtonElement>('btn-history-delete');
 
   const searchInput = must<HTMLInputElement>('search-input');
   const searchResults = must<HTMLElement>('search-results');
@@ -597,13 +600,31 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
         return;
       }
       for (const conv of convs) {
-        const row = el('button', 'conv-row');
-        row.type = 'button';
+        // 行は div(中に削除ボタンを置くため button 入れ子を避ける)。クリックで詳細、✕ で削除
+        const row = el('div', 'conv-row');
+        row.tabIndex = 0;
+        row.setAttribute('role', 'button');
         row.appendChild(el('span', 'conv-title', conv.title));
         row.appendChild(el('span', `badge badge-${conv.status}`, conv.status));
         row.appendChild(el('span', 'conv-date', shortDate(conv.updatedAt)));
+        if (!isInProgress(conv.id)) {
+          const del = el('button', 'conv-delete', '✕');
+          del.type = 'button';
+          del.title = t('history.delete.hint');
+          del.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            void deleteConversation(conv.id, () => loadHistory());
+          });
+          row.appendChild(del);
+        }
         row.addEventListener('click', () => {
-          void openConversation(conv);
+          void openConversation(conv.id, conv.title);
+        });
+        row.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            void openConversation(conv.id, conv.title);
+          }
         });
         historyList.appendChild(row);
       }
@@ -613,25 +634,44 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     }
   }
 
-  async function openConversation(conv: ConversationRecord): Promise<void> {
+  // 詳細画面で開いている会話(改名・削除・保存の対象)
+  let openConversationId: number | null = null;
+
+  /** いま議論中(実行中・一時停止中)の会話か。削除の対象から外す */
+  function isInProgress(id: number): boolean {
+    return (runner.state === 'running' || runner.state === 'paused') && runner.conversationId === id;
+  }
+
+  /** 会話の詳細。focusMessageId があればその発言までスクロールして一時ハイライト(検索からのジャンプ) */
+  async function openConversation(id: number, title: string, focusMessageId?: number): Promise<void> {
+    openConversationId = id;
     historyList.classList.add('hidden');
     historyDetail.classList.remove('hidden');
-    historyTitle.textContent = conv.title;
+    endRename(false);
+    btnHistoryDelete.disabled = isInProgress(id);
+    historyTitle.textContent = title;
     historyMessages.textContent = '';
     historyMessages.appendChild(el('div', 'drawer-empty', t('history.loading')));
     try {
-      const msgs = await api.getMessages(conv.id);
+      const msgs = await api.getMessages(id);
+      if (openConversationId !== id) return; // 読込中に別の会話を開いた
       historyMessages.textContent = '';
       if (msgs.length === 0) {
         historyMessages.appendChild(el('div', 'drawer-empty', t('history.noMessages')));
         return;
       }
+      let target: HTMLElement | null = null;
       for (const msg of msgs) {
         const row = el('div', 'hist-msg');
         row.appendChild(el('span', `chip chip-${msg.speaker}`, SPEAKER_LABELS[msg.speaker]));
         row.appendChild(el('span', 'msg-body', msg.content));
         row.appendChild(el('span', 'msg-date', shortDate(msg.createdAt)));
         historyMessages.appendChild(row);
+        if (msg.id === focusMessageId) target = row;
+      }
+      if (target) {
+        target.scrollIntoView({ block: 'center' });
+        target.classList.add('hit-flash');
       }
     } catch (err) {
       historyMessages.textContent = '';
@@ -639,7 +679,70 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     }
   }
 
-  btnHistoryBack.addEventListener('click', showHistoryList);
+  async function deleteConversation(id: number, after: () => void | Promise<void>): Promise<void> {
+    const ok = await api.deleteConversation(id); // 確認ダイアログは main が出す
+    if (!ok) return; // 取り消し(または議論中)。議論中の会話は行に ✕ を出さないので通常は取り消し
+    if (openConversationId === id) openConversationId = null;
+    await after();
+  }
+
+  // 改名: 題名をクリックで入力欄に切り替え、Enter / フォーカス外れで確定、Esc で取り消し
+  let renaming = false;
+  function beginRename(): void {
+    if (openConversationId === null || renaming) return;
+    renaming = true;
+    historyTitleInput.value = historyTitle.textContent ?? '';
+    historyTitle.classList.add('hidden');
+    historyTitleInput.classList.remove('hidden');
+    historyTitleInput.focus();
+    historyTitleInput.select();
+  }
+  function endRename(commit: boolean): void {
+    if (!renaming) return;
+    renaming = false;
+    historyTitleInput.classList.add('hidden');
+    historyTitle.classList.remove('hidden');
+    const id = openConversationId;
+    const title = historyTitleInput.value.trim();
+    if (!commit || id === null || title === '' || title === historyTitle.textContent) return;
+    historyTitle.textContent = title;
+    void api.renameConversation(id, title).then((ok) => {
+      if (!ok) localLog('warn', t('history.renameFailed'));
+    });
+  }
+  historyTitle.addEventListener('click', beginRename);
+  historyTitle.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      beginRename();
+    }
+  });
+  historyTitleInput.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      endRename(true);
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault();
+      endRename(false);
+    }
+  });
+  historyTitleInput.addEventListener('blur', () => endRename(true));
+
+  btnHistoryDelete.addEventListener('click', () => {
+    if (openConversationId === null) return;
+    void deleteConversation(openConversationId, () => loadHistory());
+  });
+  btnHistorySave.addEventListener('click', () => {
+    if (openConversationId === null) return;
+    void api.saveTranscriptMarkdown(openConversationId).then((ok) => {
+      if (ok) localLog('info', t('history.saved'));
+    });
+  });
+
+  btnHistoryBack.addEventListener('click', () => {
+    endRename(false);
+    void loadHistory();
+  });
 
   // ---------- 検索 ----------
 
@@ -698,6 +801,11 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
         head.appendChild(el('span', 'hit-date', shortDate(hit.message.createdAt)));
         row.appendChild(head);
         row.appendChild(renderSnippet(hit.snippet));
+        // クリックで履歴タブのその会話を開き、該当の発言へジャンプ
+        row.addEventListener('click', () => {
+          setTab('history');
+          void openConversation(hit.message.conversationId, hit.conversationTitle, hit.message.id);
+        });
         searchResults.appendChild(row);
       }
     } catch (err) {

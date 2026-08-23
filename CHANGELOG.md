@@ -5,6 +5,14 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-23
+
+### Added
+
+- **履歴の手入れ**: 履歴の一覧と詳細から会話を削除できる(確認ダイアログあり。発言も消え、全文検索からも消える。議論中の会話は消せない)。詳細画面の題名をクリックで改名(Enter で確定、Esc で取り消し)
+- **検索からジャンプ**: 検索結果をクリックすると履歴のその会話を開き、該当の発言までスクロールしてハイライトする
+- **Markdown をファイルに保存**: 経過表示と履歴の詳細に「保存」。OS の保存ダイアログで `.md` に書き出す(既定名は議題 + 日付)
+
 ## [0.5.4] - 2026-08-23
 
 ### Fixed
@@ -209,7 +217,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.1...v0.5.2

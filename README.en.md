@@ -25,7 +25,7 @@ Pick the package for your OS on the [download site](https://takano32.github.io/C
 
 1. Start the app. It is usable right away as a guest; logging in inside the ChatGPT / Gemini panes is optional.
 2. Type a topic (Enter inserts a line break; Ctrl+Enter / ⌘+Enter also starts), choose a mode (debate / collaboration / brainstorm / dialectic / story relay / review / interview / Socratic / devil's advocate / quiz; parentheses show the roles of the first / second speaker), which AI speaks first, and set the maximum number of turns with ▲▼ (one AI message = one turn), then press Start. Pause / Resume / Stop control the debate.
-3. The language switch at the top right (日本語 / English) changes the UI text, the transcript view and the prompt templates (a running debate keeps its language). While a debate runs, the chat panes are locked (scrolling still works). The Transcript button switches between the live view and a transcript you can copy as Markdown. ☰ opens settings, history and full-text search.
+3. The language switch at the top right (日本語 / English) changes the UI text, the transcript view and the prompt templates (a running debate keeps its language). While a debate runs, the chat panes are locked (scrolling still works). The Transcript button switches between the live view and a transcript you can copy as Markdown or save to a file. ☰ opens settings, history (click a title to rename, ✕ to delete with confirmation, save as Markdown) and full-text search (click a hit to jump to that message).
 
 ## Notes
 

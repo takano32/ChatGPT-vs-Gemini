@@ -105,6 +105,9 @@ export class Repository {
   private stmtInsertConversation!: Database.Statement;
   private stmtUpdateStatus!: Database.Statement;
   private stmtTouchConversation!: Database.Statement;
+  private stmtRenameConversation!: Database.Statement;
+  private stmtDeleteConversation!: Database.Statement;
+  private stmtDeleteMessagesOf!: Database.Statement;
   private stmtInsertMessage!: Database.Statement;
   private stmtListConversations!: Database.Statement;
   private stmtGetMessages!: Database.Statement;
@@ -160,6 +163,10 @@ export class Repository {
     this.stmtTouchConversation = this.db.prepare(
       'UPDATE conversations SET updated_at = ? WHERE id = ?',
     );
+    this.stmtRenameConversation = this.db.prepare('UPDATE conversations SET title = ? WHERE id = ?');
+    // 発言は CASCADE に頼らず明示的に消す(FTS の削除トリガが確実に行ごとに動くように)
+    this.stmtDeleteMessagesOf = this.db.prepare('DELETE FROM messages WHERE conversation_id = ?');
+    this.stmtDeleteConversation = this.db.prepare('DELETE FROM conversations WHERE id = ?');
     this.stmtInsertMessage = this.db.prepare(
       'INSERT INTO messages (conversation_id, speaker, content, created_at) VALUES (?, ?, ?, ?)',
     );
@@ -224,6 +231,22 @@ export class Repository {
       maxTurns,
       mode,
     };
+  }
+
+  /** 会話の名前を変える(updated_at は触らない: 並び順は議論した日時のまま)。空なら何もしない */
+  renameConversation(id: number, title: string): boolean {
+    const trimmed = title.trim();
+    if (trimmed === '') return false;
+    return this.stmtRenameConversation.run(trimmed, id).changes > 0;
+  }
+
+  /** 会話と発言を消す。戻り値は消えたか(無い id なら false) */
+  deleteConversation(id: number): boolean {
+    const tx = this.db.transaction((cid: number): boolean => {
+      this.stmtDeleteMessagesOf.run(cid);
+      return this.stmtDeleteConversation.run(cid).changes > 0;
+    });
+    return tx(id);
   }
 
   setConversationStatus(id: number, status: ConversationStatus): void {

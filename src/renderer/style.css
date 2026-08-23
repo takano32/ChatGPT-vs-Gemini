@@ -546,7 +546,23 @@ button { font-family: var(--mono); }
 .badge-error   { color: var(--red); border-color: var(--red-soft); background: var(--red-tint); }
 
 .hist-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.hist-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text); }
+.hist-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text); cursor: text; }
+.hist-title:hover, .hist-title:focus-visible { text-decoration: underline dotted var(--dim); outline: none; }
+.hist-title-input {
+  flex: 1; min-width: 0; font: inherit; font-size: 11px; color: var(--text);
+  background: var(--bg-inset); border: 1px solid var(--border-bright); border-radius: 3px; padding: 2px 6px;
+}
+.hist-title-input:focus { outline: none; border-color: var(--gpt-soft); }
+.btn-danger:hover:not(:disabled) { color: var(--red); border-color: var(--red-soft); }
+.conv-row .conv-delete {
+  flex: none; background: none; border: 1px solid transparent; border-radius: 3px; color: var(--faint);
+  font-size: 11px; line-height: 1; padding: 2px 5px; cursor: pointer; opacity: 0;
+}
+.conv-row:hover .conv-delete, .conv-row:focus-within .conv-delete { opacity: 1; }
+.conv-row .conv-delete:hover { color: var(--red); border-color: var(--red-soft); }
+.hist-msg.hit-flash { animation: hit-flash 1.6s ease-out; }
+@keyframes hit-flash { 0%, 40% { background: var(--amber-tint); } 100% { background: transparent; } }
+.hit-row { cursor: pointer; }
 
 .hist-msg { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 11px; line-height: 1.6; }
 .hist-msg .msg-body { flex: 1; min-width: 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }

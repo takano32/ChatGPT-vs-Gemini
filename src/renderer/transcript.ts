@@ -22,6 +22,8 @@ const modeEl = document.getElementById('tr-mode') as HTMLElement;
 const bodyEl = document.getElementById('tr-body') as HTMLElement;
 const copyBtn = document.getElementById('tr-copy') as HTMLButtonElement;
 const copyFlash = document.getElementById('tr-copy-flash') as HTMLElement;
+const saveBtn = document.getElementById('tr-save') as HTMLButtonElement;
+const saveFlash = document.getElementById('tr-save-flash') as HTMLElement;
 const backBtn = document.getElementById('tr-back') as HTMLButtonElement;
 
 backBtn.addEventListener('click', () => {
@@ -56,13 +58,23 @@ window.api.onSettingsChanged((s) => {
 });
 applyI18n();
 
+function flash(elm: HTMLElement): void {
+  elm.classList.add('show');
+  window.clearTimeout(flashTimer);
+  flashTimer = window.setTimeout(() => elm.classList.remove('show'), 1600);
+}
+
 copyBtn.addEventListener('click', () => {
   if (currentConversationId === null) return;
   void window.api.copyTranscriptMarkdown(currentConversationId).then((ok) => {
-    if (!ok) return;
-    copyFlash.classList.add('show');
-    window.clearTimeout(flashTimer);
-    flashTimer = window.setTimeout(() => copyFlash.classList.remove('show'), 1600);
+    if (ok) flash(copyFlash);
+  });
+});
+
+saveBtn.addEventListener('click', () => {
+  if (currentConversationId === null) return;
+  void window.api.saveTranscriptMarkdown(currentConversationId).then((ok) => {
+    if (ok) flash(saveFlash);
   });
 });
 
@@ -80,6 +92,7 @@ function render(payload: TranscriptPayload): void {
   const isNewConversation = payload.conversationId !== lastConversationId;
   currentConversationId = payload.conversationId;
   copyBtn.disabled = payload.messages.length === 0;
+  saveBtn.disabled = payload.messages.length === 0;
 
   // 再構築でスクロール位置がリセットされるため、同じ議論への追記では元の位置へ戻す
   // (自動追従はしない。利用者が読んでいる位置を動かさない)

@@ -172,6 +172,43 @@ test('addMessage → getMessages: 追加した順に返り、speaker / content �
   assert.deepEqual(repo.getMessages(b.id + 1000), [], '存在しない会話は空配列');
 });
 
+test('deleteConversation: 会話と発言が消え、全文検索の索引からも消える。無い id は false', (t) => {
+  const { open } = setup(t);
+  const repo = open();
+  const conv = repo.createConversation('消す会話', 4, 'debate');
+  repo.addMessage(conv.id, 'chatgpt', '吾輩は猫である。');
+  repo.addMessage(conv.id, 'gemini', '走れメロス。');
+  const keep = repo.createConversation('残す会話', 4, 'debate');
+  repo.addMessage(keep.id, 'chatgpt', '猫である、と彼も言った。');
+  assert.equal(repo.search('猫である').length, 2);
+
+  assert.equal(repo.deleteConversation(conv.id), true);
+  assert.deepEqual(repo.listConversations().map((c) => c.id), [keep.id]);
+  assert.equal(repo.getMessages(conv.id).length, 0);
+  assert.equal(repo.search('猫である').length, 1, 'FTS の索引からも消える(3 文字以上 = trigram 経路)');
+  assert.equal(repo.search('メロス').length, 0);
+  assert.equal(repo.deleteConversation(conv.id), false, '二度目は false');
+  assert.equal(repo.deleteConversation(99999), false);
+});
+
+test('renameConversation: 名前が変わり、空白だけなら変えない。updated_at は動かさない', (t) => {
+  const { open } = setup(t);
+  const repo = open();
+  const conv = repo.createConversation('元の名前', 4, 'debate');
+  repo.addMessage(conv.id, 'chatgpt', '本文');
+  const before = repo.listConversations()[0];
+
+  assert.equal(repo.renameConversation(conv.id, '  新しい名前  '), true);
+  const after = repo.listConversations()[0];
+  assert.equal(after.title, '新しい名前', '前後の空白は落とす');
+  assert.equal(after.updatedAt, before.updatedAt);
+  assert.equal(repo.search('新しい名前')[0].conversationTitle, '新しい名前', '検索結果のタイトルにも反映');
+
+  assert.equal(repo.renameConversation(conv.id, '   '), false);
+  assert.equal(repo.listConversations()[0].title, '新しい名前');
+  assert.equal(repo.renameConversation(99999, 'x'), false);
+});
+
 test('search: 3 文字以上は FTS(trigram)で部分一致し、スニペットに【】が付く', (t) => {
   const { open } = setup(t);
   const repo = open();
