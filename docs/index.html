@@ -33,6 +33,11 @@
   .btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); box-shadow: none; }
   .hint { color: var(--muted); font-size: .92rem; margin-top: 10px; }
   .meta { color: var(--muted); font-size: .9rem; margin-top: 14px; }
+  .whatsnew { text-align: left; margin: 20px auto 0; max-width: 640px; border-top: 1px solid var(--line); padding-top: 14px; font-size: .95rem; }
+  .whatsnew h3 { margin: 0 0 6px; font-size: .95rem; color: var(--muted); }
+  .whatsnew p { margin: 0 0 6px; }
+  .whatsnew ul { margin: 0; padding-left: 1.3em; }
+  .whatsnew li { margin: 4px 0; }
   ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
   ol.steps li { counter-increment: s; padding-left: 44px; position: relative; }
   ol.steps li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 30px; height: 30px; border-radius: 50%;
@@ -66,6 +71,7 @@
     <div class="os" id="primary-os">最新版を確認しています…</div>
     <div id="primary-buttons"></div>
     <div class="hint" id="primary-hint"></div>
+    <div class="whatsnew hidden" id="whatsnew"></div>
     <div class="meta" id="primary-meta"></div>
   </section>
 
@@ -203,6 +209,23 @@
     $('primary-meta').innerHTML = `最新版 ${ver}(${date}) ・ <a href="https://github.com/${REPO}/releases">リリース一覧</a>`;
   }
 
+  // リリースノート(GitHub が描画した body_html)から、冒頭の段落と「変更点」の箇条書きだけを出す。
+  // ノートは「1 行の要約 → ## 変更点 → ## ダウンロード …」の構成で書く約束(CLAUDE.md のリリース手順)。
+  function renderWhatsNew(rel) {
+    if (!rel.body_html) return;
+    const doc = new DOMParser().parseFromString(rel.body_html, 'text/html');
+    const lead = doc.body.querySelector(':scope > p');
+    const heading = [...doc.body.querySelectorAll('h2')].find((h) => /変更点|What's new|Changes/i.test(h.textContent));
+    const list = heading?.nextElementSibling?.matches('ul') ? heading.nextElementSibling : null;
+    if (!lead && !list) return;
+    for (const a of doc.body.querySelectorAll('a')) { a.removeAttribute('class'); a.setAttribute('rel', 'noopener'); }
+    const box = $('whatsnew');
+    box.innerHTML = `<h3>${rel.tag_name} の主な変更</h3>`;
+    if (lead) box.appendChild(lead);
+    if (list) box.appendChild(list);
+    box.classList.remove('hidden');
+  }
+
   function renderAll(assets) {
     const groups = { win: [], mac: [], linux: [] };
     for (const a of assets) groups[a.os].push(a);
@@ -221,13 +244,14 @@
   }
 
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github.html+json' } });
     if (res.status === 404) throw new Error('no-release');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rel = await res.json();
     const assets = rel.assets.map(classify).filter(Boolean);
     const env = await detect();
     renderPrimary(assets, rel, env);
+    renderWhatsNew(rel);
     renderAll(assets);
   } catch (err) {
     const preparing = err.message === 'no-release';
