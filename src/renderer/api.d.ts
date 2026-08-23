@@ -105,7 +105,7 @@ interface SettingsData {
 
 /** preload が contextBridge で `window.api` に公開する形。 */
 interface RendererApi {
-  startDebate(topic: string, maxTurns?: number): Promise<void>;
+  startDebate(topic: string, maxTurns?: number, firstSpeaker?: Speaker): Promise<void>;
   stopDebate(): Promise<void>;
   pauseDebate(): Promise<void>;
   resumeDebate(): Promise<void>;

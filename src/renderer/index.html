@@ -31,6 +31,12 @@
 
   <div class="controls">
     <textarea id="topic-input" rows="1" placeholder="議論テーマを入力…(Ctrl+Enter で開始)" autocomplete="off" spellcheck="false"></textarea>
+    <label class="turns-field" title="先に発言する AI(この議論だけ。既定は設定の「先攻」)"><span class="turns-label-inline">先攻</span>
+      <select id="ctl-first-speaker" class="ctl-select" aria-label="先攻">
+        <option value="chatgpt">ChatGPT</option>
+        <option value="gemini">Gemini</option>
+      </select>
+    </label>
     <span class="turns-field" title="最大ターン数(▲▼で変更)"><span class="turns-label-inline">ターン</span>
       <span class="stepper">
         <input id="ctl-max-turns" type="text" readonly tabindex="-1" aria-label="最大ターン数">

@@ -12,6 +12,7 @@ import type {
   RunnerStatus,
   SearchHit,
   SettingsData,
+  Speaker,
   TranscriptPayload,
 } from './types';
 
@@ -43,7 +44,7 @@ export const IPC = {
 /** preload が contextBridge で `window.api` に公開する形。 */
 export interface RendererApi {
   /** maxTurns はそのラン用の上書き(省略時は設定の既定を使う)。保存はしない。 */
-  startDebate(topic: string, maxTurns?: number): Promise<void>;
+  startDebate(topic: string, maxTurns?: number, firstSpeaker?: Speaker): Promise<void>;
   stopDebate(): Promise<void>;
   pauseDebate(): Promise<void>;
   resumeDebate(): Promise<void>;

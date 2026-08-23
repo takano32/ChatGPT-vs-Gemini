@@ -67,6 +67,7 @@
   const ctlMaxTurns = must<HTMLInputElement>('ctl-max-turns');
   const ctlTurnsUp = must<HTMLButtonElement>('ctl-turns-up');
   const ctlTurnsDown = must<HTMLButtonElement>('ctl-turns-down');
+  const ctlFirstSpeaker = must<HTMLSelectElement>('ctl-first-speaker');
   const btnStart = must<HTMLButtonElement>('btn-start');
   const btnPause = must<HTMLButtonElement>('btn-pause');
   const btnResume = must<HTMLButtonElement>('btn-resume');
@@ -232,6 +233,11 @@
       }, REPEAT_DELAY_MS);
     });
     for (const type of ['pointerup', 'pointercancel', 'pointerleave'] as const) button.addEventListener(type, stop);
+    // ポインタを伴わない click(キーボード・支援技術・スクリプトの element.click())は detail が 0。
+    // ポインタ由来の click は pointerdown で処理済みなので二重に動かさない
+    button.addEventListener('click', (ev) => {
+      if (ev.detail === 0) stepTurns(delta);
+    });
   }
   holdToRepeat(ctlTurnsUp, 1);
   holdToRepeat(ctlTurnsDown, -1);
@@ -292,7 +298,11 @@
       return;
     }
     // 操作バーのターン数をそのラン用の上書きとして渡す(設定の既定は変えない)
-    api.startDebate(topic, defaultMaxTurns).catch((err) => localLog('error', `開始失敗: ${errMsg(err)}`));
+    // 先攻もターン数と同じく、このラン用の一時値(設定の既定は変えない)
+    const firstSpeaker: Speaker = ctlFirstSpeaker.value === 'gemini' ? 'gemini' : 'chatgpt';
+    api
+      .startDebate(topic, defaultMaxTurns, firstSpeaker)
+      .catch((err) => localLog('error', `開始失敗: ${errMsg(err)}`));
   });
   btnPause.addEventListener('click', () => {
     api.pauseDebate().catch((err) => localLog('error', `一時停止失敗: ${errMsg(err)}`));
@@ -391,6 +401,7 @@
       taCounter.value = s.debate.counterTemplate;
       taRelay.value = s.debate.relayTemplate;
       setNextRunTurns(s.debate.maxTurns);
+      ctlFirstSpeaker.value = s.debate.firstSpeaker;
     } catch (err) {
       localLog('error', `設定読込失敗: ${errMsg(err)}`);
     }
@@ -600,6 +611,7 @@
     try {
       const [settings, chatStatus] = await Promise.all([api.getSettings(), api.getChatStatus()]);
       setNextRunTurns(settings.debate.maxTurns);
+      ctlFirstSpeaker.value = settings.debate.firstSpeaker;
       chats = chatStatus;
     } catch (err) {
       localLog('error', `初期化失敗: ${errMsg(err)}`);

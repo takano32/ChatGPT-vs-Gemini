@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-08-23
+
+### Added
+
+- 操作バーで先攻(どちらの AI から話すか)を議論ごとに選べるようにした。設定の「先攻」は既定値として残る([#2](https://github.com/takano32/ChatGPT-vs-Gemini/issues/2))
+
+### Fixed
+
+- ターン数の▲▼がキーボードや支援技術からの click に反応しなくなっていた(0.2.6 の長押し対応の副作用)
+
 ## [0.2.6] - 2026-08-23
 
 ### Added
@@ -111,7 +121,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.3...v0.2.4

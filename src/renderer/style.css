@@ -177,6 +177,17 @@ button { font-family: var(--mono); }
   color: var(--dim);
   white-space: nowrap;
 }
+.ctl-select {
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-inset);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 0 4px;
+}
+.ctl-select:focus { outline: none; border-color: var(--amber-soft); }
 /* カスタムステッパー: 読み取り専用の値 + 常時表示の▲▼(キーボード入力不可) */
 .stepper {
   display: inline-flex;

@@ -24,7 +24,7 @@ Pick the package for your OS on the [download site](https://takano32.github.io/C
 ## Usage
 
 1. Start the app. It is usable right away as a guest; logging in inside the ChatGPT / Gemini panes is optional.
-2. Type a topic (Enter inserts a line break; Ctrl+Enter / ⌘+Enter also starts), set the maximum number of turns with ▲▼ (one AI message = one turn) and press 開始 (Start). 一時停止 / 再開 / 停止 pause, resume and stop the debate.
+2. Type a topic (Enter inserts a line break; Ctrl+Enter / ⌘+Enter also starts), choose which AI speaks first (先攻) and set the maximum number of turns with ▲▼ (one AI message = one turn), then press 開始 (Start). 一時停止 / 再開 / 停止 pause, resume and stop the debate.
 3. While a debate runs, the chat panes are locked (scrolling still works). The 経過 (Transcript) button switches between the live view and a transcript you can copy as Markdown. ☰ opens settings, history and full-text search.
 
 ## Notes

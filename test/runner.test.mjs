@@ -135,6 +135,16 @@ test('先攻を Gemini にすると順序が入れ替わり、maxTurns の上書
   );
 });
 
+test('先攻の上書き: start の第 3 引数があれば設定の先攻より優先する(そのランだけ)', async (t) => {
+  const { runner, repository, chats } = setup(t, { debate: { firstSpeaker: 'chatgpt' } });
+  await runner.start('上書き', 2, 'gemini');
+  assert.deepEqual(
+    repository.getMessages(repository.listConversations()[0].id).map((m) => m.speaker),
+    ['gemini', 'chatgpt'],
+  );
+  assert.ok(chats.gemini.prompts[0].includes('(ChatGPT)'), '先攻 Gemini の開始プロンプトは相手名が ChatGPT');
+});
+
 test('レート制限: paused になり、resume で同じターンを再送して続きが進む', async (t) => {
   let failOnce = true;
   const gemini = new FakeChat('Gemini', (_p, n) => {
