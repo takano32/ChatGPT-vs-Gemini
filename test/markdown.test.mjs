@@ -91,6 +91,26 @@ test('本文の改行・空行・"> ": 本文はそのまま置き(引用にし�
   assert.ok(!trailing.includes('> '), '引用ブロックは使わない');
 });
 
+test('複数行のタイトル: 1 行目を見出しに、残りは段落として見出しの下に置く', () => {
+  const md = transcriptToMarkdown('AI は意識を持てるか\n前提: 現在の LLM に限る\n', [message('chatgpt', '持てません。')], 1);
+  assert.equal(
+    md,
+    [
+      '# AI は意識を持てるか',
+      '',
+      '前提: 現在の LLM に限る',
+      '',
+      '### 🟢 ChatGPT (1/1)',
+      '',
+      '持てません。',
+      '',
+      '---',
+      '',
+    ].join('\n'),
+  );
+  assert.equal(transcriptToMarkdown('一行だけ\n\n', [], 1), '# 一行だけ\n', '2 行目以降が空白だけなら見出しのみ');
+});
+
 test('空の messages: 見出しだけになる(コピーしないと判断するのは呼び出し側)', () => {
   assert.equal(transcriptToMarkdown('まだ発言がない会話', [], 5), '# まだ発言がない会話\n');
 });

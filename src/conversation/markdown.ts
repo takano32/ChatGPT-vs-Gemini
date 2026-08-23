@@ -34,14 +34,20 @@ const DEFAULT_TITLE = '議論';
 /**
  * 経過を Markdown 文字列にする。
  *
- * @param title    会話のタイトル。空文字なら「議論」にする
+ * @param title    会話のタイトル(= 議論テーマ)。空文字なら「議論」にする。複数行なら 1 行目を見出しにし、残りを段落として続ける
  * @param messages 発言(古い順)。空なら見出しだけを返す(コピーするかどうかは呼び出し側で判断する)
  * @param maxTurns その会話の最大ターン数。各発言の「(n/maxTurns)」の分母になる
  */
 export function transcriptToMarkdown(title: string, messages: MessageRecord[], maxTurns: number): string {
   const parts: string[] = [];
-  parts.push(`# ${title === '' ? DEFAULT_TITLE : title}`);
+  const [head = '', ...rest] = title.split('\n');
+  parts.push(`# ${head.trim() === '' ? DEFAULT_TITLE : head.trim()}`);
   parts.push('');
+  const body = rest.join('\n').trim();
+  if (body !== '') {
+    parts.push(body);
+    parts.push('');
+  }
   messages.forEach((m, i) => {
     parts.push(`### ${SPEAKER_EMOJI[m.speaker]} ${SPEAKER_LABELS[m.speaker]} (${i + 1}/${maxTurns})`);
     parts.push('');

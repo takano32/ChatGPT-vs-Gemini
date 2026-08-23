@@ -63,7 +63,7 @@
   const turnMax = must<HTMLElement>('turn-max');
   const btnTranscript = must<HTMLButtonElement>('btn-transcript');
 
-  const topicInput = must<HTMLInputElement>('topic-input');
+  const topicInput = must<HTMLTextAreaElement>('topic-input');
   const ctlMaxTurns = must<HTMLInputElement>('ctl-max-turns');
   const ctlTurnsUp = must<HTMLButtonElement>('ctl-turns-up');
   const ctlTurnsDown = must<HTMLButtonElement>('ctl-turns-down');
@@ -284,9 +284,19 @@
   });
 
   topicInput.addEventListener('keydown', (ev) => {
+    // Enter で開始、Shift+Enter で改行(ChatGPT / Gemini の入力欄と同じ流儀)。
     // IME の変換確定 Enter で議論が開始してしまわないよう isComposing を除外
-    if (ev.key === 'Enter' && !ev.isComposing && !btnStart.disabled) btnStart.click();
+    if (ev.key !== 'Enter' || ev.shiftKey || ev.isComposing) return;
+    ev.preventDefault();
+    if (!btnStart.disabled) btnStart.click();
   });
+  // 複数行のテーマは行数に合わせて欄を伸ばす(上限は CSS の max-height。超えた分はスクロール)
+  const growTopic = (): void => {
+    topicInput.style.height = 'auto';
+    topicInput.style.height = `${topicInput.scrollHeight}px`;
+  };
+  topicInput.addEventListener('input', growTopic);
+  growTopic();
 
   // リンク等を管理ペインへドロップすると WebContents ごと遷移してしまうため常に抑止
   document.addEventListener('dragover', (ev) => ev.preventDefault());

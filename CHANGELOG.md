@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 議論テーマを複数行で入力できるようにした(Shift+Enter で改行、Enter で開始)。経過の Markdown では 1 行目が見出し、残りはその下の段落になる([#1](https://github.com/takano32/ChatGPT-vs-Gemini/issues/1))
+
 ## [0.2.2] - 2026-08-23
 
 ### Changed

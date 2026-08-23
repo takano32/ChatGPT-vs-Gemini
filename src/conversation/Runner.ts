@@ -118,7 +118,7 @@ export class Runner extends EventEmitter {
     }
     this.conversation = conversation;
     this.emitStatus();
-    this.log('info', `議論を開始します: 「${topic}」(最大 ${debate.maxTurns} ターン)`);
+    this.log('info', `議論を開始します: 「${topic.replace(/\s*\n\s*/g, ' / ')}」(最大 ${debate.maxTurns} ターン)`);
 
     // 議論ごとに両サイトで新規チャットを開き、前の議論の文脈を持ち越さない
     this.log('info', '新しいチャットを準備しています(ChatGPT / Gemini)');

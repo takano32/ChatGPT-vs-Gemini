@@ -272,6 +272,11 @@ button { font-family: var(--mono); }
 #topic-input {
   flex: 1;
   min-width: 0;
+  resize: none;
+  overflow-y: auto;
+  line-height: 16px;
+  max-height: 80px; /* 4 行ぶん。それ以上は欄内でスクロール */
+  box-sizing: border-box;
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: 3px;
