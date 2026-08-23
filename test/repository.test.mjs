@@ -190,6 +190,29 @@ test('search: 3 文字以上は FTS(trigram)で部分一致し、スニペット
   assert.equal(repo.search('  猫である  ').length, 1, '前後の空白は無視する');
 });
 
+test('search: 3 文字以上でもタイトルに一致した会話の発言が返り、本文一致と重複しない', (t) => {
+  const { open } = setup(t);
+  const repo = open();
+  const conv = repo.createConversation('紙の本と電子書籍', 6, 'debate');
+  const m1 = repo.addMessage(conv.id, 'chatgpt', '電子書籍は持ち運びに便利だ。');
+  const m2 = repo.addMessage(conv.id, 'gemini', '紙の手触りは代えがたい。');
+  const other = repo.createConversation('週末の過ごし方', 6, 'debate');
+  repo.addMessage(other.id, 'chatgpt', '外出が良い。');
+
+  const hits = repo.search('電子書籍');
+  assert.deepEqual(
+    hits.map((h) => h.message.id).sort(),
+    [m1.id, m2.id].sort(),
+    '本文一致(m1)に加え、タイトル一致の会話の残りの発言(m2)も返る。m1 は重複しない',
+  );
+  const byContent = hits.find((h) => h.message.id === m1.id);
+  const byTitle = hits.find((h) => h.message.id === m2.id);
+  assert.ok(byContent.snippet.includes('【電子書籍】'), '本文一致は【】付き');
+  assert.ok(!byTitle.snippet.includes('【'), 'タイトルだけの一致は本文の先頭');
+  assert.equal(hits[0].message.id, m1.id, '本文一致が先');
+  assert.equal(repo.search('過ごし方').length, 1, '別の会話はタイトル一致だけで返る');
+});
+
 test('search: 2 文字以下は LIKE にフォールバックし、本文とタイトルの両方に部分一致する', (t) => {
   const { open } = setup(t);
   const repo = open();

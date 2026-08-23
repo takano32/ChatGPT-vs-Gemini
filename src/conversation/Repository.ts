@@ -109,6 +109,7 @@ export class Repository {
   private stmtListConversations!: Database.Statement;
   private stmtGetMessages!: Database.Statement;
   private stmtSearchFts!: Database.Statement;
+  private stmtSearchTitle!: Database.Statement;
   private stmtSearchLike!: Database.Statement;
 
   private txAddMessage!: (
@@ -178,6 +179,15 @@ export class Repository {
        ORDER BY rank
        LIMIT 100`,
     );
+    // タイトル一致(FTS はメッセージ本文だけを索引するので、3 文字以上の検索でもタイトルはこちらで見る)
+    this.stmtSearchTitle = this.db.prepare(
+      `SELECT m.id, m.conversation_id, m.speaker, m.content, m.created_at, c.title, NULL AS snip
+       FROM messages m
+       JOIN conversations c ON c.id = m.conversation_id
+       WHERE c.title LIKE ? ESCAPE '\\'
+       ORDER BY m.id DESC
+       LIMIT 100`,
+    );
     this.stmtSearchLike = this.db.prepare(
       `SELECT m.id, m.conversation_id, m.speaker, m.content, m.created_at, c.title, NULL AS snip
        FROM messages m
@@ -238,15 +248,25 @@ export class Repository {
     const trimmed = query.trim();
     if (trimmed === '') return [];
 
+    const escaped = trimmed.replace(/[\\%_]/g, (ch) => '\\' + ch);
+    const pattern = '%' + escaped + '%';
+
     // trigram は 3 文字未満をマッチできないため LIKE にフォールバック(コードポイント数で判定)
     if (Array.from(trimmed).length >= 3) {
       const phrase = '"' + trimmed.replace(/"/g, '""') + '"';
       const rows = this.stmtSearchFts.all(phrase) as SearchRow[];
-      return rows.map((row) => this.toSearchHit(row, row.snip ?? ''));
+      const hits = rows.map((row) => this.toSearchHit(row, row.snip ?? ''));
+      // タイトルだけが一致した会話の発言も(本文一致と重複しないものを)後ろに足す
+      const seen = new Set(hits.map((h) => h.message.id));
+      const byTitle = this.stmtSearchTitle.all(pattern) as SearchRow[];
+      for (const row of byTitle) {
+        if (hits.length >= 100) break;
+        if (seen.has(row.id)) continue;
+        hits.push(this.toSearchHit(row, this.buildSnippet(row.content, trimmed)));
+      }
+      return hits;
     }
 
-    const escaped = trimmed.replace(/[\\%_]/g, (ch) => '\\' + ch);
-    const pattern = '%' + escaped + '%';
     const rows = this.stmtSearchLike.all(pattern, pattern) as SearchRow[];
     return rows.map((row) => this.toSearchHit(row, this.buildSnippet(row.content, trimmed)));
   }

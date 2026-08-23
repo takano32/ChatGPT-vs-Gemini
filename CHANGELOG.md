@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-08-23
+
+### Fixed
+
+- 検索で 3 文字以上の語を入れたとき、議題(会話のタイトル)に一致する会話が出てこなかった(2 文字以下の LIKE 検索だけがタイトルを見ていた)。本文一致の後ろにタイトル一致の会話の発言を並べる
+
 ## [0.5.3] - 2026-08-23
 
 ### Added
@@ -203,7 +209,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.0...v0.5.1
