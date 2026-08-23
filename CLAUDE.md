@@ -47,4 +47,4 @@ ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron
 1. `npm version patch|minor`(package.json の更新・コミット・`vX.Y.Z` タグまで行う)
 2. `git push --follow-tags`
 3. `release.yml` が全形式をビルドし、最終ジョブが draft Release に添付する(`gh release create --draft --generate-notes`)
-4. 日本語のリリースノートを添えて公開するのは人。配布サイト(docs/、GitHub Pages)は Releases API で最新版を表示するので更新不要
+4. draft ができたら Claude が日本語のリリースノート(前回の Release と同じ構成)を `gh release edit vX.Y.Z --notes-file` で書き込み、URL を渡す。利用者は「公開」を押すだけ。配布サイト(docs/、GitHub Pages)は Releases API で最新版を表示するので更新不要
