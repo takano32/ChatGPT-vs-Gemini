@@ -209,8 +209,32 @@
     const cur = parseInt(ctlMaxTurns.value, 10);
     setNextRunTurns((Number.isFinite(cur) ? cur : defaultMaxTurns) + delta);
   }
-  ctlTurnsUp.addEventListener('click', () => stepTurns(1));
-  ctlTurnsDown.addEventListener('click', () => stepTurns(-1));
+  // ▲▼は押した瞬間に 1 回、押しっぱなしなら少し待ってから連続で増減する(OS のキーリピートと同じ感覚)。
+  // click ではなく pointerdown で扱うので、離したときの click で二重に動かない
+  const REPEAT_DELAY_MS = 400;
+  const REPEAT_INTERVAL_MS = 80;
+  function holdToRepeat(button: HTMLButtonElement, delta: number): void {
+    let delay: number | null = null;
+    let interval: number | null = null;
+    const stop = (): void => {
+      if (delay !== null) window.clearTimeout(delay);
+      if (interval !== null) window.clearInterval(interval);
+      delay = null;
+      interval = null;
+    };
+    button.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      ev.preventDefault(); // 長押しでテキスト選択やフォーカス移動を起こさない
+      stop();
+      stepTurns(delta);
+      delay = window.setTimeout(() => {
+        interval = window.setInterval(() => stepTurns(delta), REPEAT_INTERVAL_MS);
+      }, REPEAT_DELAY_MS);
+    });
+    for (const type of ['pointerup', 'pointercancel', 'pointerleave'] as const) button.addEventListener(type, stop);
+  }
+  holdToRepeat(ctlTurnsUp, 1);
+  holdToRepeat(ctlTurnsDown, -1);
 
   function updateControls(): void {
     const st = runner.state;

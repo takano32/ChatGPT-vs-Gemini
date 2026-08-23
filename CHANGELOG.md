@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- ターン数の▲▼を押しっぱなしにすると連続で増減するようにした([#5](https://github.com/takano32/ChatGPT-vs-Gemini/issues/5))
+
 ## [0.2.5] - 2026-08-23
 
 ### Changed
