@@ -30,7 +30,9 @@
   </header>
 
   <div class="controls">
-    <textarea id="topic-input" rows="1" placeholder="議論テーマを入力…(Ctrl+Enter で開始)" autocomplete="off" spellcheck="false"></textarea>
+    <textarea id="topic-input" rows="2" placeholder="議論テーマを入力…(複数行可。Ctrl+Enter で開始)" autocomplete="off" spellcheck="false"></textarea>
+    <div class="controls-side">
+    <div class="controls-row">
     <label class="turns-field" title="先に発言する AI(この議論だけ。既定は設定の「先攻」)"><span class="turns-label-inline">先攻</span>
       <select id="ctl-first-speaker" class="ctl-select" aria-label="先攻">
         <option value="chatgpt">ChatGPT</option>
@@ -46,10 +48,14 @@
         </span>
       </span>
     </span>
+    </div>
+    <div class="controls-row">
     <button type="button" id="btn-start"  class="btn btn-start" title="議論を開始(Ctrl+Enter)" disabled>開始</button>
     <button type="button" id="btn-pause"  class="btn" disabled>一時停止</button>
     <button type="button" id="btn-resume" class="btn" disabled>再開</button>
     <button type="button" id="btn-stop"   class="btn btn-stop" disabled>停止</button>
+    </div>
+    </div>
   </div>
 
   <div id="login-banner" class="login-banner hidden" role="status">

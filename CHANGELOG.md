@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-08-23
+
+### Changed
+
+- 操作バーを 2 段構成にした。テーマ欄は 2 行・幅 50% で複数行で書けることが分かるようにし、右側は上段に先攻・ターン数、下段に開始 / 一時停止 / 再開 / 停止を置いた
+
 ## [0.2.7] - 2026-08-23
 
 ### Added
@@ -121,7 +127,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.4...v0.2.5

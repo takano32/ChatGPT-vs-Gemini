@@ -158,13 +158,28 @@ button { font-family: var(--mono); }
 
 /* ===== 操作行 ===== */
 
+/* 操作バー: 左半分がテーマ欄(2 行。複数行で書けることが見て分かるように)、右半分は上下 2 段
+   (上: 先攻・ターン数 / 下: 開始・一時停止・再開・停止)。2026-08-23 利用者の指定 */
 .controls {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
+  gap: 10px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
   background: rgba(11, 16, 22, 0.55);
+}
+.controls-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+}
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .turns-field {
@@ -281,11 +296,12 @@ button { font-family: var(--mono); }
 }
 
 #topic-input {
-  flex: 1;
+  flex: 0 0 50%;
   min-width: 0;
   resize: none;
   overflow-y: auto;
   line-height: 16px;
+  min-height: 46px; /* 2 行ぶん(padding 込み) */
   max-height: 80px; /* 4 行ぶん。それ以上は欄内でスクロール */
   box-sizing: border-box;
   background: var(--bg-inset);
