@@ -25,6 +25,7 @@ ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron
 ## 構造ルール
 
 - DOM 知識は `src/chat/` に閉じる。セレクタと文言パターンは `src/chat/selectors.ts` だけに書き、`Chat.ts` はサイト非依存のアルゴリズムに保つ
+- モードとその既定テンプレート・進行役の文は `src/shared/modes.ts`。Runner の進行(ターンの種類と段階)は `planTurns()`(Runner.ts)
 - SQL は `src/conversation/Repository.ts` だけ。既存 DB の変更(列追加など)は `MIGRATIONS` に冪等な関数を追記し、`SCHEMA_SQL` も最終形に更新する(`PRAGMA user_version` で未適用分だけ当たる)
 - `src/shared/types.ts` と `src/renderer/api.d.ts` はミラー。片方を変えたら必ず両方直す(renderer ビルドは shared を import できない)
 - 画面文言は日本語と英語の 2 言語だけ(他の言語は対応しない)。renderer 側の文言は `src/renderer/i18n.ts`(静的文言は HTML の `data-i18n*` 属性、動的文言は `t()`)、main 側(ログ・通知・エラー)は `src/shared/i18n.ts` の `tm()`。新しい文言を足したら両言語を書く

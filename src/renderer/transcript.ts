@@ -18,6 +18,7 @@ const STATUS_KEY: Record<string, string> = {
 
 const titleEl = document.getElementById('tr-title') as HTMLElement;
 const statusEl = document.getElementById('tr-status') as HTMLElement;
+const modeEl = document.getElementById('tr-mode') as HTMLElement;
 const bodyEl = document.getElementById('tr-body') as HTMLElement;
 const copyBtn = document.getElementById('tr-copy') as HTMLButtonElement;
 const copyFlash = document.getElementById('tr-copy-flash') as HTMLElement;
@@ -67,6 +68,7 @@ copyBtn.addEventListener('click', () => {
 
 function render(payload: TranscriptPayload): void {
   titleEl.textContent = payload.title || t('tr.untitled');
+  modeEl.textContent = t(`mode.${payload.mode ?? 'debate'}`);
   if (payload.status) {
     statusEl.textContent = STATUS_KEY[payload.status] ? t(STATUS_KEY[payload.status]) : payload.status;
     statusEl.className = `tr-status st-${payload.status}`;

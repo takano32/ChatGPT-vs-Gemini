@@ -71,6 +71,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
   const ctlTurnsUp = must<HTMLButtonElement>('ctl-turns-up');
   const ctlTurnsDown = must<HTMLButtonElement>('ctl-turns-down');
   const ctlFirstSpeaker = must<HTMLSelectElement>('ctl-first-speaker');
+  const ctlMode = must<HTMLSelectElement>('ctl-mode');
   const btnStart = must<HTMLButtonElement>('btn-start');
   const btnPause = must<HTMLButtonElement>('btn-pause');
   const btnResume = must<HTMLButtonElement>('btn-resume');
@@ -92,6 +93,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
   const settingsForm = must<HTMLFormElement>('settings-form');
   const inMaxTurns = must<HTMLInputElement>('set-max-turns');
   const selFirstSpeaker = must<HTMLSelectElement>('set-first-speaker');
+  const selMode = must<HTMLSelectElement>('set-mode');
   const inBetweenTurns = must<HTMLInputElement>('set-between-turns');
   const inPoll = must<HTMLInputElement>('set-poll');
   const inStability = must<HTMLInputElement>('set-stability');
@@ -101,7 +103,13 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
   const inChatZoom = must<HTMLInputElement>('set-chat-zoom');
   const taOpening = must<HTMLTextAreaElement>('set-opening');
   const taCounter = must<HTMLTextAreaElement>('set-counter');
-  const taRelay = must<HTMLTextAreaElement>('set-relay');
+  const taRelayFirst = must<HTMLTextAreaElement>('set-relay-first');
+  const taRelaySecond = must<HTMLTextAreaElement>('set-relay-second');
+  const taClosing = must<HTMLTextAreaElement>('set-closing');
+  const inTkTemplate = must<HTMLInputElement>('set-tk-template');
+  const inTkEarly = must<HTMLInputElement>('set-tk-early');
+  const inTkMiddle = must<HTMLInputElement>('set-tk-middle');
+  const inTkLate = must<HTMLInputElement>('set-tk-late');
   const templatesNote = must<HTMLElement>('set-templates-note');
   const saveFlash = must<HTMLElement>('save-flash');
 
@@ -304,7 +312,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     // 先攻もターン数と同じく、このラン用の一時値(設定の既定は変えない)
     const firstSpeaker: Speaker = ctlFirstSpeaker.value === 'gemini' ? 'gemini' : 'chatgpt';
     api
-      .startDebate(topic, defaultMaxTurns, firstSpeaker)
+      .startDebate(topic, defaultMaxTurns, firstSpeaker, modeOf(ctlMode.value))
       .catch((err) => localLog('error', t('log.startFailed', { error: errMsg(err) })));
   });
   btnPause.addEventListener('click', () => {
@@ -425,17 +433,61 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
       inAdminRatio.value = String(s.layout.adminRatio);
       inChatSplit.value = String(s.layout.chatSplit);
       inChatZoom.value = String(s.layout.chatZoom);
-      const tpl = s.debate.templates[s.language];
-      taOpening.value = tpl.openingTemplate;
-      taCounter.value = tpl.counterTemplate;
-      taRelay.value = tpl.relayTemplate;
-      templatesNote.textContent = t('set.templatesNote', { lang: t(`lang.${s.language}`) });
+      selMode.value = s.debate.mode;
+      // テンプレート欄は「いまの言語 × 設定画面で選んでいるモード」のぶんを編集する。モードを切り替えても
+      // 編集途中の値を失わないよう、言語ぶんの全モードを手元に持ち、保存時にまとめて書く
+      editingTemplates = structuredClone(s.debate.templates[s.language]);
+      editingMode = s.debate.mode;
+      showTemplates(s.language, editingMode);
+      const tk = s.debate.timekeeper[s.language];
+      inTkTemplate.value = tk.template;
+      inTkEarly.value = tk.early;
+      inTkMiddle.value = tk.middle;
+      inTkLate.value = tk.late;
       setNextRunTurns(s.debate.maxTurns);
       ctlFirstSpeaker.value = s.debate.firstSpeaker;
+      ctlMode.value = s.debate.mode;
     } catch (err) {
       localLog('error', t('log.settingsLoadFailed', { error: errMsg(err) }));
     }
   }
+
+  let editingTemplates: Record<Mode, DebateTemplates> | null = null;
+  let editingMode: Mode = 'debate';
+
+  function modeOf(value: string): Mode {
+    const known: Mode[] = ['debate', 'collab', 'brainstorm', 'dialectic', 'relay', 'review', 'interview', 'socratic', 'devil', 'quiz'];
+    return (known as string[]).includes(value) ? (value as Mode) : 'debate';
+  }
+
+  /** テキストエリアの内容を手元のテンプレート群に書き戻す */
+  function stashTemplates(): void {
+    if (!editingTemplates) return;
+    editingTemplates[editingMode] = {
+      openingTemplate: taOpening.value,
+      counterTemplate: taCounter.value,
+      relayFirstTemplate: taRelayFirst.value,
+      relaySecondTemplate: taRelaySecond.value,
+      closingTemplate: taClosing.value,
+    };
+  }
+
+  function showTemplates(lang: Lang, mode: Mode): void {
+    if (!editingTemplates) return;
+    editingMode = mode;
+    const tpl = editingTemplates[mode];
+    taOpening.value = tpl.openingTemplate;
+    taCounter.value = tpl.counterTemplate;
+    taRelayFirst.value = tpl.relayFirstTemplate;
+    taRelaySecond.value = tpl.relaySecondTemplate;
+    taClosing.value = tpl.closingTemplate;
+    templatesNote.textContent = t('set.templatesNote', { lang: t(`lang.${lang}`), mode: t(`mode.${mode}`) });
+  }
+
+  selMode.addEventListener('change', () => {
+    stashTemplates();
+    showTemplates(currentLang(), modeOf(selMode.value));
+  });
 
   function numVal(input: HTMLInputElement, fallback: number): number {
     // Number('') は 0 になるため valueAsNumber(空欄なら NaN)を使う
@@ -454,6 +506,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     ev.preventDefault();
     void (async () => {
       try {
+        stashTemplates();
         const cur = await api.getSettings();
         const next: SettingsData = {
           ...cur,
@@ -465,13 +518,19 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
           debate: {
             maxTurns: Math.min(99, Math.max(1, Math.floor(numVal(inMaxTurns, cur.debate.maxTurns)))),
             firstSpeaker: selFirstSpeaker.value === 'gemini' ? 'gemini' : 'chatgpt',
-            // テンプレート欄は「いまの言語」のぶんだけ編集している
+            mode: modeOf(selMode.value),
+            // テンプレート欄は「いまの言語」のぶん(全モード)を編集している
             templates: {
               ...cur.debate.templates,
+              [cur.language]: editingTemplates ?? cur.debate.templates[cur.language],
+            },
+            timekeeper: {
+              ...cur.debate.timekeeper,
               [cur.language]: {
-                openingTemplate: taOpening.value,
-                counterTemplate: taCounter.value,
-                relayTemplate: taRelay.value,
+                template: inTkTemplate.value,
+                early: inTkEarly.value,
+                middle: inTkMiddle.value,
+                late: inTkLate.value,
               },
             },
             betweenTurnsMs: Math.max(0, numVal(inBetweenTurns, cur.debate.betweenTurnsMs)),

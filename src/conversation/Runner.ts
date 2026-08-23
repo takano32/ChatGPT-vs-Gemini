@@ -10,6 +10,7 @@ import {
   opponentOf,
   type LogEntry,
   type MessageRecord,
+  type Mode,
   type RunnerState,
   type RunnerStatus,
   type SettingsData,
@@ -76,7 +77,12 @@ export class Runner extends EventEmitter {
     return status;
   }
 
-  async start(topic: string, maxTurnsOverride?: number, firstSpeakerOverride?: Speaker): Promise<void> {
+  async start(
+    topic: string,
+    maxTurnsOverride?: number,
+    firstSpeakerOverride?: Speaker,
+    modeOverride?: Mode,
+  ): Promise<void> {
     if (this.state === 'running' || this.state === 'paused') {
       this.log('warn', tm('runner.alreadyRunning'));
       return;
@@ -100,20 +106,22 @@ export class Runner extends EventEmitter {
     // maxTurns / firstSpeaker はそのラン用の上書きがあれば優先(操作バーの一時値。保存はしない)。
     const all = this.settings.get();
     const base = all.debate;
-    // テンプレートは開始時の言語のもの(途中で言語を切り替えても進行中の議論には影響しない)
-    const tpl = base.templates[all.language];
     const debate: DebateConfig = {
       ...base,
       maxTurns:
         typeof maxTurnsOverride === 'number' && maxTurnsOverride >= 1 ? Math.floor(maxTurnsOverride) : base.maxTurns,
       firstSpeaker: firstSpeakerOverride ?? base.firstSpeaker,
+      mode: modeOverride ?? base.mode,
     };
+    // テンプレートは開始時の言語・モードのもの(途中で切り替えても進行中の議論には影響しない)
+    const tpl = base.templates[all.language][debate.mode];
+    const timekeeper = base.timekeeper[all.language];
     this.debate = debate;
 
     this.state = 'running';
     let conversation: Conversation;
     try {
-      conversation = new Conversation(this.repository.createConversation(topic, debate.maxTurns));
+      conversation = new Conversation(this.repository.createConversation(topic, debate.maxTurns, debate.mode));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.state = 'error';
@@ -124,7 +132,10 @@ export class Runner extends EventEmitter {
     }
     this.conversation = conversation;
     this.emitStatus();
-    this.log('info', tm('runner.start', { topic: topic.replace(/\s*\n\s*/g, ' / '), max: debate.maxTurns }));
+    this.log(
+      'info',
+      tm('runner.start', { topic: topic.replace(/\s*\n\s*/g, ' / '), max: debate.maxTurns, mode: tm(`mode.${debate.mode}`) }),
+    );
 
     // 議論ごとに両サイトで新規チャットを開き、前の議論の文脈を持ち越さない
     this.log('info', tm('runner.preparing'));
@@ -142,19 +153,36 @@ export class Runner extends EventEmitter {
     }
     if (this.runId !== myRun || this.stopRequested) return;
 
-    let prevReply = '';
+    // 各ターンの返答(添字 = ターン番号 - 1)。まとめの 2 人目には相手の「最後の通常発言」を渡すために保持する
+    const replies: string[] = [];
+    const plan = planTurns(debate.maxTurns);
 
     for (let turn = 1; turn <= debate.maxTurns; turn++) {
       const speaker: Speaker = turn % 2 === 1 ? debate.firstSpeaker : opponentOf(debate.firstSpeaker);
       const opponentLabel = SPEAKER_LABELS[opponentOf(speaker)];
-      let prompt: string;
-      if (turn === 1) {
-        prompt = this.render(tpl.openingTemplate, { topic, opponent: opponentLabel });
-      } else if (turn === 2) {
-        prompt = this.render(tpl.counterTemplate, { topic, opponent: opponentLabel, message: prevReply });
-      } else {
-        prompt = this.render(tpl.relayTemplate, { opponent: opponentLabel, message: prevReply });
-      }
+      const step = plan[turn - 1]!;
+      // 1: 開始(先攻)/ 2: 反論(後攻)/ 奇数: 先攻の中継 / 偶数: 後攻の中継 / 最後の 2 ターン: まとめ
+      const template =
+        step.kind === 'closing'
+          ? tpl.closingTemplate
+          : turn === 1
+            ? tpl.openingTemplate
+            : turn === 2
+              ? tpl.counterTemplate
+              : turn % 2 === 1
+                ? tpl.relayFirstTemplate
+                : tpl.relaySecondTemplate;
+      // 相手の発言: 通常は直前の返答。まとめの 2 人目だけは相手のまとめではなく相手の最後の通常発言
+      // (同じ材料でまとめさせ、片方だけが相手のまとめを見て有利にならないようにする)
+      const message = replies[step.messageTurn - 1] ?? '';
+      const phase = step.phase === 'early' ? timekeeper.early : step.phase === 'middle' ? timekeeper.middle : step.phase === 'late' ? timekeeper.late : '';
+      const lead = this.render(timekeeper.template, {
+        turn: String(turn),
+        max: String(debate.maxTurns),
+        remaining: String(debate.maxTurns - turn),
+        phase,
+      });
+      const prompt = lead.trim() + '\n\n' + this.render(template, { topic, opponent: opponentLabel, message });
 
       let sent = false;
       while (!sent) {
@@ -230,7 +258,7 @@ export class Runner extends EventEmitter {
         conversation.addMessage(record);
         this.emit('message', record);
         this.emitStatus();
-        prevReply = reply;
+        replies.push(reply);
         sent = true;
       }
 
@@ -285,14 +313,10 @@ export class Runner extends EventEmitter {
     if (waiter) waiter();
   }
 
-  private render(
-    template: string,
-    vars: { topic?: string; opponent?: string; message?: string },
-  ): string {
-    return template
-      .replaceAll('{topic}', vars.topic ?? '')
-      .replaceAll('{opponent}', vars.opponent ?? '')
-      .replaceAll('{message}', vars.message ?? '');
+  private render(template: string, vars: Record<string, string>): string {
+    let out = template;
+    for (const [name, value] of Object.entries(vars)) out = out.replaceAll(`{${name}}`, value);
+    return out;
   }
 
   private setConversationStatus(status: Conversation['status']): void {
@@ -348,4 +372,35 @@ export class Runner extends EventEmitter {
     const entry: LogEntry = { level, message, ts: new Date().toISOString() };
     this.emit('log', entry);
   }
+}
+
+/** 1 ターンの種類: 通常 / まとめ(最後の 2 ターン)。phase は進行役の段階、messageTurn は {message} に使う相手の返答のターン */
+export interface TurnStep {
+  kind: 'normal' | 'closing';
+  phase: 'early' | 'middle' | 'late' | 'closing';
+  /** {message} に使う返答のターン番号(1 始まり)。1 ターン目は 0(無し) */
+  messageTurn: number;
+}
+
+/**
+ * 進行役の計画。まとめは最後の 2 ターン(両者 1 回ずつ)で、4 ターン未満なら無し。
+ * 通常ターンは進み具合で 序盤(〜1/3)/ 中盤(〜2/3)/ 終盤 に分ける(まとめがある場合、終盤はまとめの直前まで)。
+ * まとめの 2 人目の {message} は相手のまとめではなく、相手の最後の通常発言(= 2 ターン前… ではなく 3 ターン前)
+ */
+export function planTurns(maxTurns: number): TurnStep[] {
+  const closingTurns = maxTurns >= 4 ? 2 : 0;
+  const normalTurns = maxTurns - closingTurns;
+  const steps: TurnStep[] = [];
+  for (let turn = 1; turn <= maxTurns; turn++) {
+    if (turn > normalTurns) {
+      const first = turn === normalTurns + 1;
+      // 1 人目: 直前(相手の最後の通常発言)。2 人目: 相手の最後の通常発言 = 3 ターン前
+      steps.push({ kind: 'closing', phase: 'closing', messageTurn: first ? turn - 1 : turn - 3 });
+      continue;
+    }
+    const progress = turn / normalTurns;
+    const phase = progress <= 1 / 3 ? 'early' : progress <= 2 / 3 ? 'middle' : 'late';
+    steps.push({ kind: 'normal', phase, messageTurn: turn - 1 });
+  }
+  return steps;
 }

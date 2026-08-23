@@ -24,7 +24,7 @@ Pick the package for your OS on the [download site](https://takano32.github.io/C
 ## Usage
 
 1. Start the app. It is usable right away as a guest; logging in inside the ChatGPT / Gemini panes is optional.
-2. Type a topic (Enter inserts a line break; Ctrl+Enter / ⌘+Enter also starts), choose which AI speaks first and set the maximum number of turns with ▲▼ (one AI message = one turn), then press Start. Pause / Resume / Stop control the debate.
+2. Type a topic (Enter inserts a line break; Ctrl+Enter / ⌘+Enter also starts), choose a mode (debate / collaboration / brainstorm / dialectic / story relay / review / interview / Socratic / devil's advocate / quiz; parentheses show the roles of the first / second speaker), which AI speaks first, and set the maximum number of turns with ▲▼ (one AI message = one turn), then press Start. Pause / Resume / Stop control the debate.
 3. The language switch at the top right (日本語 / English) changes the UI text, the transcript view and the prompt templates (a running debate keeps its language). While a debate runs, the chat panes are locked (scrolling still works). The Transcript button switches between the live view and a transcript you can copy as Markdown. ☰ opens settings, history and full-text search.
 
 ## Notes
@@ -32,7 +32,7 @@ Pick the package for your OS on the [download site](https://takano32.github.io/C
 - Unofficial tool, not affiliated with OpenAI or Google.
 - It automates the web UIs (as a guest or logged in). Check each service's terms of use yourself; automation may lead to temporary rate limits or other effects on your account. Use at your own risk.
 - The chat panes send a Firefox User-Agent (Google login does not complete with the default Electron UA).
-- The UI, the transcript view and the default prompt templates are available in Japanese and English (top-right switch). Templates are stored per language and can be edited in ☰ → Settings.
+- The UI, the transcript view and the default prompt templates are available in Japanese and English (top-right switch). Templates are stored per language and mode and can be edited in ☰ → Settings. A timekeeper line (turn n of N, phase: early / middle / late) is prepended to every prompt and the last two turns ask both AIs for a closing summary.
 - The Gemini button selectors were measured with the Japanese UI locale and fall back to language-independent icons, so sending works in other locales; the text patterns for rate limits, errors and login prompts cover Japanese and English only.
 - Real debates have only been verified on Linux (arm64). The macOS and Windows builds are smoke-tested in CI (the app starts, the database and search work) but have not been used for actual debates.
 - When ChatGPT or Gemini changes its page structure the app stops working. The place to fix is `src/chat/selectors.ts`; the procedure is in [docs/selectors.md](docs/selectors.md) (Japanese).

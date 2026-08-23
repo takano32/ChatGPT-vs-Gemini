@@ -19,7 +19,8 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
 }
 
 const api: RendererApi = {
-  startDebate: (topic, maxTurns, firstSpeaker) => ipcRenderer.invoke(IPC.runnerStart, topic, maxTurns, firstSpeaker),
+  startDebate: (topic, maxTurns, firstSpeaker, mode) =>
+    ipcRenderer.invoke(IPC.runnerStart, topic, maxTurns, firstSpeaker, mode),
   stopDebate: () => ipcRenderer.invoke(IPC.runnerStop),
   pauseDebate: () => ipcRenderer.invoke(IPC.runnerPause),
   resumeDebate: () => ipcRenderer.invoke(IPC.runnerResume),

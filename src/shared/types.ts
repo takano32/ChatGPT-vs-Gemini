@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // main / preload / renderer で共有するドメイン型。
 // renderer は直接 import せず、src/renderer/api.d.ts にミラーを持つ(ビルド単純化のため)。
+import { DEFAULT_TEMPLATES, TIMEKEEPER, type DebateTemplates, type Mode, type Timekeeper } from './modes';
+export { DEFAULT_TEMPLATES, TIMEKEEPER, MODES, ASYMMETRIC_MODES, isMode, type DebateTemplates, type Mode, type Timekeeper } from './modes';
 
 export type Speaker = 'chatgpt' | 'gemini';
 
@@ -27,6 +29,8 @@ export interface ConversationRecord {
   updatedAt: string;
   /** 開始時の最大ターン数。列追加前に作られた会話は null */
   maxTurns: number | null;
+  /** 議論のモード。列追加前に作られた会話は null(= 対立) */
+  mode: Mode | null;
 }
 
 export interface MessageRecord {
@@ -48,6 +52,7 @@ export interface TranscriptPayload {
   title: string;
   status: ConversationStatus | null;
   maxTurns: number;
+  mode: Mode | null;
   messages: MessageRecord[];
 }
 
@@ -83,15 +88,6 @@ export interface LogEntry {
 /** 対応言語は日本語と英語の 2 つだけ(他は対応しない。2026-08-23 利用者の決定) */
 export type Lang = 'ja' | 'en';
 
-export interface DebateTemplates {
-  /** 先攻への最初の指示。{topic} {opponent} を展開 */
-  openingTemplate: string;
-  /** 後攻への最初の指示。{topic} {opponent} {message} を展開 */
-  counterTemplate: string;
-  /** 3ターン目以降の中継。{opponent} {message} を展開 */
-  relayTemplate: string;
-}
-
 export interface SettingsData {
   /** 画面文言・ログ・プロンプトの言語(ヘッダ右上で切替) */
   language: Lang;
@@ -106,8 +102,12 @@ export interface SettingsData {
   debate: {
     maxTurns: number;
     firstSpeaker: Speaker;
-    /** 言語ごとのプロンプトテンプレート。使うのは language で選んだ側 */
-    templates: Record<Lang, DebateTemplates>;
+    /** 既定のモード(操作バーで議論ごとに上書きできる) */
+    mode: Mode;
+    /** 言語 × モードごとのプロンプトテンプレート(定義は shared/modes.ts) */
+    templates: Record<Lang, Record<Mode, DebateTemplates>>;
+    /** 進行役の一文(言語ごと。定義は shared/modes.ts) */
+    timekeeper: Record<Lang, Timekeeper>;
     /** ターン間の待機 ms(レート制限対策) */
     betweenTurnsMs: number;
   };
@@ -125,29 +125,6 @@ export interface SettingsData {
   };
 }
 
-export const DEFAULT_TEMPLATES: Record<Lang, DebateTemplates> = {
-  ja: {
-    openingTemplate:
-      'あなたはこれから別のAI({opponent})と議論します。テーマ: 「{topic}」。' +
-      'まず、このテーマについてあなたの立場と根拠を400字以内で述べてください。',
-    counterTemplate:
-      'あなたはこれから別のAI({opponent})と議論します。テーマ: 「{topic}」。' +
-      '相手の最初の主張は以下のとおりです。400字以内で反論または深掘りしてください。\n\n{message}',
-    relayTemplate:
-      '相手({opponent})の発言:\n\n{message}\n\nこれに対して400字以内で応答し、議論を続けてください。',
-  },
-  en: {
-    openingTemplate:
-      'You are about to debate another AI ({opponent}). Topic: "{topic}". ' +
-      'First, state your position on this topic and your reasons in no more than 250 words.',
-    counterTemplate:
-      'You are about to debate another AI ({opponent}). Topic: "{topic}". ' +
-      "Your opponent's opening statement is below. Rebut it or dig deeper in no more than 250 words.\n\n{message}",
-    relayTemplate:
-      'Your opponent ({opponent}) said:\n\n{message}\n\nRespond in no more than 250 words and keep the debate going.',
-  },
-};
-
 export const DEFAULT_SETTINGS: SettingsData = {
   language: 'ja',
   layout: {
@@ -158,7 +135,9 @@ export const DEFAULT_SETTINGS: SettingsData = {
   debate: {
     maxTurns: 10,
     firstSpeaker: 'chatgpt',
+    mode: 'debate',
     templates: DEFAULT_TEMPLATES,
+    timekeeper: TIMEKEEPER,
     betweenTurnsMs: 0,
   },
   detection: {

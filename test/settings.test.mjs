@@ -18,9 +18,25 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Settings, normalizeSettings } from '../dist/manager/Settings.js';
-import { DEFAULT_SETTINGS } from '../dist/shared/types.js';
+import { DEFAULT_SETTINGS, MODES } from '../dist/shared/types.js';
 
 const D = DEFAULT_SETTINGS;
+
+// 全モードぶんの、既定値と異なるテンプレート一式(prefix で言語を区別)
+function customTemplates(prefix) {
+  return Object.fromEntries(
+    MODES.map((m) => [
+      m,
+      {
+        openingTemplate: `${prefix} ${m} A {topic} {opponent}`,
+        counterTemplate: `${prefix} ${m} B {topic} {opponent} {message}`,
+        relayFirstTemplate: `${prefix} ${m} C1 {opponent} {message}`,
+        relaySecondTemplate: `${prefix} ${m} C2 {opponent} {message}`,
+        closingTemplate: `${prefix} ${m} D {opponent} {message}`,
+      },
+    ]),
+  );
+}
 
 // 既定値と全項目が異なる、範囲内の正常な設定(「正常値はそのまま通る」ことの確認用)
 const CUSTOM = {
@@ -29,17 +45,11 @@ const CUSTOM = {
   debate: {
     maxTurns: 4,
     firstSpeaker: 'gemini',
-    templates: {
-      ja: {
-        openingTemplate: 'A {topic} {opponent}',
-        counterTemplate: 'B {topic} {opponent} {message}',
-        relayTemplate: 'C {opponent} {message}',
-      },
-      en: {
-        openingTemplate: 'EA {topic} {opponent}',
-        counterTemplate: 'EB {topic} {opponent} {message}',
-        relayTemplate: 'EC {opponent} {message}',
-      },
+    mode: 'collab',
+    templates: { ja: customTemplates('J'), en: customTemplates('E') },
+    timekeeper: {
+      ja: { template: 'T {turn}/{max} {remaining} {phase}', early: 'E1', middle: 'M1', late: 'L1' },
+      en: { template: 'T {turn}/{max} {remaining} {phase}', early: 'E2', middle: 'M2', late: 'L2' },
     },
     betweenTurnsMs: 1500,
   },
@@ -181,22 +191,38 @@ test('normalizeSettings: firstSpeaker は chatgpt / gemini 以外なら既定値
   }
 });
 
-test('normalizeSettings: テンプレートは言語ごとに、空でない文字列だけ採用し、空文字・空白のみ・文字列以外は既定値', () => {
+test('normalizeSettings: テンプレートは言語 × モードごとに、空でない文字列だけ採用し、空文字・空白のみ・文字列以外は既定値', () => {
+  const KEYS = ['openingTemplate', 'counterTemplate', 'relayFirstTemplate', 'relaySecondTemplate', 'closingTemplate'];
   for (const lang of ['ja', 'en']) {
-    for (const key of ['openingTemplate', 'counterTemplate', 'relayTemplate']) {
-      const tpl = (value) =>
-        normalizeSettings({ debate: { templates: { [lang]: { [key]: value } } } }).debate.templates[lang][key];
-      assert.equal(tpl('ok {message}'), 'ok {message}', `${lang}.${key}: 普通の文字列はそのまま`);
-      assert.equal(tpl(' x '), ' x ', `${lang}.${key}: 前後の空白は削らずそのまま`);
-      for (const bad of ['', '   ', ' \n\t ', 123, null, true, ['x'], { text: 'x' }]) {
-        assert.equal(tpl(bad), D.debate.templates[lang][key], `${lang}.${key} = ${JSON.stringify(bad)} は既定値`);
+    for (const mode of ['debate', 'quiz']) {
+      for (const key of KEYS) {
+        const tpl = (value) =>
+          normalizeSettings({ debate: { templates: { [lang]: { [mode]: { [key]: value } } } } }).debate.templates[lang][mode][key];
+        assert.equal(tpl('ok {message}'), 'ok {message}', `${lang}.${mode}.${key}: 普通の文字列はそのまま`);
+        assert.equal(tpl(' x '), ' x ', `${lang}.${mode}.${key}: 前後の空白は削らずそのまま`);
+        for (const bad of ['', '   ', ' \n\t ', 123, null, true, ['x'], { text: 'x' }]) {
+          assert.equal(tpl(bad), D.debate.templates[lang][mode][key], `${lang}.${mode}.${key} = ${JSON.stringify(bad)} は既定値`);
+        }
       }
     }
   }
-  // 片方の言語だけ入れても、もう片方は既定値で埋まる
-  const only = normalizeSettings({ debate: { templates: { en: { openingTemplate: 'E' } } } }).debate.templates;
-  assert.equal(only.en.openingTemplate, 'E');
+  // 一部だけ入れても残りは既定値で埋まる
+  const only = normalizeSettings({ debate: { templates: { en: { collab: { openingTemplate: 'E' } } } } }).debate.templates;
+  assert.equal(only.en.collab.openingTemplate, 'E');
+  assert.equal(only.en.collab.closingTemplate, D.debate.templates.en.collab.closingTemplate);
   assert.deepEqual(only.ja, D.debate.templates.ja);
+  assert.deepEqual(Object.keys(only.ja).sort(), [...MODES].sort(), '全モードが揃う');
+});
+
+test('normalizeSettings: mode は既知のモード名だけ、timekeeper は言語ごとに空でない文字列だけ採用', () => {
+  assert.equal(normalizeSettings({ debate: { mode: 'quiz' } }).debate.mode, 'quiz');
+  for (const bad of ['roleplay', 'DEBATE', '', 1, null]) {
+    assert.equal(normalizeSettings({ debate: { mode: bad } }).debate.mode, 'debate', `mode = ${JSON.stringify(bad)}`);
+  }
+  const tk = normalizeSettings({ debate: { timekeeper: { en: { template: 'X {turn}', early: '' } } } }).debate.timekeeper;
+  assert.equal(tk.en.template, 'X {turn}');
+  assert.equal(tk.en.early, D.debate.timekeeper.en.early, '空なら既定値');
+  assert.deepEqual(tk.ja, D.debate.timekeeper.ja);
 });
 
 test('normalizeSettings: language は ja / en だけ。他は既定値(ja)', () => {
@@ -207,27 +233,40 @@ test('normalizeSettings: language は ja / en だけ。他は既定値(ja)', () 
   }
 });
 
-test('normalizeSettings: 0.3.0 以前の settings.json(debate 直下の 3 テンプレート)は ja のテンプレートとして引き継ぐ', () => {
-  const legacy = {
-    debate: {
-      openingTemplate: '旧 A {topic}',
-      counterTemplate: '旧 B {message}',
-      relayTemplate: '旧 C {message}',
-    },
-  };
-  const s = normalizeSettings(legacy);
-  assert.deepEqual(s.debate.templates.ja, {
-    openingTemplate: '旧 A {topic}',
-    counterTemplate: '旧 B {message}',
-    relayTemplate: '旧 C {message}',
+test('normalizeSettings: 旧形式の settings.json を引き継ぐ(0.3.0 以前は debate 直下、0.4.x は言語直下の 3 テンプレート → 対立モード)', () => {
+  // 0.3.0 以前: debate 直下の 3 本 → ja の対立。relayTemplate は先攻・後攻の両方の中継に
+  const v030 = normalizeSettings({
+    debate: { openingTemplate: '旧 A {topic}', counterTemplate: '旧 B {message}', relayTemplate: '旧 C {message}' },
   });
-  assert.deepEqual(s.debate.templates.en, D.debate.templates.en, 'en は既定値');
-  assert.equal(s.language, 'ja');
-  assert.equal('openingTemplate' in s.debate, false, '旧キーは残さない');
+  assert.equal(v030.debate.templates.ja.debate.openingTemplate, '旧 A {topic}');
+  assert.equal(v030.debate.templates.ja.debate.counterTemplate, '旧 B {message}');
+  assert.equal(v030.debate.templates.ja.debate.relayFirstTemplate, '旧 C {message}');
+  assert.equal(v030.debate.templates.ja.debate.relaySecondTemplate, '旧 C {message}');
+  assert.equal(v030.debate.templates.ja.debate.closingTemplate, D.debate.templates.ja.debate.closingTemplate, 'まとめは既定値');
+  assert.deepEqual(v030.debate.templates.ja.collab, D.debate.templates.ja.collab, '他のモードは既定値');
+  assert.deepEqual(v030.debate.templates.en, D.debate.templates.en);
+  assert.equal('openingTemplate' in v030.debate, false, '旧キーは残さない');
+
+  // 0.4.x: templates.ja / templates.en 直下の 3 本 → その言語の対立
+  const v04x = normalizeSettings({
+    debate: {
+      templates: {
+        ja: { openingTemplate: 'J A', counterTemplate: 'J B', relayTemplate: 'J C' },
+        en: { openingTemplate: 'E A', counterTemplate: 'E B', relayTemplate: 'E C' },
+      },
+    },
+  });
+  assert.equal(v04x.debate.templates.ja.debate.openingTemplate, 'J A');
+  assert.equal(v04x.debate.templates.ja.debate.relaySecondTemplate, 'J C');
+  assert.equal(v04x.debate.templates.en.debate.counterTemplate, 'E B');
+  assert.equal(v04x.debate.templates.en.debate.relayFirstTemplate, 'E C');
+  assert.equal('openingTemplate' in v04x.debate.templates.ja, false, '旧キーは残さない');
+
   // 新形式があれば旧キーは無視する
-  const both = normalizeSettings({ debate: { ...legacy.debate, templates: { ja: { openingTemplate: '新 A' } } } });
-  assert.equal(both.debate.templates.ja.openingTemplate, '新 A');
-  assert.equal(both.debate.templates.ja.counterTemplate, D.debate.templates.ja.counterTemplate);
+  const both = normalizeSettings({
+    debate: { openingTemplate: '旧', templates: { ja: { openingTemplate: '中', debate: { openingTemplate: '新 A' } } } },
+  });
+  assert.equal(both.debate.templates.ja.debate.openingTemplate, '新 A');
 });
 
 // ---------- Settings クラス(ファイルの読み書き) ----------
@@ -244,7 +283,7 @@ test('load: 手編集で壊れた値は丸めて読み込み、ファイルは�
   const raw = JSON.stringify(
     {
       layout: { adminRatio: 5, chatZoom: 0 },
-      debate: { maxTurns: 0, firstSpeaker: 'foo', templates: { ja: { openingTemplate: '', relayTemplate: 42 } } },
+      debate: { maxTurns: 0, firstSpeaker: 'foo', mode: 'x', templates: { ja: { debate: { openingTemplate: '', relayFirstTemplate: 42 } } } },
       detection: { pollMs: 1, stabilityMs: -1, timeoutMs: 'x' },
       window: { width: 10 },
       junk: true,
@@ -261,6 +300,7 @@ test('load: 手編集で壊れた値は丸めて読み込み、ファイルは�
   assert.equal(s.debate.maxTurns, 1);
   assert.equal(s.debate.firstSpeaker, 'chatgpt');
   assert.deepEqual(s.debate.templates, D.debate.templates);
+  assert.equal(s.debate.mode, 'debate');
   assert.equal(s.detection.pollMs, 100);
   assert.equal(s.detection.stabilityMs, 500);
   assert.equal(s.detection.timeoutMs, D.detection.timeoutMs);
@@ -308,7 +348,10 @@ test('set: 不正な値は正規化してから保存され、change イベン�
       ...CUSTOM.debate,
       maxTurns: 1000,
       firstSpeaker: 'foo',
-      templates: { ...CUSTOM.debate.templates, en: { ...CUSTOM.debate.templates.en, relayTemplate: '' } },
+      templates: {
+        ...CUSTOM.debate.templates,
+        en: { ...CUSTOM.debate.templates.en, debate: { ...CUSTOM.debate.templates.en.debate, closingTemplate: '' } },
+      },
     },
     detection: { ...CUSTOM.detection, pollMs: 1 },
     window: { width: 10, height: 'x' },
@@ -322,7 +365,10 @@ test('set: 不正な値は正規化してから保存され、change イベン�
       firstSpeaker: 'chatgpt',
       templates: {
         ...CUSTOM.debate.templates,
-        en: { ...CUSTOM.debate.templates.en, relayTemplate: D.debate.templates.en.relayTemplate },
+        en: {
+          ...CUSTOM.debate.templates.en,
+          debate: { ...CUSTOM.debate.templates.en.debate, closingTemplate: D.debate.templates.en.debate.closingTemplate },
+        },
       },
     },
     detection: { ...CUSTOM.detection, pollMs: 100 },

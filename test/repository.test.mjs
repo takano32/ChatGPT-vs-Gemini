@@ -14,7 +14,7 @@ import Database from 'better-sqlite3';
 import { Repository } from '../dist/conversation/Repository.js';
 
 // Repository.ts の MIGRATIONS の要素数。移行を足したらここも上げる
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 // max_turns 列を足す前(user_version 0)のスキーマ。旧 DB からの移行テスト用
 const LEGACY_SCHEMA_SQL = `
@@ -76,7 +76,7 @@ function columnNames(db, table) {
   return db.pragma(`table_info(${table})`).map((c) => c.name);
 }
 
-test('新規 DB: init で user_version が MIGRATIONS 数になり、conversations に max_turns 列がある', (t) => {
+test('新規 DB: init で user_version が MIGRATIONS 数になり、conversations に max_turns / mode 列がある', (t) => {
   const { dbPath, open, raw } = setup(t);
   assert.equal(existsSync(dbPath), false);
 
@@ -86,12 +86,13 @@ test('新規 DB: init で user_version が MIGRATIONS 数になり、conversatio
   raw((db) => {
     assert.equal(userVersion(db), SCHEMA_VERSION);
     assert.ok(columnNames(db, 'conversations').includes('max_turns'));
+    assert.ok(columnNames(db, 'conversations').includes('mode'));
     const fts = db.prepare("SELECT name FROM sqlite_master WHERE name = 'messages_fts'").get();
     assert.ok(fts, '全文検索テーブル messages_fts が作られる');
   });
 });
 
-test('旧スキーマの DB: init で max_turns 列が追加され版が上がる。再 init は冪等', (t) => {
+test('旧スキーマの DB: init で max_turns / mode 列が追加され版が上がる。再 init は冪等', (t) => {
   const { open, raw } = setup(t);
   raw((db) => {
     db.exec(LEGACY_SCHEMA_SQL);
@@ -104,8 +105,9 @@ test('旧スキーマの DB: init で max_turns 列が追加され版が上が�
     assert.equal(userVersion(db), SCHEMA_VERSION);
     const cols = columnNames(db, 'conversations');
     assert.ok(cols.includes('max_turns'));
-    const legacy = db.prepare('SELECT title, max_turns FROM conversations').get();
-    assert.deepEqual(legacy, { title: '旧い会話', max_turns: null }, '既存の行は残り max_turns は NULL');
+    assert.ok(cols.includes('mode'));
+    const legacy = db.prepare('SELECT title, max_turns, mode FROM conversations').get();
+    assert.deepEqual(legacy, { title: '旧い会話', max_turns: null, mode: null }, '既存の行は残り max_turns / mode は NULL');
     return cols;
   });
 
@@ -118,17 +120,18 @@ test('旧スキーマの DB: init で max_turns 列が追加され版が上が�
   assert.equal(repo.listConversations().length, 1);
 });
 
-test('createConversation の戻り値と listConversations の maxTurns(旧行は null)', (t) => {
+test('createConversation の戻り値と listConversations の maxTurns / mode(旧行は null)', (t) => {
   const { open, raw } = setup(t);
   raw((db) => db.exec(LEGACY_SCHEMA_SQL));
   const repo = open();
 
-  const created = repo.createConversation('新しい会話', 10);
+  const created = repo.createConversation('新しい会話', 10, 'collab');
   assert.equal(typeof created.id, 'number');
   assert.ok(created.id > 0);
   assert.equal(created.title, '新しい会話');
   assert.equal(created.status, 'running');
   assert.equal(created.maxTurns, 10);
+  assert.equal(created.mode, 'collab');
   assert.equal(created.createdAt, created.updatedAt);
   assert.equal(new Date(created.createdAt).toISOString(), created.createdAt, 'createdAt は ISO 8601');
 
@@ -140,13 +143,14 @@ test('createConversation の戻り値と listConversations の maxTurns(旧行�
   assert.equal(legacy.title, '旧い会話');
   assert.equal(legacy.status, 'done');
   assert.equal(legacy.maxTurns, null, '列追加前に作られた会話の maxTurns は null');
+  assert.equal(legacy.mode, null, '列追加前に作られた会話の mode は null');
 });
 
 test('addMessage → getMessages: 追加した順に返り、speaker / content が保存される', (t) => {
   const { open } = setup(t);
   const repo = open();
-  const a = repo.createConversation('会話 A', 4);
-  const b = repo.createConversation('会話 B', 4);
+  const a = repo.createConversation('会話 A', 4, 'debate');
+  const b = repo.createConversation('会話 B', 4, 'debate');
 
   const m1 = repo.addMessage(a.id, 'chatgpt', 'こんにちは、Gemini。');
   const m2 = repo.addMessage(a.id, 'gemini', 'こんにちは、ChatGPT。');
@@ -171,7 +175,7 @@ test('addMessage → getMessages: 追加した順に返り、speaker / content �
 test('search: 3 文字以上は FTS(trigram)で部分一致し、スニペットに【】が付く', (t) => {
   const { open } = setup(t);
   const repo = open();
-  const conv = repo.createConversation('文学談義', 6);
+  const conv = repo.createConversation('文学談義', 6, 'debate');
   const hitMessage = repo.addMessage(conv.id, 'chatgpt', '吾輩は猫である。名前はまだ無い。');
   repo.addMessage(conv.id, 'gemini', '走れメロス。メロスは激怒した。');
 
@@ -189,9 +193,9 @@ test('search: 3 文字以上は FTS(trigram)で部分一致し、スニペット
 test('search: 2 文字以下は LIKE にフォールバックし、本文とタイトルの両方に部分一致する', (t) => {
   const { open } = setup(t);
   const repo = open();
-  const conv = repo.createConversation('第1回', 6);
+  const conv = repo.createConversation('第1回', 6, 'debate');
   const hitMessage = repo.addMessage(conv.id, 'chatgpt', '吾輩は猫である。名前はまだ無い。');
-  const other = repo.createConversation('第2回', 6);
+  const other = repo.createConversation('第2回', 6, 'debate');
   repo.addMessage(other.id, 'gemini', '走れメロス。メロスは激怒した。');
 
   const byContent = repo.search('猫で');
@@ -214,7 +218,7 @@ test('search: 2 文字以下は LIKE にフォールバックし、本文とタ�
 test('search: % _ " を含むクエリが例外にならず、記号も文字どおりに一致する', (t) => {
   const { open } = setup(t);
   const repo = open();
-  const conv = repo.createConversation('記号テスト', 6);
+  const conv = repo.createConversation('記号テスト', 6, 'debate');
   const contents = ['A%B', 'AXB', 'A_C', 'ABC', 'これは"引用"です', '進捗は100%達成した', 'snake_case_name'];
   for (const content of contents) repo.addMessage(conv.id, 'chatgpt', content);
   const found = (query) => repo.search(query).map((h) => h.message.content).sort();
@@ -239,10 +243,10 @@ test('search: % _ " を含むクエリが例外にならず、記号も文字ど
 test('init 時に running / paused の会話が stopped に復旧する(他の状態はそのまま)', (t) => {
   const { open } = setup(t);
   const first = open();
-  const running = first.createConversation('実行中だった会話', 6);
-  const paused = first.createConversation('一時停止中だった会話', 6);
-  const done = first.createConversation('終わった会話', 6);
-  const error = first.createConversation('失敗した会話', 6);
+  const running = first.createConversation('実行中だった会話', 6, 'debate');
+  const paused = first.createConversation('一時停止中だった会話', 6, 'debate');
+  const done = first.createConversation('終わった会話', 6, 'debate');
+  const error = first.createConversation('失敗した会話', 6, 'debate');
   first.setConversationStatus(paused.id, 'paused');
   first.setConversationStatus(done.id, 'done');
   first.setConversationStatus(error.id, 'error');
@@ -259,8 +263,8 @@ test('init 時に running / paused の会話が stopped に復旧する(他の�
 test('setConversationStatus で状態と updatedAt が更新される', async (t) => {
   const { open } = setup(t);
   const repo = open();
-  const conv = repo.createConversation('状態遷移', 6);
-  const untouched = repo.createConversation('触らない会話', 6);
+  const conv = repo.createConversation('状態遷移', 6, 'debate');
+  const untouched = repo.createConversation('触らない会話', 6, 'debate');
 
   await sleep(10); // updatedAt(ミリ秒)が進んだことを見分けるため
   repo.setConversationStatus(conv.id, 'paused');

@@ -18,6 +18,7 @@ interface ConversationRecord {
   createdAt: string; // ISO 8601
   updatedAt: string;
   maxTurns: number | null;
+  mode: Mode | null;
 }
 
 interface MessageRecord {
@@ -39,6 +40,7 @@ interface TranscriptPayload {
   title: string;
   status: ConversationStatus | null;
   maxTurns: number;
+  mode: Mode | null;
   messages: MessageRecord[];
 }
 
@@ -70,10 +72,31 @@ interface LogEntry {
 
 type Lang = 'ja' | 'en';
 
+type Mode =
+  | 'debate'
+  | 'collab'
+  | 'brainstorm'
+  | 'dialectic'
+  | 'relay'
+  | 'review'
+  | 'interview'
+  | 'socratic'
+  | 'devil'
+  | 'quiz';
+
 interface DebateTemplates {
   openingTemplate: string;
   counterTemplate: string;
-  relayTemplate: string;
+  relayFirstTemplate: string;
+  relaySecondTemplate: string;
+  closingTemplate: string;
+}
+
+interface Timekeeper {
+  template: string;
+  early: string;
+  middle: string;
+  late: string;
 }
 
 interface SettingsData {
@@ -90,8 +113,12 @@ interface SettingsData {
   debate: {
     maxTurns: number;
     firstSpeaker: Speaker;
-    /** 言語ごとのプロンプトテンプレート。使うのは language で選んだ側 */
-    templates: Record<Lang, DebateTemplates>;
+    /** 既定のモード(操作バーで議論ごとに上書きできる) */
+    mode: Mode;
+    /** 言語 × モードごとのプロンプトテンプレート */
+    templates: Record<Lang, Record<Mode, DebateTemplates>>;
+    /** 進行役の一文(言語ごと) */
+    timekeeper: Record<Lang, Timekeeper>;
     /** ターン間の待機 ms(レート制限対策) */
     betweenTurnsMs: number;
   };
@@ -111,7 +138,7 @@ interface SettingsData {
 
 /** preload が contextBridge で `window.api` に公開する形。 */
 interface RendererApi {
-  startDebate(topic: string, maxTurns?: number, firstSpeaker?: Speaker): Promise<void>;
+  startDebate(topic: string, maxTurns?: number, firstSpeaker?: Speaker, mode?: Mode): Promise<void>;
   stopDebate(): Promise<void>;
   pauseDebate(): Promise<void>;
   resumeDebate(): Promise<void>;

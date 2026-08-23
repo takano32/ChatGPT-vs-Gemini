@@ -5,6 +5,18 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-23
+
+### Added
+
+- **モード**: 操作バーで議論の進め方を選べるようにした。対立 / 協調 / ブレスト / 弁証法 / リレー創作 / 批評(作者 / 評者)/ 対談(聞き手 / 語り手)/ 師弟(先生 / 生徒)/ 悪魔の代弁者(主張 / 反対)/ クイズ(解答 / 出題)。議論ごとの一時値で、既定は設定の「モード」([#7](https://github.com/takano32/ChatGPT-vs-Gemini/issues/7))
+- **進行役(タイムキーパー)とまとめ**: 毎ターンの先頭に「n/N ターン目(残り M)」と段階の指示(序盤 / 中盤 / 終盤)を付け、最後の 2 ターンは両者が 1 回ずつ結論をまとめる。2 人目には相手のまとめではなく相手の最後の通常発言を渡す(同じ材料で独立にまとめる)。4 ターン未満はまとめ無し([#3](https://github.com/takano32/ChatGPT-vs-Gemini/issues/3))
+- 会話にモードを保存し、経過表示にモードを表示する(DB に `mode` 列を追加。既存の会話は対立として表示)
+
+### Changed
+
+- プロンプトテンプレートは言語 × モードごとに 5 本(開始 / 反論 / 先攻の中継 / 後攻の中継 / まとめ)になった。中継が先攻用と後攻用に分かれ、`{topic}` を全テンプレートで使える。進行役の文(言語ごと)も設定で編集できる。以前の設定は「対立」モードとして自動で引き継ぐ
+
 ## [0.4.3] - 2026-08-23
 
 ### Fixed
@@ -170,7 +182,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.0...v0.4.1

@@ -10,7 +10,17 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import { DEFAULT_SETTINGS, type DebateTemplates, type Lang, SettingsData, Speaker } from '../shared/types';
+import {
+  DEFAULT_SETTINGS,
+  MODES,
+  isMode,
+  type DebateTemplates,
+  type Lang,
+  type Mode,
+  SettingsData,
+  Speaker,
+  type Timekeeper,
+} from '../shared/types';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
@@ -50,8 +60,9 @@ function sectionOf(input: unknown, key: string): Record<string, unknown> {
  * - 欠けているキーは既定値で埋め、知らないキーは捨てる
  * - 数値は許容範囲に丸める。数値でないもの(文字列など)は既定値
  * - firstSpeaker は 'chatgpt' | 'gemini' 以外なら既定値、language は 'ja' | 'en' 以外なら既定値
- * - テンプレートは言語ごと(templates.ja / templates.en)。空なら既定値。0.3.0 以前の settings.json は
- *   debate 直下に openingTemplate 等を持つので、それは ja のテンプレートとして引き継ぐ
+ * - テンプレートは言語 × モード(templates.ja.debate など)。空なら既定値。旧形式も引き継ぐ:
+ *   0.3.0 以前は debate 直下に openingTemplate 等(→ ja の対立)、0.4.x は templates.ja 直下に 3 本(→ その言語の対立)。
+ *   旧 relayTemplate は先攻・後攻の両方の中継に入れる。mode は既知のモード名以外なら既定値
  *
  * 上限・下限は renderer.ts の丸め(clampRatio / setNextRunTurns)と Window.ts の minWidth / minHeight に
  * 合わせている。index.html の min / max は入力補助で、正とするのはここ。
@@ -63,16 +74,37 @@ export function normalizeSettings(input: unknown): SettingsData {
   const detection = sectionOf(input, 'detection');
   const win = sectionOf(input, 'window');
   const templates = sectionOf(debate, 'templates');
-  const templatesOf = (lang: Lang): DebateTemplates => {
-    // 旧形式(debate 直下の 3 キー)は日本語版として扱う
-    const src = lang === 'ja' && !isPlainObject(templates.ja) ? debate : sectionOf(templates, lang);
-    const def = d.debate.templates[lang];
+  const templatesOf = (lang: Lang, mode: Mode): DebateTemplates => {
+    const byLang = sectionOf(templates, lang);
+    let src: Record<string, unknown>;
+    if (isPlainObject(byLang[mode])) src = byLang[mode];
+    else if (mode === 'debate' && typeof byLang.openingTemplate === 'string') src = byLang; // 0.4.x: 言語直下の 3 本
+    else if (mode === 'debate' && lang === 'ja' && !isPlainObject(templates.ja) && typeof debate.openingTemplate === 'string') {
+      src = debate; // 0.3.0 以前: debate 直下の 3 本
+    } else src = {};
+    const def = d.debate.templates[lang][mode];
+    const relay = typeof src.relayTemplate === 'string' ? src.relayTemplate : undefined; // 旧 1 本の中継
     return {
       openingTemplate: nonEmptyText(src.openingTemplate, def.openingTemplate),
       counterTemplate: nonEmptyText(src.counterTemplate, def.counterTemplate),
-      relayTemplate: nonEmptyText(src.relayTemplate, def.relayTemplate),
+      relayFirstTemplate: nonEmptyText(src.relayFirstTemplate ?? relay, def.relayFirstTemplate),
+      relaySecondTemplate: nonEmptyText(src.relaySecondTemplate ?? relay, def.relaySecondTemplate),
+      closingTemplate: nonEmptyText(src.closingTemplate, def.closingTemplate),
     };
   };
+  const timekeeperSection = sectionOf(debate, 'timekeeper');
+  const timekeeperOf = (lang: Lang): Timekeeper => {
+    const src = sectionOf(timekeeperSection, lang);
+    const def = d.debate.timekeeper[lang];
+    return {
+      template: nonEmptyText(src.template, def.template),
+      early: nonEmptyText(src.early, def.early),
+      middle: nonEmptyText(src.middle, def.middle),
+      late: nonEmptyText(src.late, def.late),
+    };
+  };
+  const allTemplates = (lang: Lang): Record<Mode, DebateTemplates> =>
+    Object.fromEntries(MODES.map((m) => [m, templatesOf(lang, m)])) as Record<Mode, DebateTemplates>;
   const langInput = isPlainObject(input) ? input.language : undefined;
   return {
     language: langInput === 'ja' || langInput === 'en' ? langInput : d.language,
@@ -86,7 +118,9 @@ export function normalizeSettings(input: unknown): SettingsData {
       // ターン数は整数。小数は切り捨て
       maxTurns: Math.floor(clampNumber(debate.maxTurns, d.debate.maxTurns, 1, 99)),
       firstSpeaker: speakerOf(debate.firstSpeaker, d.debate.firstSpeaker),
-      templates: { ja: templatesOf('ja'), en: templatesOf('en') },
+      mode: isMode(debate.mode) ? debate.mode : d.debate.mode,
+      templates: { ja: allTemplates('ja'), en: allTemplates('en') },
+      timekeeper: { ja: timekeeperOf('ja'), en: timekeeperOf('en') },
       betweenTurnsMs: clampNumber(debate.betweenTurnsMs, d.debate.betweenTurnsMs, 0),
     },
     detection: {

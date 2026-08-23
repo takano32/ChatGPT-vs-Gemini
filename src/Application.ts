@@ -15,6 +15,7 @@ import { ChatGPT } from './chat/ChatGPT';
 import { Gemini } from './chat/Gemini';
 import { CHATGPT_SELECTORS, GEMINI_SELECTORS } from './chat/selectors';
 import { IPC } from './shared/ipc';
+import { isMode } from './shared/types';
 import type {
   ChatStatus,
   ChatStatusMap,
@@ -140,12 +141,12 @@ export class Application {
     ipcMain.on(IPC.layoutDragMove, (e, clientY: unknown) => {
       this.manager.layout.dragMove(e.sender.id, typeof clientY === 'number' ? clientY : NaN);
     });
-    ipcMain.handle(IPC.runnerStart, (_e, topic: string, maxTurns?: number, firstSpeaker?: unknown) => {
+    ipcMain.handle(IPC.runnerStart, (_e, topic: string, maxTurns?: number, firstSpeaker?: unknown, mode?: unknown) => {
       // 議論全体を await すると invoke が完走まで返らないため fire-and-forget。
       // エラーは Runner が status/log イベントで通知する。
       const override = typeof maxTurns === 'number' ? maxTurns : undefined;
       const first = firstSpeaker === 'chatgpt' || firstSpeaker === 'gemini' ? firstSpeaker : undefined;
-      void this.runner.start(String(topic), override, first).catch(() => {});
+      void this.runner.start(String(topic), override, first, isMode(mode) ? mode : undefined).catch(() => {});
     });
     ipcMain.handle(IPC.runnerStop, () => this.runner.stop());
     ipcMain.handle(IPC.runnerPause, () => this.runner.pause());
@@ -247,6 +248,7 @@ export class Application {
         status: conv ? conv.status : null,
         // その会話で使った上限。列追加前の会話は発言数を上限として表示する
         maxTurns: conv?.maxTurns ?? Math.max(messages.length, 1),
+        mode: conv?.mode ?? null,
         messages,
       };
       this.manager.layout.view('transcript').webContents.send(IPC.evTranscript, payload);

@@ -4,12 +4,14 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
-import type {
-  ConversationRecord,
-  ConversationStatus,
-  MessageRecord,
-  SearchHit,
-  Speaker,
+import {
+  isMode,
+  type ConversationRecord,
+  type ConversationStatus,
+  type MessageRecord,
+  type Mode,
+  type SearchHit,
+  type Speaker,
 } from '../shared/types';
 
 interface ConversationRow {
@@ -19,6 +21,7 @@ interface ConversationRow {
   created_at: string;
   updated_at: string;
   max_turns: number | null;
+  mode: string | null;
 }
 
 interface MessageRow {
@@ -41,7 +44,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   status TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  max_turns INTEGER
+  max_turns INTEGER,
+  mode TEXT
 );
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,6 +69,12 @@ const MIGRATIONS: Array<(db: Db) => void> = [
   (db) => {
     if (!hasColumn(db, 'conversations', 'max_turns')) {
       db.exec('ALTER TABLE conversations ADD COLUMN max_turns INTEGER');
+    }
+  },
+  // v2: 会話ごとのモード(対立 / 協調 / …)。列追加前の会話は null(= 対立として表示)
+  (db) => {
+    if (!hasColumn(db, 'conversations', 'mode')) {
+      db.exec('ALTER TABLE conversations ADD COLUMN mode TEXT');
     }
   },
 ];
@@ -141,7 +151,7 @@ export class Repository {
       .run();
 
     this.stmtInsertConversation = this.db.prepare(
-      'INSERT INTO conversations (title, status, created_at, updated_at, max_turns) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO conversations (title, status, created_at, updated_at, max_turns, mode) VALUES (?, ?, ?, ?, ?, ?)',
     );
     this.stmtUpdateStatus = this.db.prepare(
       'UPDATE conversations SET status = ?, updated_at = ? WHERE id = ?',
@@ -153,7 +163,7 @@ export class Repository {
       'INSERT INTO messages (conversation_id, speaker, content, created_at) VALUES (?, ?, ?, ?)',
     );
     this.stmtListConversations = this.db.prepare(
-      'SELECT id, title, status, created_at, updated_at, max_turns FROM conversations ORDER BY updated_at DESC',
+      'SELECT id, title, status, created_at, updated_at, max_turns, mode FROM conversations ORDER BY updated_at DESC',
     );
     this.stmtGetMessages = this.db.prepare(
       'SELECT id, conversation_id, speaker, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC',
@@ -192,9 +202,9 @@ export class Repository {
     );
   }
 
-  createConversation(title: string, maxTurns: number): ConversationRecord {
+  createConversation(title: string, maxTurns: number, mode: Mode): ConversationRecord {
     const now = new Date().toISOString();
-    const info = this.stmtInsertConversation.run(title, 'running', now, now, maxTurns);
+    const info = this.stmtInsertConversation.run(title, 'running', now, now, maxTurns, mode);
     return {
       id: Number(info.lastInsertRowid),
       title,
@@ -202,6 +212,7 @@ export class Repository {
       createdAt: now,
       updatedAt: now,
       maxTurns,
+      mode,
     };
   }
 
@@ -273,6 +284,7 @@ export class Repository {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       maxTurns: row.max_turns ?? null,
+      mode: isMode(row.mode) ? row.mode : null,
     };
   }
 

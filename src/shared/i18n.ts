@@ -13,7 +13,7 @@ const STRINGS: Table = {
   // ---- Runner ----
   'runner.alreadyRunning': { ja: '議論は既に実行中です', en: 'A debate is already running' },
   'runner.createFailed': { ja: '会話の作成に失敗しました: {error}', en: 'Failed to create the conversation: {error}' },
-  'runner.start': { ja: '議論を開始します: 「{topic}」(最大 {max} ターン)', en: 'Starting the debate: "{topic}" (up to {max} turns)' },
+  'runner.start': { ja: '議論を開始します: 「{topic}」({mode}、最大 {max} ターン)', en: 'Starting the debate: "{topic}" ({mode}, up to {max} turns)' },
   'runner.preparing': { ja: '新しいチャットを準備しています(ChatGPT / Gemini)', en: 'Opening new chats (ChatGPT / Gemini)' },
   'runner.prepareFailed': { ja: '新規チャットの準備に失敗しました: {error}', en: 'Failed to open new chats: {error}' },
   'runner.send': { ja: '送信 → {name}', en: 'Sending → {name}' },
@@ -92,6 +92,18 @@ const STRINGS: Table = {
     ja: '{name} の証明書エラー({error})のため、このページの表示を中止しました。パソコンの日時や Wi-Fi の利用登録を確認してください',
     en: 'Stopped loading {name} because of a certificate error ({error}). Check the computer clock and any Wi-Fi sign-in page',
   },
+
+  // ---- モード名(shared/modes.ts の Mode と同じキー。renderer 側は src/renderer/i18n.ts に別表) ----
+  'mode.debate': { ja: '対立', en: 'Debate' },
+  'mode.collab': { ja: '協調', en: 'Collaboration' },
+  'mode.brainstorm': { ja: 'ブレスト', en: 'Brainstorm' },
+  'mode.dialectic': { ja: '弁証法', en: 'Dialectic' },
+  'mode.relay': { ja: 'リレー創作', en: 'Story relay' },
+  'mode.review': { ja: '批評', en: 'Review' },
+  'mode.interview': { ja: '対談', en: 'Interview' },
+  'mode.socratic': { ja: '師弟', en: 'Socratic' },
+  'mode.devil': { ja: '悪魔の代弁者', en: "Devil's advocate" },
+  'mode.quiz': { ja: 'クイズ', en: 'Quiz' },
 
   // ---- その他 ----
   'app.startupError': { ja: '起動エラー', en: 'Startup error' },

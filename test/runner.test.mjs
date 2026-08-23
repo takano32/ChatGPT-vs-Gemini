@@ -76,6 +76,11 @@ function setup(t, { debate = {}, chatgpt, gemini } = {}) {
   return { runner, repository, chats, logs, statuses };
 }
 
+/** プロンプトから進行役の先頭行を除いた本文 */
+function body(prompt) {
+  return prompt.split('\n\n').slice(1).join('\n\n');
+}
+
 /** 条件が満たされるまで待つ(最大 2 秒)。Runner の非同期ループと同期を取る用 */
 async function until(cond) {
   for (let i = 0; i < 200; i++) {
@@ -96,8 +101,8 @@ test('3 ターン: 先攻から交互に送り、開始/反論/中継テンプ�
   // 先攻 ChatGPT(1, 3 ターン目)、後攻 Gemini(2 ターン目)
   assert.equal(chats.chatgpt.prompts.length, 2);
   assert.equal(chats.gemini.prompts.length, 1);
-  const [opening, relay] = chats.chatgpt.prompts;
-  const [counter] = chats.gemini.prompts;
+  const [opening, relay] = chats.chatgpt.prompts.map(body);
+  const [counter] = chats.gemini.prompts.map(body);
   assert.ok(opening.includes('「猫と犬」') && opening.includes('(Gemini)'), `開始: ${opening}`);
   assert.ok(counter.includes('「猫と犬」') && counter.includes('ChatGPT の発言 1'), `反論: ${counter}`);
   assert.ok(relay.includes('Gemini の発言 1') && !relay.includes('猫と犬'), `中継: ${relay}`);
@@ -126,8 +131,8 @@ test('先攻を Gemini にすると順序が入れ替わり、maxTurns の上書
   await runner.start('テーマ');
   assert.equal(chats.gemini.prompts.length, 1);
   assert.equal(chats.chatgpt.prompts.length, 1);
-  assert.ok(chats.gemini.prompts[0].includes('(ChatGPT)'), '先攻の開始プロンプトは相手名が ChatGPT');
-  assert.ok(chats.chatgpt.prompts[0].includes('Gemini の発言 1'), '後攻の反論プロンプトに先攻の発言が入る');
+  assert.ok(body(chats.gemini.prompts[0]).includes('(ChatGPT)'), '先攻の開始プロンプトは相手名が ChatGPT');
+  assert.ok(body(chats.chatgpt.prompts[0]).includes('Gemini の発言 1'), '後攻の反論プロンプトに先攻の発言が入る');
   const conv = repository.listConversations()[0];
   assert.equal(conv.maxTurns, 2);
   assert.deepEqual(
@@ -144,6 +149,57 @@ test('先攻の上書き: start の第 3 引数があれば設定の先攻より
     ['gemini', 'chatgpt'],
   );
   assert.ok(chats.gemini.prompts[0].includes('(ChatGPT)'), '先攻 Gemini の開始プロンプトは相手名が ChatGPT');
+});
+
+test('モード: 上書きがあればそのモードのテンプレートを使い、3 ターン目以降は先攻 / 後攻で中継文が分かれる。会話に mode が残る', async (t) => {
+  const { runner, repository, chats } = setup(t);
+  await runner.start('レビュー対象', 6, undefined, 'review');
+  const conv = repository.listConversations()[0];
+  assert.equal(conv.mode, 'review');
+  const [opening, relayFirst] = chats.chatgpt.prompts.map(body);
+  const [counter, relaySecond] = chats.gemini.prompts.map(body);
+  assert.ok(opening.includes('あなたは作者') && opening.includes('「レビュー対象」'), opening);
+  assert.ok(counter.includes('あなたはレビュアー') && counter.includes('ChatGPT の発言 1'), counter);
+  assert.ok(relayFirst.startsWith('レビュアー(Gemini)の指摘:') && relayFirst.includes('Gemini の発言 1'), relayFirst);
+  assert.ok(relaySecond.startsWith('作者(ChatGPT)の修正版:') && relaySecond.includes('ChatGPT の発言 2'), relaySecond);
+
+  // 上書きが無ければ設定の既定モード(対立)で、中継は先攻・後攻とも同じ文
+  const second = setup(t);
+  await second.runner.start('既定', 6);
+  assert.equal(second.repository.listConversations()[0].mode, 'debate');
+  const r1 = body(second.chats.chatgpt.prompts[1]);
+  const r2 = body(second.chats.gemini.prompts[1]);
+  assert.ok(r1.startsWith('相手(Gemini)の発言:') && r2.startsWith('相手(ChatGPT)の発言:'));
+});
+
+test('進行役: 毎ターン先頭に「n/max ターン目」と段階の指示が付き、最後の 2 ターンは両者がまとめる。2 人目のまとめには相手の最後の通常発言を渡す', async (t) => {
+  const { runner, chats } = setup(t);
+  await runner.start('まとめ', 8);
+  // 送信順に並べ直す(先攻 ChatGPT: 1,3,5,7 / Gemini: 2,4,6,8)
+  const prompts = [];
+  for (let i = 0; i < 4; i++) prompts.push(chats.chatgpt.prompts[i], chats.gemini.prompts[i]);
+  const leads = prompts.map((p) => p.split('\n\n')[0]);
+  assert.equal(leads[0], '【進行役】1/8 ターン目(残り 7 ターン)。いまは序盤です。論点を出し切り、立場を明確にしてください。');
+  assert.ok(leads[1].includes('2/8') && leads[1].includes('序盤'));
+  assert.ok(leads[2].includes('3/8') && leads[2].includes('中盤'), leads[2]);
+  assert.ok(leads[3].includes('4/8') && leads[3].includes('中盤'), leads[3]);
+  assert.ok(leads[4].includes('5/8') && leads[4].includes('終盤'), leads[4]);
+  assert.ok(leads[5].includes('6/8') && leads[5].includes('終盤'), leads[5]);
+  assert.equal(leads[6], '【進行役】7/8 ターン目(残り 1 ターン)。', 'まとめのターンは段階の指示なし');
+  assert.equal(leads[7], '【進行役】8/8 ターン目(残り 0 ターン)。');
+
+  const closing1 = body(prompts[6]);
+  const closing2 = body(prompts[7]);
+  assert.ok(closing1.startsWith('相手(Gemini)の最後の発言:') && closing1.includes('議論はここまでです'), closing1);
+  assert.ok(closing1.includes('Gemini の発言 3'), '1 人目のまとめは相手(Gemini)の最後の通常発言(6 ターン目)を材料にする');
+  assert.ok(closing2.includes('ChatGPT の発言 3') && !closing2.includes('ChatGPT の発言 4'), '2 人目のまとめは相手のまとめ(7 ターン目)ではなく最後の通常発言(5 ターン目)を材料にする');
+
+  // 4 ターン未満はまとめ無し
+  const short = setup(t);
+  await short.runner.start('短い', 3);
+  const all = [short.chats.chatgpt.prompts[0], short.chats.gemini.prompts[0], short.chats.chatgpt.prompts[1]];
+  assert.ok(all.every((p) => !p.includes('議論はここまでです')));
+  assert.ok(all[2].split('\n\n')[0].includes('終盤'));
 });
 
 test('レート制限: paused になり、resume で同じターンを再送して続きが進む', async (t) => {
@@ -263,7 +319,7 @@ test('言語が英語のとき main のログ文言も英語になる(既定の�
   const { runner, logs } = setup(t);
   await runner.start('Cats vs dogs', 2);
   const messages = logs.map((e) => e.message);
-  assert.ok(messages.some((m) => m === 'Starting the debate: "Cats vs dogs" (up to 2 turns)'), messages.join(' | '));
+  assert.ok(messages.some((m) => m === 'Starting the debate: "Cats vs dogs" (Debate, up to 2 turns)'), messages.join(' | '));
   assert.ok(messages.some((m) => m === 'Sending → ChatGPT'));
   assert.ok(messages.some((m) => m === 'Debate finished (2 turns)'));
   assert.ok(!messages.some((m) => /[ぁ-んァ-ン一-龥]/.test(m)), '日本語が混ざらない');
