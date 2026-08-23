@@ -64,7 +64,6 @@ export class Application {
     const userData = app.getPath('userData');
 
     this.manager = new Manager(userData);
-    setMainLang(this.manager.settings.get().language); // main のログ文言を設定の言語に合わせる(以後は change で追従)
     this.manager.init({
       admin: {
         file: path.join(app.getAppPath(), 'dist/renderer/index.html'),
@@ -78,6 +77,8 @@ export class Application {
       },
       chatPreload: path.join(app.getAppPath(), 'dist/chat-preload.js'),
     });
+    // main のログ文言を設定の言語に合わせる(settings.load() は init() の中。以後は change で追従)
+    setMainLang(this.manager.settings.get().language);
 
     this.repository = new Repository(path.join(userData, 'data.db'));
     this.repository.init();

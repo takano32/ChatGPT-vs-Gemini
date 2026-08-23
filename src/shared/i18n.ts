@@ -46,6 +46,10 @@ const STRINGS: Table = {
     ja: '{name} の停止ボタンが消えません。応答の有無だけで判定します',
     en: "{name}'s stop button will not go away; judging by the response alone",
   },
+  'chat.stopStuckReload': {
+    ja: '{name} の停止ボタンが消えないため、ページを読み込み直してから送ります',
+    en: "{name}'s stop button will not go away; reloading the page before sending",
+  },
   'chat.stopCleared': { ja: '{name} に残っていた生成状態を解除しました', en: 'Cleared a stale generating state on {name}' },
   'chat.retrySend': { ja: '{name} への送信を再試行します({attempt}/{max} 回目)', en: 'Retrying send to {name} ({attempt}/{max})' },
   'chat.sendNotStarted': { ja: '{name} への送信が開始しません', en: 'Sending to {name} did not start' },

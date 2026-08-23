@@ -57,6 +57,8 @@ const PROBE_FAILURE_MS = 20000;
 
 // 新規チャットの準備待ちの上限と、準備ができないときに遷移をやり直す間隔
 const NEW_CHAT_TIMEOUT_MS = 45000;
+// 固着した生成状態をページ再読込で解除するときの、準備完了(入力欄が出る)までの上限
+const RELOAD_READY_TIMEOUT_MS = 30000;
 const NEW_CHAT_RENAV_MS = 10000;
 
 // 完了の多重確認。「応答あり・生成指標なし・本文が前回ポーリングから不変」を
@@ -403,18 +405,27 @@ export abstract class Chat {
     // (実測: ストリーム切断時に起きる。送信ボタンが出ないので次が送れない)。
     // まず押して生成状態を解除する。それでも消えなければ固着として生成指標から外す。
     let ignoreStop = false;
+    // 応答の代わりにエラー吹き出しが追加された場合、それは履歴に残るので基準件数を進める
+    let baseline = initialBaseline;
     if (await this.stopVisible()) {
       await this.clickStop();
       await sleep(STOP_RELEASE_MS);
       ignoreStop = await this.stopVisible();
-      this.notify(
-        ignoreStop
-          ? tm('chat.stopStuck', { name: this.displayName })
-          : tm('chat.stopCleared', { name: this.displayName }),
-      );
+      if (ignoreStop) {
+        // 2026-08-23 実測(ChatGPT、ログイン済み): 本文は完成しているのに送信ボタンが「Stop answering」のまま残り、
+        // 押しても消えない。送信ボタンが無いので次が送れず、Enter も効かない。ページを読み込み直すと解ける
+        // (会話は URL に残る)ので、再読込して同じターンを送る
+        this.notify(tm('chat.stopStuckReload', { name: this.displayName }));
+        if (await this.reloadForStuckStop()) {
+          ignoreStop = false;
+          baseline = await this.captureBaseline();
+        } else {
+          this.notify(tm('chat.stopStuck', { name: this.displayName }));
+        }
+      } else {
+        this.notify(tm('chat.stopCleared', { name: this.displayName }));
+      }
     }
-    // 応答の代わりにエラー吹き出しが追加された場合、それは履歴に残るので基準件数を進める
-    let baseline = initialBaseline;
 
     for (let attempt = 1; attempt <= SEND_ATTEMPTS; attempt++) {
       this.throwIfAborted();
@@ -445,6 +456,14 @@ export abstract class Chat {
           throw new ChatError('send-failed', tm('chat.sendNotStarted', { name: this.displayName }));
         }
         this.throwIfAborted();
+        // 送信が始まらず、停止ボタンが出たままなら上と同じ固着。再読込してから次の試行へ
+        if (await this.stopVisible()) {
+          this.notify(tm('chat.stopStuckReload', { name: this.displayName }));
+          if (await this.reloadForStuckStop()) {
+            ignoreStop = false;
+            baseline = await this.captureBaseline();
+          }
+        }
         await sleep(RETRY_DELAY_MS);
         continue;
       }
@@ -468,6 +487,26 @@ export abstract class Chat {
       'send-failed',
       tm('chat.noResponseAfterRetries', { name: this.displayName, max: SEND_ATTEMPTS }),
     );
+  }
+
+  /**
+   * 固着した生成状態(停止ボタンが消えない)をページの再読込で解除する。現在の URL をそのまま読み直し、
+   * 入力欄が出るまで待つ。戻り値は「再読込後に停止ボタンが消えたか」。失敗・タイムアウトなら false
+   */
+  private async reloadForStuckStop(): Promise<boolean> {
+    const wc = this.view.webContents;
+    this.throwIfAborted();
+    wc.reload();
+    const deadline = Date.now() + RELOAD_READY_TIMEOUT_MS;
+    for (;;) {
+      await sleep(500);
+      this.throwIfAborted();
+      if (!wc.isLoading() && (await this.isReady())) break;
+      if (Date.now() >= deadline) return false;
+    }
+    await this.setPageLock(this.lockDesired);
+    await sleep(STOP_RELEASE_MS);
+    return !(await this.stopVisible());
   }
 
   // 1 回分の送信操作: 入力欄をクリア → 本文を挿入 → 送信クリック → 生成開始の確認。
