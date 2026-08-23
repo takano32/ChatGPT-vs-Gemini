@@ -13,7 +13,7 @@ function message(speaker, content, id = 1) {
   return { id, conversationId: 100, speaker, content, createdAt: '2026-08-21T00:00:00.000Z' };
 }
 
-test('1 件: 見出し・話者見出し・本文の形が gist 形式になる(区切り線は発言の間だけ)', () => {
+test('1 件: 見出し・話者見出し・本文の形が gist 形式になる(区切り線は無い)', () => {
   const md = transcriptToMarkdown('猫と犬はどちらが賢いか', [message('chatgpt', '猫派です。')], 4);
   assert.equal(
     md,
@@ -26,7 +26,7 @@ test('1 件: 見出し・話者見出し・本文の形が gist 形式になる(
       '',
     ].join('\n'),
   );
-  assert.ok(md.endsWith('猫派です。\n') && !md.includes('---'), '最後の発言の後に区切り線は付けない');
+  assert.ok(md.endsWith('猫派です。\n') && !md.includes('---'), '区切り線は入れない');
   assert.ok(!md.includes('2026-08-21'), '日時や id は出力に含めない');
 });
 
@@ -45,13 +45,9 @@ test('複数件: 発言順に並び、話者ごとの絵文字とラベルが付
       '',
       '最初の主張',
       '',
-      '---',
-      '',
       '### 🔵 Gemini (2/3)',
       '',
       '反論',
-      '',
-      '---',
       '',
       '### 🟢 ChatGPT (3/3)',
       '',

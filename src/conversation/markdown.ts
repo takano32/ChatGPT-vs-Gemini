@@ -5,7 +5,7 @@
 // Electron や DB に触らないので、node:test から dist/conversation/markdown.js を読み込んでそのまま検査できる
 // (test/markdown.test.mjs)。クリップボードへ書くのは呼び出し側(Application)の仕事。
 //
-// 出力の形(話者行を見出しにし、本文はそのまま段落で置き、発言の間を水平線で区切る。最後の発言の後には付けない):
+// 出力の形(話者行を見出しにし、本文はそのまま段落で置く。見出しで境目が分かるので区切り線は入れない):
 //
 //   # 議論のタイトル
 //
@@ -15,13 +15,12 @@
 //
 //   次の段落
 //
-//   ---
-//
 //   ### 🔵 Gemini (2/10)
 //   ...
 //
 // 本文を引用ブロック(> )にしない理由: GitHub は引用を灰色で薄く描くので、gist に貼ると本文全体が読みにくくなる
 // (2026-08-23 利用者の指摘)。話者行は「###」にして、タイトルの「#」や本文と見分けがつくようにする。
+// 区切り線(---)も同日に利用者の判断で廃止(見出しがあれば不要)。
 
 import { SPEAKER_LABELS, type MessageRecord, type Speaker } from '../shared/types';
 
@@ -49,10 +48,6 @@ export function transcriptToMarkdown(title: string, messages: MessageRecord[], m
     parts.push('');
   }
   messages.forEach((m, i) => {
-    if (i > 0) {
-      parts.push('---');
-      parts.push('');
-    }
     parts.push(`### ${SPEAKER_EMOJI[m.speaker]} ${SPEAKER_LABELS[m.speaker]} (${i + 1}/${maxTurns})`);
     parts.push('');
     // 本文はそのまま置く。末尾の改行だけ落として、次の要素との間が空行 1 つになるようにする
