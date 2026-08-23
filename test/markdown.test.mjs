@@ -13,22 +13,22 @@ function message(speaker, content, id = 1) {
   return { id, conversationId: 100, speaker, content, createdAt: '2026-08-21T00:00:00.000Z' };
 }
 
-test('1 件: 見出し・話者行・引用・区切り線の形が gist 形式になる', () => {
+test('1 件: 見出し・話者見出し・本文・区切り線の形が gist 形式になる', () => {
   const md = transcriptToMarkdown('猫と犬はどちらが賢いか', [message('chatgpt', '猫派です。')], 4);
   assert.equal(
     md,
     [
       '# 猫と犬はどちらが賢いか',
       '',
-      '🟢 **ChatGPT** (1/4)',
+      '### 🟢 ChatGPT (1/4)',
       '',
-      '> 猫派です。',
+      '猫派です。',
       '',
-      '* * *',
+      '---',
       '',
     ].join('\n'),
   );
-  assert.ok(md.endsWith('* * *\n'), '末尾は区切り線と改行 1 つで終わる');
+  assert.ok(md.endsWith('---\n'), '末尾は区切り線と改行 1 つで終わる');
   assert.ok(!md.includes('2026-08-21'), '日時や id は出力に含めない');
 });
 
@@ -43,29 +43,29 @@ test('複数件: 発言順に並び、話者ごとの絵文字とラベルが付
     [
       '# 三往復',
       '',
-      '🟢 **ChatGPT** (1/3)',
+      '### 🟢 ChatGPT (1/3)',
       '',
-      '> 最初の主張',
+      '最初の主張',
       '',
-      '* * *',
+      '---',
       '',
-      '🔵 **Gemini** (2/3)',
+      '### 🔵 Gemini (2/3)',
       '',
-      '> 反論',
+      '反論',
       '',
-      '* * *',
+      '---',
       '',
-      '🟢 **ChatGPT** (3/3)',
+      '### 🟢 ChatGPT (3/3)',
       '',
-      '> 再反論',
+      '再反論',
       '',
-      '* * *',
+      '---',
       '',
     ].join('\n'),
   );
 });
 
-test('本文の改行・空行・"> " : 行ごとに "> " を付け、空行も "> " になり、元の "> " は "> > " になる', () => {
+test('本文の改行・空行・"> ": 本文はそのまま置き(引用にしない)、末尾の改行だけ落とす', () => {
   const content = '1 行目\n\n> 相手の言葉の引用\n最後の行';
   const md = transcriptToMarkdown('引用の扱い', [message('gemini', content)], 2);
   assert.equal(
@@ -73,21 +73,22 @@ test('本文の改行・空行・"> " : 行ごとに "> " を付け、空行も 
     [
       '# 引用の扱い',
       '',
-      '🔵 **Gemini** (1/2)',
+      '### 🔵 Gemini (1/2)',
       '',
-      '> 1 行目',
-      '> ',
-      '> > 相手の言葉の引用',
-      '> 最後の行',
+      '1 行目',
       '',
-      '* * *',
+      '> 相手の言葉の引用',
+      '最後の行',
+      '',
+      '---',
       '',
     ].join('\n'),
   );
 
-  // 本文が改行で終わるときは "> " だけの行が 1 つ増える(split の結果をそのまま引用にする)
-  const trailing = transcriptToMarkdown('末尾改行', [message('chatgpt', '本文\n')], 1);
-  assert.ok(trailing.includes('> 本文\n> \n\n* * *\n'), trailing);
+  // 本文が改行で終わっても区切り線との間は空行 1 つ(gist で本文が薄い引用にならないよう、"> " は付けない)
+  const trailing = transcriptToMarkdown('末尾改行', [message('chatgpt', '本文\n\n')], 1);
+  assert.ok(trailing.includes('\n\n本文\n\n---\n'), trailing);
+  assert.ok(!trailing.includes('> '), '引用ブロックは使わない');
 });
 
 test('空の messages: 見出しだけになる(コピーしないと判断するのは呼び出し側)', () => {

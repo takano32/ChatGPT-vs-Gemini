@@ -5,19 +5,23 @@
 // Electron や DB に触らないので、node:test から dist/conversation/markdown.js を読み込んでそのまま検査できる
 // (test/markdown.test.mjs)。クリップボードへ書くのは呼び出し側(Application)の仕事。
 //
-// 出力の形(各発言を引用ブロックにし、水平線で区切る):
+// 出力の形(話者行を見出しにし、本文はそのまま段落で置き、水平線で区切る):
 //
 //   # 議論のタイトル
 //
-//   🟢 **ChatGPT** (1/10)
+//   ### 🟢 ChatGPT (1/10)
 //
-//   > 発言本文の 1 行目
-//   > 2 行目
+//   発言本文の段落
 //
-//   * * *
+//   次の段落
 //
-//   🔵 **Gemini** (2/10)
+//   ---
+//
+//   ### 🔵 Gemini (2/10)
 //   ...
+//
+// 本文を引用ブロック(> )にしない理由: GitHub は引用を灰色で薄く描くので、gist に貼ると本文全体が読みにくくなる
+// (2026-08-23 利用者の指摘)。話者行は「###」にして、タイトルの「#」や本文と見分けがつくようにする。
 
 import { SPEAKER_LABELS, type MessageRecord, type Speaker } from '../shared/types';
 
@@ -39,12 +43,12 @@ export function transcriptToMarkdown(title: string, messages: MessageRecord[], m
   parts.push(`# ${title === '' ? DEFAULT_TITLE : title}`);
   parts.push('');
   messages.forEach((m, i) => {
-    parts.push(`${SPEAKER_EMOJI[m.speaker]} **${SPEAKER_LABELS[m.speaker]}** (${i + 1}/${maxTurns})`);
+    parts.push(`### ${SPEAKER_EMOJI[m.speaker]} ${SPEAKER_LABELS[m.speaker]} (${i + 1}/${maxTurns})`);
     parts.push('');
-    // 本文は行ごとに「> 」を付けて引用にする。空行も「> 」だけの行にする(空行をそのまま出すと引用がそこで切れる)
-    for (const line of m.content.split('\n')) parts.push(`> ${line}`);
+    // 本文はそのまま置く。末尾の改行だけ落として、区切り線との間が空行 1 つになるようにする
+    parts.push(m.content.replace(/\n+$/, ''));
     parts.push('');
-    parts.push('* * *');
+    parts.push('---');
     parts.push('');
   });
   return parts.join('\n');
