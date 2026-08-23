@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-23
+
+### Changed
+
+- 英語を選んでいるとき、管理ペインのログ・通知・エラー文言(「送信 → ChatGPT」「レート制限中のため一時停止」「ページを読み込めませんでした」など)と Markdown の既定見出しも英語になるようにした。日本語のときの文言は変わらない
+
 ## [0.4.0] - 2026-08-23
 
 ### Added
@@ -148,7 +154,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.7...v0.2.8

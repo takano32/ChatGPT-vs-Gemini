@@ -16,6 +16,7 @@ import {
   type Speaker,
 } from '../shared/types';
 import { Conversation } from './Conversation';
+import { tm } from '../shared/i18n';
 import type { Repository } from './Repository';
 import { ChatError, type Chat } from '../chat/Chat';
 import type { Settings } from '../manager/Settings';
@@ -77,7 +78,7 @@ export class Runner extends EventEmitter {
 
   async start(topic: string, maxTurnsOverride?: number, firstSpeakerOverride?: Speaker): Promise<void> {
     if (this.state === 'running' || this.state === 'paused') {
-      this.log('warn', '議論は既に実行中です');
+      this.log('warn', tm('runner.alreadyRunning'));
       return;
     }
 
@@ -118,15 +119,15 @@ export class Runner extends EventEmitter {
       this.state = 'error';
       this.lastError = message;
       this.emitStatus();
-      this.log('error', `会話の作成に失敗しました: ${message}`);
+      this.log('error', tm('runner.createFailed', { error: message }));
       return;
     }
     this.conversation = conversation;
     this.emitStatus();
-    this.log('info', `議論を開始します: 「${topic.replace(/\s*\n\s*/g, ' / ')}」(最大 ${debate.maxTurns} ターン)`);
+    this.log('info', tm('runner.start', { topic: topic.replace(/\s*\n\s*/g, ' / '), max: debate.maxTurns }));
 
     // 議論ごとに両サイトで新規チャットを開き、前の議論の文脈を持ち越さない
-    this.log('info', '新しいチャットを準備しています(ChatGPT / Gemini)');
+    this.log('info', tm('runner.preparing'));
     try {
       await Promise.all([this.chats.chatgpt.newChat(), this.chats.gemini.newChat()]);
     } catch (err) {
@@ -136,7 +137,7 @@ export class Runner extends EventEmitter {
       this.lastError = message;
       this.setConversationStatus('error');
       this.emitStatus();
-      this.log('error', `新規チャットの準備に失敗しました: ${message}`);
+      this.log('error', tm('runner.prepareFailed', { error: message }));
       return;
     }
     if (this.runId !== myRun || this.stopRequested) return;
@@ -165,7 +166,7 @@ export class Runner extends EventEmitter {
         }
 
         const chat = this.chats[speaker];
-        this.log('info', '送信 → ' + chat.displayName);
+        this.log('info', tm('runner.send', { name: chat.displayName }));
         this.currentSpeaker = speaker;
         this.askInFlight = true;
         let reply: string;
@@ -186,7 +187,7 @@ export class Runner extends EventEmitter {
             this.state = 'paused';
             this.setConversationStatus('paused');
             this.emitStatus();
-            this.log('warn', `${chat.displayName} がレート制限中のため一時停止しました。再開すると同じターンを再試行します`);
+            this.log('warn', tm('runner.rateLimited', { name: chat.displayName }));
             await this.waitForResume();
             continue; // 同一ターンを再試行(ターンは進めない)
           }
@@ -196,7 +197,7 @@ export class Runner extends EventEmitter {
               this.state = 'stopped';
               this.setConversationStatus('stopped');
               this.emitStatus();
-              this.log('info', '議論を停止しました');
+              this.log('info', tm('runner.stopped'));
             }
             return;
           }
@@ -205,7 +206,7 @@ export class Runner extends EventEmitter {
           this.lastError = message;
           this.setConversationStatus('error');
           this.emitStatus();
-          this.log('error', `エラーで中断しました: ${message}`);
+          this.log('error', tm('runner.aborted', { error: message }));
           return;
         }
         this.askInFlight = false;
@@ -223,7 +224,7 @@ export class Runner extends EventEmitter {
           this.lastError = message;
           this.setConversationStatus('error');
           this.emitStatus();
-          this.log('error', `会話の保存に失敗しました: ${message}`);
+          this.log('error', tm('runner.saveFailed', { error: message }));
           return;
         }
         conversation.addMessage(record);
@@ -243,7 +244,7 @@ export class Runner extends EventEmitter {
     this.state = 'done';
     this.setConversationStatus('done');
     this.emitStatus();
-    this.log('info', `議論が完了しました(全 ${conversation.turnCount} ターン)`);
+    this.log('info', tm('runner.done', { turns: conversation.turnCount }));
   }
 
   stop(): void {
@@ -255,7 +256,7 @@ export class Runner extends EventEmitter {
     this.state = 'stopped';
     this.setConversationStatus('stopped');
     this.emitStatus();
-    this.log('info', '議論を停止しました');
+    this.log('info', tm('runner.stopped'));
 
     this.wakeAll();
     if (inFlightSpeaker) {
@@ -269,7 +270,7 @@ export class Runner extends EventEmitter {
     this.state = 'paused';
     this.setConversationStatus('paused');
     this.emitStatus();
-    this.log('info', '一時停止しました(実行中のターンは完了まで継続します)');
+    this.log('info', tm('runner.paused'));
   }
 
   resume(): void {
@@ -278,7 +279,7 @@ export class Runner extends EventEmitter {
     this.state = 'running';
     this.setConversationStatus('running');
     this.emitStatus();
-    this.log('info', '議論を再開しました');
+    this.log('info', tm('runner.resumed'));
     const waiter = this.resumeWaiter;
     this.resumeWaiter = null;
     if (waiter) waiter();
@@ -301,7 +302,7 @@ export class Runner extends EventEmitter {
       this.repository.setConversationStatus(this.conversation.id, status);
     } catch (err) {
       // 状態遷移自体は続行し、永続化失敗のみ通知する
-      this.log('warn', `会話状態の保存に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
+      this.log('warn', tm('runner.statusSaveFailed', { error: err instanceof Error ? err.message : String(err) }));
     }
   }
 

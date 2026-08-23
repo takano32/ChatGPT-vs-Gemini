@@ -6,6 +6,7 @@
 import { app, clipboard, dialog, ipcMain } from 'electron';
 import * as path from 'node:path';
 import { Manager } from './manager/Manager';
+import { setMainLang, tm } from './shared/i18n';
 import { Repository } from './conversation/Repository';
 import { Runner } from './conversation/Runner';
 import { transcriptToMarkdown } from './conversation/markdown';
@@ -51,7 +52,7 @@ export class Application {
       .then(() => this.init())
       .catch((err: unknown) => {
         dialog.showErrorBox(
-          '起動エラー',
+          tm('app.startupError'),
           err instanceof Error ? (err.stack ?? err.message) : String(err),
         );
         app.quit();
@@ -62,6 +63,7 @@ export class Application {
     const userData = app.getPath('userData');
 
     this.manager = new Manager(userData);
+    setMainLang(this.manager.settings.get().language); // main のログ文言を設定の言語に合わせる(以後は change で追従)
     this.manager.init({
       admin: {
         file: path.join(app.getAppPath(), 'dist/renderer/index.html'),
@@ -149,6 +151,7 @@ export class Application {
 
     ipcMain.handle(IPC.settingsGet, () => this.manager.settings.get());
     this.manager.settings.on('change', (settings: SettingsData) => {
+      setMainLang(settings.language);
       this.sendToAdmin(IPC.evSettingsChanged, settings);
       try {
         this.manager.layout.view('transcript').webContents.send(IPC.evSettingsChanged, settings);

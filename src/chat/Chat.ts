@@ -6,6 +6,7 @@
 // executeJavaScript に渡す形で行い、セレクタや本文は JSON.stringify で埋め込む。
 
 import { WebContentsView } from 'electron';
+import { tm } from '../shared/i18n';
 import { Speaker, SPEAKER_LABELS, SettingsData } from '../shared/types';
 import { SiteSelectors } from './selectors';
 
@@ -241,7 +242,7 @@ export abstract class Chat {
         return false;
       })()`,
     );
-    if (clicked === true) this.notify(`${this.displayName} のログイン要求ダイアログを閉じました(ログインなしで続行)`);
+    if (clicked === true) this.notify(tm('chat.dismissedLogin', { name: this.displayName }));
     return clicked === true;
   }
 
@@ -317,7 +318,7 @@ export abstract class Chat {
         return;
       }
       if (Date.now() >= deadline) {
-        throw new ChatError('selector', `新規チャットの準備ができません: ${this.displayName}`);
+        throw new ChatError('selector', tm('chat.newChatFailed', { name: this.displayName }));
       }
       const onErrorPage = wc.getURL().startsWith('chrome-error://');
       const stale = Date.now() - navigatedAt >= NEW_CHAT_RENAV_MS;
@@ -372,7 +373,7 @@ export abstract class Chat {
     if (!(await this.isReady())) {
       throw new ChatError(
         'not-ready',
-        `${this.displayName} の入力欄が見つかりません。下のパネルでページの状態を確認してください`,
+        tm('chat.noInput', { name: this.displayName }),
       );
     }
     // 送信前に制限文言を見る(ゲストの送信上限では入力欄が無効化され、文字が入らず送信失敗に化けるため)
@@ -408,8 +409,8 @@ export abstract class Chat {
       ignoreStop = await this.stopVisible();
       this.notify(
         ignoreStop
-          ? `${this.displayName} の停止ボタンが消えません。応答の有無だけで判定します`
-          : `${this.displayName} に残っていた生成状態を解除しました`,
+          ? tm('chat.stopStuck', { name: this.displayName })
+          : tm('chat.stopCleared', { name: this.displayName }),
       );
     }
     // 応答の代わりにエラー吹き出しが追加された場合、それは履歴に残るので基準件数を進める
@@ -425,7 +426,7 @@ export abstract class Chat {
       } else {
         if (attempt > 1) {
           this.throwIfAborted(); // 停止後に「再試行します」と出さない
-          this.notify(`${this.displayName} への送信を再試行します(${attempt}/${SEND_ATTEMPTS} 回目)`);
+          this.notify(tm('chat.retrySend', { name: this.displayName, attempt, max: SEND_ATTEMPTS }));
           // ゲスト利用では送信しようとした瞬間にログイン要求ダイアログが出て送信が塞がれる
           // (実測: Gemini は 4 回答えた後)。再試行の前に閉じる
           await this.dismissLoginNag();
@@ -441,7 +442,7 @@ export abstract class Chat {
 
       if (!started) {
         if (attempt === SEND_ATTEMPTS) {
-          throw new ChatError('send-failed', `${this.displayName} への送信が開始しません`);
+          throw new ChatError('send-failed', tm('chat.sendNotStarted', { name: this.displayName }));
         }
         this.throwIfAborted();
         await sleep(RETRY_DELAY_MS);
@@ -460,12 +461,12 @@ export abstract class Chat {
       baseline = outcome.baseline;
       if (attempt === SEND_ATTEMPTS) break;
       this.throwIfAborted(); // 停止後に「やり直します」と出さない
-      this.notify(`${this.displayName} の${outcome.why}。送信をやり直します`);
+      this.notify(tm('chat.resend', { name: this.displayName, why: tm(outcome.why) }));
       await sleep(RETRY_DELAY_MS);
     }
     throw new ChatError(
       'send-failed',
-      `${this.displayName} への送信が ${SEND_ATTEMPTS} 回とも応答に至りませんでした`,
+      tm('chat.noResponseAfterRetries', { name: this.displayName, max: SEND_ATTEMPTS }),
     );
   }
 
@@ -671,13 +672,13 @@ export abstract class Chat {
             idleSince = 0;
             if (stopOnlySince === 0) stopOnlySince = now;
             else if (now - stopOnlySince >= STOP_WITHOUT_RESPONSE_MS) {
-              return { reply: null, stuckStop: true, baseline, why: '応答が現れません' };
+              return { reply: null, stuckStop: true, baseline, why: 'chat.why.noResponse' };
             }
           } else {
             stopOnlySince = 0;
             if (idleSince === 0) idleSince = now;
             else if (now - idleSince >= LOST_SEND_MS) {
-              return { reply: null, stuckStop: false, baseline, why: '応答が現れません' };
+              return { reply: null, stuckStop: false, baseline, why: 'chat.why.noResponse' };
             }
           }
         } else {
@@ -692,13 +693,13 @@ export abstract class Chat {
           // 応答の代わりにエラー吹き出し(実測: ChatGPT「Something went wrong … Retry」)が
           // 応答要素として描画された。回答として中継せず、基準件数を進めて再送する。
           if (snap.failed && !generating) {
-            return { reply: null, stuckStop: false, baseline: this.acceptResponse(snap), why: '応答がエラーでした' };
+            return { reply: null, stuckStop: false, baseline: this.acceptResponse(snap), why: 'chat.why.errorResponse' };
           }
           if (lastText.length === 0) {
             // 生成が終わった(停止ボタンが消えた)のに本文が空のまま stabilityMs 続いたら
             // 失敗した空応答とみなし、timeoutMs まで待たずに再送する。
             if (!generating && now - responseSeenAt >= stabilityMs) {
-              return { reply: null, stuckStop: false, baseline: this.acceptResponse(snap), why: '応答が空でした' };
+              return { reply: null, stuckStop: false, baseline: this.acceptResponse(snap), why: 'chat.why.emptyResponse' };
             }
           } else if (!snap.streaming) {
             // 完了の多重確認(実測: 停止ボタンは生成終了で確実に消える。テキスト安定はその後)。
@@ -722,13 +723,13 @@ export abstract class Chat {
           }
         }
       } else if (now - lastProbeOkAt >= PROBE_FAILURE_MS) {
-        throw new ChatError('selector', `${this.displayName} のページ状態を取得できません`);
+        throw new ChatError('selector', tm('chat.noPageState', { name: this.displayName }));
       }
       if (now - start >= timeoutMs) {
         // 上限まで待っても閉じなかった(実測: マシンのスリープ復帰後にストリームが切れたまま残る)。
         // 本文が得られていればエラーにせず、それを応答として採用して議論を止めない。
         if (snap && this.isFresh(snap, baseline) && lastText.length > 0) {
-          this.notify(`${this.displayName} の応答が閉じないため、得られた本文で続行します`);
+          this.notify(tm('chat.responseNotClosed', { name: this.displayName }));
           this.acceptResponse(snap);
           return { reply: this.finalizeText(lastText) };
         }

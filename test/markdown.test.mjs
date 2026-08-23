@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { transcriptToMarkdown } from '../dist/conversation/markdown.js';
+import { setMainLang } from '../dist/shared/i18n.js';
 
 // MessageRecord を手早く作る。id / conversationId / createdAt は出力に関係しないので固定値でよい
 function message(speaker, content, id = 1) {
@@ -121,4 +122,10 @@ test('タイトルが空のときは「議論」を見出しにする。空で�
   assert.ok(transcriptToMarkdown('', messages, 1).startsWith('# 議論\n\n'));
   assert.ok(transcriptToMarkdown('AI の未来', messages, 1).startsWith('# AI の未来\n\n'));
   assert.equal(transcriptToMarkdown('', [], 1), '# 議論\n', '発言が無くても既定の見出しになる');
+});
+
+test('タイトルが空のときの既定見出しは言語に従う(en なら Debate)', (t) => {
+  setMainLang('en');
+  t.after(() => setMainLang('ja'));
+  assert.equal(transcriptToMarkdown('', [], 1), '# Debate\n');
 });

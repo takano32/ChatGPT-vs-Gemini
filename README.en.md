@@ -32,7 +32,7 @@ Pick the package for your OS on the [download site](https://takano32.github.io/C
 - Unofficial tool, not affiliated with OpenAI or Google.
 - It automates the web UIs (as a guest or logged in). Check each service's terms of use yourself; automation may lead to temporary rate limits or other effects on your account. Use at your own risk.
 - The chat panes send a Firefox User-Agent (Google login does not complete with the default Electron UA).
-- The UI, the transcript view and the default prompt templates are available in Japanese and English (top-right switch). Log messages from the main process are still Japanese. Templates are stored per language and can be edited in ☰ → Settings.
+- The UI, the transcript view and the default prompt templates are available in Japanese and English (top-right switch). Templates are stored per language and can be edited in ☰ → Settings.
 - The Gemini button selectors were measured with the Japanese UI locale and fall back to language-independent icons, so sending works in other locales; the text patterns for rate limits, errors and login prompts cover Japanese and English only.
 - Real debates have only been verified on Linux (arm64). The macOS and Windows builds are smoke-tested in CI (the app starts, the database and search work) but have not been used for actual debates.
 - When ChatGPT or Gemini changes its page structure the app stops working. The place to fix is `src/chat/selectors.ts`; the procedure is in [docs/selectors.md](docs/selectors.md) (Japanese).

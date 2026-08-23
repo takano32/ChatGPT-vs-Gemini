@@ -14,6 +14,7 @@ import { Runner } from '../dist/conversation/Runner.js';
 import { Repository } from '../dist/conversation/Repository.js';
 import { ChatError } from '../dist/chat/Chat.js';
 import { DEFAULT_SETTINGS } from '../dist/shared/types.js';
+import { setMainLang } from '../dist/shared/i18n.js';
 
 /**
  * Chat の偽物。ask() はプロンプトを記録し、reply(prompt, n) の戻り値(文字列または Error)で応答する。
@@ -254,4 +255,16 @@ test('実行中に start を呼んでも二重に始まらない', async (t) => 
   chatgpt.pending.resolve();
   await run;
   assert.equal(runner.status.state, 'done');
+});
+
+test('言語が英語のとき main のログ文言も英語になる(既定の日本語は変わらない)', async (t) => {
+  setMainLang('en');
+  t.after(() => setMainLang('ja'));
+  const { runner, logs } = setup(t);
+  await runner.start('Cats vs dogs', 2);
+  const messages = logs.map((e) => e.message);
+  assert.ok(messages.some((m) => m === 'Starting the debate: "Cats vs dogs" (up to 2 turns)'), messages.join(' | '));
+  assert.ok(messages.some((m) => m === 'Sending → ChatGPT'));
+  assert.ok(messages.some((m) => m === 'Debate finished (2 turns)'));
+  assert.ok(!messages.some((m) => /[ぁ-んァ-ン一-龥]/.test(m)), '日本語が混ざらない');
 });

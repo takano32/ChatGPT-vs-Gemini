@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import { WebContentsView, shell } from 'electron';
 import { IPC } from '../shared/ipc';
+import { tm } from '../shared/i18n';
 import type { WebContents } from 'electron';
 import { SPEAKER_LABELS } from '../shared/types';
 import { Settings } from './Settings';
@@ -218,16 +219,14 @@ export class Layout {
       if (failures > LOAD_RETRY_MAX) {
         this.notify(
           pane,
-          `${name} のページを ${LOAD_RETRY_MAX} 回再読込しても読み込めませんでした(${reason})。` +
-            '自動の再読込をやめます。ネットワークを確認し、アプリを終了して起動し直してください',
+          tm('layout.loadGaveUp', { name, max: LOAD_RETRY_MAX, reason }),
         );
         return;
       }
       const delay = Math.min(30000, 2000 * 2 ** Math.min(failures - 1, 4));
       this.notify(
         pane,
-        `${name} のページを読み込めませんでした(${reason})。` +
-          `${delay / 1000} 秒後に再読込します(${failures}/${LOAD_RETRY_MAX} 回目)`,
+        tm('layout.loadRetry', { name, reason, delay: delay / 1000, n: failures, max: LOAD_RETRY_MAX }),
       );
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
@@ -273,15 +272,13 @@ export class Layout {
       if (recentCrashes.length > CRASH_RELOAD_MAX) {
         this.notify(
           pane,
-          `${name} の画面が ${CRASH_WINDOW_MS / 1000} 秒間に ${recentCrashes.length} 回止まりました(${details.reason})。` +
-            'しばらく再読込を見合わせます。続くようならアプリを終了して起動し直してください',
+          tm('layout.crashLoop', { name, window: CRASH_WINDOW_MS / 1000, count: recentCrashes.length, reason: details.reason }),
         );
         return;
       }
       this.notify(
         pane,
-        `${name} の画面が予期せず終了しました(${details.reason})。` +
-          `${CRASH_RELOAD_DELAY_MS / 1000} 秒後に読み込み直します`,
+        tm('layout.crashReload', { name, reason: details.reason, delay: CRASH_RELOAD_DELAY_MS / 1000 }),
       );
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => {
@@ -298,7 +295,7 @@ export class Layout {
         if (wc.isDestroyed() || wc.isCrashed()) return;
         this.notify(
           pane,
-          `${name} の画面が ${HANG_RELOAD_AFTER_MS / 1000} 秒以上応答しないため、読み込み直します`,
+          tm('layout.hangReload', { name, seconds: HANG_RELOAD_AFTER_MS / 1000 }),
         );
         // ハングした描画プロセスは reload に応じられないので、Electron のドキュメントにある
         // unresponsive からの回復手順どおり、プロセスを止めてから reload する(新しいプロセスで読み込まれる)
@@ -326,8 +323,7 @@ export class Layout {
       if (!isMainFrame) return;
       this.notify(
         pane,
-        `${SPEAKER_LABELS[pane]} の証明書エラー(${error})のため、このページの表示を中止しました。` +
-          'パソコンの日時や Wi-Fi の利用登録を確認してください',
+        tm('layout.certError', { name: SPEAKER_LABELS[pane], error }),
       );
     });
   }

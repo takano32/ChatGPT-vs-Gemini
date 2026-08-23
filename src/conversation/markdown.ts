@@ -23,12 +23,11 @@
 // 区切り線(---)も同日に利用者の判断で廃止(見出しがあれば不要)。
 
 import { SPEAKER_LABELS, type MessageRecord, type Speaker } from '../shared/types';
+import { tm } from '../shared/i18n';
 
 /** 話者の目印。ChatGPT は緑、Gemini は青(経過表示の話者チップと同じ色分け) */
 const SPEAKER_EMOJI: Record<Speaker, string> = { chatgpt: '🟢', gemini: '🔵' };
 
-/** タイトルが空のときに使う見出し */
-const DEFAULT_TITLE = '議論';
 
 /**
  * 経過を Markdown 文字列にする。
@@ -40,7 +39,7 @@ const DEFAULT_TITLE = '議論';
 export function transcriptToMarkdown(title: string, messages: MessageRecord[], maxTurns: number): string {
   const parts: string[] = [];
   const [head = '', ...rest] = title.split('\n');
-  parts.push(`# ${head.trim() === '' ? DEFAULT_TITLE : head.trim()}`);
+  parts.push(`# ${head.trim() === '' ? tm('md.untitled') : head.trim()}`);
   parts.push('');
   const body = rest.join('\n').trim();
   if (body !== '') {
