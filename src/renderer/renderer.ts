@@ -120,6 +120,9 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
   const btnHistoryBack = must<HTMLButtonElement>('btn-history-back');
   const historyTitleInput = must<HTMLInputElement>('history-title-input');
   const btnHistoryCopy = must<HTMLButtonElement>('btn-history-copy');
+  const historyUndo = must<HTMLElement>('history-undo');
+  const historyUndoText = must<HTMLElement>('history-undo-text');
+  const btnHistoryUndo = must<HTMLButtonElement>('btn-history-undo');
   const btnHistoryDelete = must<HTMLButtonElement>('btn-history-delete');
 
   const searchInput = must<HTMLInputElement>('search-input');
@@ -592,6 +595,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
 
   async function loadHistory(): Promise<void> {
     showHistoryList();
+    if (undoTargetId === null) historyUndo.classList.add('hidden');
     historyList.textContent = '';
     historyList.appendChild(el('div', 'drawer-empty', t('history.loading')));
     try {
@@ -681,17 +685,41 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     }
   }
 
-  // 確認は出さない(ネイティブ UI は当面使わない、利用者の決定 2026-08-23)。消したことはログに残す
+  // 確認は出さない(ネイティブ UI は当面使わない、利用者の決定 2026-08-23)。代わりに 5 秒だけ「取り消す」を出す
+  // (main 側が少し長い猶予で削除を予約していて、その間は一覧から隠れる)
+  const UNDO_SHOW_MS = 5000;
+  let undoTimer = 0;
+  let undoTargetId: number | null = null;
+  function hideUndo(): void {
+    window.clearTimeout(undoTimer);
+    undoTargetId = null;
+    historyUndo.classList.add('hidden');
+  }
   async function deleteConversation(id: number, title: string, after: () => void | Promise<void>): Promise<void> {
     const ok = await api.deleteConversation(id);
     if (!ok) {
       localLog('warn', t('history.deleteFailed'));
       return;
     }
-    localLog('info', t('history.deleted', { title: title.split('\n')[0] ?? '' }));
+    const head = title.split('\n')[0] ?? '';
+    localLog('info', t('history.deleted', { title: head }));
     if (openConversationId === id) openConversationId = null;
     await after();
+    undoTargetId = id;
+    historyUndoText.textContent = t('history.deleted', { title: head });
+    historyUndo.classList.remove('hidden');
+    window.clearTimeout(undoTimer);
+    undoTimer = window.setTimeout(hideUndo, UNDO_SHOW_MS);
   }
+  btnHistoryUndo.addEventListener('click', () => {
+    const id = undoTargetId;
+    hideUndo();
+    if (id === null) return;
+    void api.undoDeleteConversation(id).then((ok) => {
+      localLog(ok ? 'info' : 'warn', t(ok ? 'history.undone' : 'history.undoFailed'));
+      void loadHistory();
+    });
+  });
 
   // 改名: 題名をクリックで入力欄に切り替え、Enter / フォーカス外れで確定、Esc で取り消し
   let renaming = false;

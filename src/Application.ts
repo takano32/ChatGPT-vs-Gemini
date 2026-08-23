@@ -33,6 +33,9 @@ const CHAT_STATUS_FAST_POLL_MS = 1000;
 const SMOKE_TEST_ENV = 'CVG_SMOKE_TEST';
 const SMOKE_TIMEOUT_MS = 60000;
 
+// 会話の削除を取り消せる猶予(管理ペインの「取り消す」表示 5 秒より少し長く)
+const DELETE_GRACE_MS = 6000;
+
 export class Application {
   private manager!: Manager;
   private repository!: Repository;
@@ -169,8 +172,13 @@ export class Application {
       this.manager.settings.set(settings)
     );
 
-    ipcMain.handle(IPC.search, (_e, query: string) => this.repository.search(String(query)));
-    ipcMain.handle(IPC.listConversations, () => this.repository.listConversations());
+    // 削除予約中の会話は一覧・検索に出さない(取り消せる間だけ DB に残っている)
+    ipcMain.handle(IPC.search, (_e, query: string) =>
+      this.repository.search(String(query)).filter((h) => !this.pendingDeletes.has(h.message.conversationId))
+    );
+    ipcMain.handle(IPC.listConversations, () =>
+      this.repository.listConversations().filter((c) => !this.pendingDeletes.has(c.id))
+    );
     ipcMain.handle(IPC.getMessages, (_e, conversationId: number) =>
       this.repository.getMessages(Number(conversationId))
     );
@@ -186,6 +194,9 @@ export class Application {
     ipcMain.handle(IPC.deleteConversation, (_e, conversationId: number) =>
       this.deleteConversation(Number(conversationId))
     );
+    ipcMain.handle(IPC.undoDeleteConversation, (_e, conversationId: number) =>
+      this.undoDeleteConversation(Number(conversationId))
+    );
     ipcMain.handle(IPC.renameConversation, (_e, conversationId: number, title: string) => {
       const id = Number(conversationId);
       const ok = this.repository.renameConversation(id, String(title));
@@ -194,10 +205,31 @@ export class Application {
     });
   }
 
-  // 会話の削除(確認ダイアログは出さない: ネイティブ UI は当面使わない、利用者の決定 2026-08-23)。議論中の会話は消さない
+  // 会話の削除。確認ダイアログは出さない(ネイティブ UI は当面使わない、利用者の決定 2026-08-23)代わりに、
+  // 少しの間だけ取り消せる: すぐには消さず DELETE_GRACE_MS 後に消す予約をし、その間は一覧・検索から隠す。
+  // 予約は main が持つので、管理ペインの都合(再読込・終了)に関係なく必ず消える。議論中の会話は消さない
+  private readonly pendingDeletes = new Map<number, NodeJS.Timeout>();
+
   private deleteConversation(id: number): boolean {
     const st = this.runner.status;
     if ((st.state === 'running' || st.state === 'paused') && st.conversationId === id) return false;
+    if (this.pendingDeletes.has(id)) return true;
+    if (!this.repository.listConversations().some((c) => c.id === id)) return false;
+    const timer = setTimeout(() => this.performDelete(id), DELETE_GRACE_MS);
+    this.pendingDeletes.set(id, timer);
+    return true;
+  }
+
+  private undoDeleteConversation(id: number): boolean {
+    const timer = this.pendingDeletes.get(id);
+    if (!timer) return false;
+    clearTimeout(timer);
+    this.pendingDeletes.delete(id);
+    return true;
+  }
+
+  private performDelete(id: number): void {
+    this.pendingDeletes.delete(id);
     const ok = this.repository.deleteConversation(id);
     // 経過表示がその会話を出していたら、空の状態に戻す
     if (ok && this.transcriptConversationId === id) {
@@ -206,7 +238,6 @@ export class Application {
       this.manager.layout.view('transcript').webContents.send(IPC.evTranscript, payload);
       if (this.transcriptVisible) this.setTranscriptVisible(false);
     }
-    return ok;
   }
 
 
@@ -360,6 +391,11 @@ export class Application {
       this.statusTimer = null;
     }
     this.runner?.stop();
+    // 取り消し待ちの削除は終了時に確定する
+    for (const id of [...this.pendingDeletes.keys()]) {
+      clearTimeout(this.pendingDeletes.get(id));
+      this.performDelete(id);
+    }
     this.repository?.close();
   }
 }

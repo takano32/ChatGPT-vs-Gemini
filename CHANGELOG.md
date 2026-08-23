@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-08-24
+
+### Added
+
+- **削除の取り消し**: 履歴で ✕ を押すと一覧からすぐ消えるが、5 秒間は先頭に「『題名』を削除しました [取り消す]」が出て戻せる。実際に消すのは数秒後(取り消し待ちの分はアプリ終了時に確定)
+
 ## [0.6.2] - 2026-08-23
 
 ### Changed
@@ -230,7 +236,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.4...v0.6.0

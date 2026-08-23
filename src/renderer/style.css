@@ -563,6 +563,11 @@ button { font-family: var(--mono); }
 }
 .hist-title-input:focus { outline: none; border-color: var(--gpt-soft); }
 .btn-danger:hover:not(:disabled) { color: var(--red); border-color: var(--red-soft); }
+.history-undo {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 6px 8px;
+  border: 1px solid var(--amber-soft); background: var(--amber-tint); border-radius: 3px; font-size: 11px;
+}
+.history-undo span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-row .conv-delete {
   flex: none; background: none; border: 1px solid transparent; border-radius: 3px; color: var(--faint);
   font-size: 11px; line-height: 1; padding: 2px 5px; cursor: pointer; opacity: 0;

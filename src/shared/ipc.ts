@@ -38,7 +38,8 @@ export const IPC = {
   search: 'repository:search',
   listConversations: 'repository:conversations',
   getMessages: 'repository:messages',
-  deleteConversation: 'repository:delete-conversation',
+  deleteConversation: 'repository:delete-conversation', // 数秒後に消す予約(その間は一覧から隠れる)
+  undoDeleteConversation: 'repository:undo-delete-conversation',
   renameConversation: 'repository:rename-conversation',
   chatStatus: 'chat:status',
   transcriptToggle: 'transcript:toggle', // 管理ペイン -> main。ライブ⇄経過の表示切替
@@ -77,8 +78,10 @@ export interface RendererApi {
   search(query: string): Promise<SearchHit[]>;
   listConversations(): Promise<ConversationRecord[]>;
   getMessages(conversationId: number): Promise<MessageRecord[]>;
-  /** 会話を発言ごと消す(確認なし)。議論中の会話なら false */
+  /** 会話を発言ごと消す(確認なし。数秒間は undoDeleteConversation で取り消せる)。議論中の会話なら false */
   deleteConversation(conversationId: number): Promise<boolean>;
+  /** 削除の取り消し。猶予を過ぎていれば false */
+  undoDeleteConversation(conversationId: number): Promise<boolean>;
   /** 会話の名前を変える。空なら false */
   renameConversation(conversationId: number, title: string): Promise<boolean>;
   getChatStatus(): Promise<ChatStatusMap>;

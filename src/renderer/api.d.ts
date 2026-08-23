@@ -166,6 +166,7 @@ interface RendererApi {
   showConversationTranscript(conversationId: number): Promise<void>;
   copyTranscriptMarkdown(conversationId: number): Promise<boolean>;
   deleteConversation(conversationId: number): Promise<boolean>;
+  undoDeleteConversation(conversationId: number): Promise<boolean>;
   renameConversation(conversationId: number, title: string): Promise<boolean>;
 
   // 購読系。戻り値は購読解除関数

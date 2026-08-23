@@ -37,6 +37,7 @@ const api: RendererApi = {
   listConversations: () => ipcRenderer.invoke(IPC.listConversations),
   getMessages: (conversationId) => ipcRenderer.invoke(IPC.getMessages, conversationId),
   deleteConversation: (conversationId) => ipcRenderer.invoke(IPC.deleteConversation, conversationId),
+  undoDeleteConversation: (conversationId) => ipcRenderer.invoke(IPC.undoDeleteConversation, conversationId),
   renameConversation: (conversationId, title) => ipcRenderer.invoke(IPC.renameConversation, conversationId, title),
   getChatStatus: () => ipcRenderer.invoke(IPC.chatStatus),
   toggleTranscript: () => ipcRenderer.invoke(IPC.transcriptToggle),
