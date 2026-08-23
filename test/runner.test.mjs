@@ -319,8 +319,10 @@ test('続きから再開: 停止した会話を次のターンから同じ会話
   const run = runner.start('再開', 5, 'gemini');
   await until(() => gemini.pending !== null);
   gemini.pending.resolve();
-  // 2 ターン目(ChatGPT、保留なし)は即座に進み、3 ターン目(Gemini)で再び保留になる
-  await until(() => runner.status.turn === 2 && gemini.pending !== null);
+  // 2 ターン目(ChatGPT、保留なし)は即座に進み、3 ターン目(Gemini)で再び保留になる。
+  // pending は解決後も残るので、3 ターン目の送信回数で待つ(遅いマシンでの競合を避ける。CI の Windows で 1 度失敗)
+  await until(() => gemini.prompts.length === 2);
+  assert.equal(runner.status.turn, 2);
   runner.stop();
   await run;
   const conv = repository.listConversations()[0];
