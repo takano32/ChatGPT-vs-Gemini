@@ -80,7 +80,21 @@ export interface LogEntry {
   ts: string;
 }
 
+/** 対応言語は日本語と英語の 2 つだけ(他は対応しない。2026-08-23 利用者の決定) */
+export type Lang = 'ja' | 'en';
+
+export interface DebateTemplates {
+  /** 先攻への最初の指示。{topic} {opponent} を展開 */
+  openingTemplate: string;
+  /** 後攻への最初の指示。{topic} {opponent} {message} を展開 */
+  counterTemplate: string;
+  /** 3ターン目以降の中継。{opponent} {message} を展開 */
+  relayTemplate: string;
+}
+
 export interface SettingsData {
+  /** 画面文言・ログ・プロンプトの言語(ヘッダ右上で切替) */
+  language: Lang;
   layout: {
     /** 管理ペインの高さ比(0-1) */
     adminRatio: number;
@@ -92,12 +106,8 @@ export interface SettingsData {
   debate: {
     maxTurns: number;
     firstSpeaker: Speaker;
-    /** 先攻への最初の指示。{topic} {opponent} を展開 */
-    openingTemplate: string;
-    /** 後攻への最初の指示。{topic} {opponent} {message} を展開 */
-    counterTemplate: string;
-    /** 3ターン目以降の中継。{opponent} {message} を展開 */
-    relayTemplate: string;
+    /** 言語ごとのプロンプトテンプレート。使うのは language で選んだ側 */
+    templates: Record<Lang, DebateTemplates>;
     /** ターン間の待機 ms(レート制限対策) */
     betweenTurnsMs: number;
   };
@@ -115,15 +125,8 @@ export interface SettingsData {
   };
 }
 
-export const DEFAULT_SETTINGS: SettingsData = {
-  layout: {
-    adminRatio: 0.5,
-    chatSplit: 0.5,
-    chatZoom: 0.75,
-  },
-  debate: {
-    maxTurns: 10,
-    firstSpeaker: 'chatgpt',
+export const DEFAULT_TEMPLATES: Record<Lang, DebateTemplates> = {
+  ja: {
     openingTemplate:
       'あなたはこれから別のAI({opponent})と議論します。テーマ: 「{topic}」。' +
       'まず、このテーマについてあなたの立場と根拠を400字以内で述べてください。',
@@ -132,6 +135,30 @@ export const DEFAULT_SETTINGS: SettingsData = {
       '相手の最初の主張は以下のとおりです。400字以内で反論または深掘りしてください。\n\n{message}',
     relayTemplate:
       '相手({opponent})の発言:\n\n{message}\n\nこれに対して400字以内で応答し、議論を続けてください。',
+  },
+  en: {
+    openingTemplate:
+      'You are about to debate another AI ({opponent}). Topic: "{topic}". ' +
+      'First, state your position on this topic and your reasons in no more than 250 words.',
+    counterTemplate:
+      'You are about to debate another AI ({opponent}). Topic: "{topic}". ' +
+      "Your opponent's opening statement is below. Rebut it or dig deeper in no more than 250 words.\n\n{message}",
+    relayTemplate:
+      'Your opponent ({opponent}) said:\n\n{message}\n\nRespond in no more than 250 words and keep the debate going.',
+  },
+};
+
+export const DEFAULT_SETTINGS: SettingsData = {
+  language: 'ja',
+  layout: {
+    adminRatio: 0.5,
+    chatSplit: 0.5,
+    chatZoom: 0.75,
+  },
+  debate: {
+    maxTurns: 10,
+    firstSpeaker: 'chatgpt',
+    templates: DEFAULT_TEMPLATES,
     betweenTurnsMs: 0,
   },
   detection: {

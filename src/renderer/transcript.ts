@@ -8,12 +8,12 @@
 
 const SPEAKER_LABEL: Record<Speaker, string> = { chatgpt: 'ChatGPT', gemini: 'Gemini' };
 const SPEAKER_EMOJI: Record<Speaker, string> = { chatgpt: '🟢', gemini: '🔵' };
-const STATUS_LABEL: Record<string, string> = {
-  running: '進行中',
-  paused: '一時停止',
-  stopped: '停止',
-  error: 'エラー',
-  done: '完了',
+const STATUS_KEY: Record<string, string> = {
+  running: 'status.running',
+  paused: 'status.paused',
+  stopped: 'status.stopped',
+  error: 'status.error',
+  done: 'status.done',
 };
 
 const titleEl = document.getElementById('tr-title') as HTMLElement;
@@ -27,15 +27,33 @@ backBtn.addEventListener('click', () => {
   // 経過表示は現在前面なので、トグルで隠してライブのチャット表示へ戻る
   void window.api.toggleTranscript();
 });
+import { applyI18n, setLang, t } from './i18n.js';
 
 let lastConversationId: number | null = null;
+let lastPayload: TranscriptPayload | null = null;
 let lastCount = 0;
 let currentConversationId: number | null = null;
 let flashTimer = 0;
 
 window.api.onTranscript((payload) => {
+  lastPayload = payload;
   render(payload);
 });
+
+// 言語: 起動時に設定から取り、設定が変わったら文言を差し替えて描き直す
+void window.api.getSettings().then((s) => {
+  setLang(s.language);
+  document.title = t('tr.title');
+});
+window.api.onSettingsChanged((s) => {
+  setLang(s.language);
+  document.title = t('tr.title');
+  if (lastPayload) {
+    lastConversationId = null; // 全体を描き直す
+    render(lastPayload);
+  }
+});
+applyI18n();
 
 copyBtn.addEventListener('click', () => {
   if (currentConversationId === null) return;
@@ -48,9 +66,9 @@ copyBtn.addEventListener('click', () => {
 });
 
 function render(payload: TranscriptPayload): void {
-  titleEl.textContent = payload.title || '(無題の議論)';
+  titleEl.textContent = payload.title || t('tr.untitled');
   if (payload.status) {
-    statusEl.textContent = STATUS_LABEL[payload.status] ?? payload.status;
+    statusEl.textContent = STATUS_KEY[payload.status] ? t(STATUS_KEY[payload.status]) : payload.status;
     statusEl.className = `tr-status st-${payload.status}`;
   } else {
     statusEl.textContent = '';
@@ -69,7 +87,7 @@ function render(payload: TranscriptPayload): void {
   if (payload.messages.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'tr-empty';
-    empty.textContent = '発言はまだありません。';
+    empty.textContent = t('tr.empty');
     bodyEl.appendChild(empty);
   } else {
     payload.messages.forEach((m, i) => {

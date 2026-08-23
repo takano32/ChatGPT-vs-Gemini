@@ -30,6 +30,8 @@ export const IPC = {
   // Wayland では screen.getCursorScreenPoint() が使えないため、ポインタ位置はペイン側から受け取る
   layoutDragMove: 'layout:drag-move',
   evLayoutDragActive: 'layout:ev-drag-active',
+  // 設定が変わった(main -> 管理ペイン・経過表示)。言語切替で両方の画面文言を差し替えるのに使う
+  evSettingsChanged: 'settings:ev-changed',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
   search: 'repository:search',
@@ -66,6 +68,8 @@ export interface RendererApi {
   reportPaneDragY(clientY: number): void;
   /** main からの「ドラッグ中かどうか」。true の間だけ pointermove を報告する */
   onPaneDragActive(cb: (active: boolean) => void): () => void;
+  /** 設定が保存されたとき(言語切替など)。正規化済みの設定全体が届く */
+  onSettingsChanged(cb: (settings: SettingsData) => void): () => void;
 
   search(query: string): Promise<SearchHit[]>;
   listConversations(): Promise<ConversationRecord[]>;

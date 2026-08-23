@@ -141,6 +141,8 @@ button { font-family: var(--mono); }
 #turn-now { color: var(--amber); min-width: 2ch; text-align: right; }
 #turn-max { color: var(--dim); }
 
+.lang-select { margin-left: 12px; height: 24px; font-size: 11px; }
+
 .view-toggle {
   margin-left: 12px;
   font-family: var(--mono);
@@ -480,6 +482,7 @@ button { font-family: var(--mono); }
 }
 .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .field-wide { grid-column: 1 / -1; }
+.set-note { color: var(--dim); font-size: 11px; margin-top: 4px; }
 .field > span { color: var(--dim); font-size: 10px; letter-spacing: 0.04em; }
 .field input, .field select, .field textarea {
   background: var(--bg-inset);

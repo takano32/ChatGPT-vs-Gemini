@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import { DEFAULT_SETTINGS, SettingsData, Speaker } from '../shared/types';
+import { DEFAULT_SETTINGS, type DebateTemplates, type Lang, SettingsData, Speaker } from '../shared/types';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
@@ -49,7 +49,9 @@ function sectionOf(input: unknown, key: string): Record<string, unknown> {
  * IPC で受け取った値は、必ずここを通してから使う。
  * - 欠けているキーは既定値で埋め、知らないキーは捨てる
  * - 数値は許容範囲に丸める。数値でないもの(文字列など)は既定値
- * - firstSpeaker は 'chatgpt' | 'gemini' 以外なら既定値、テンプレートは空なら既定値
+ * - firstSpeaker は 'chatgpt' | 'gemini' 以外なら既定値、language は 'ja' | 'en' 以外なら既定値
+ * - テンプレートは言語ごと(templates.ja / templates.en)。空なら既定値。0.3.0 以前の settings.json は
+ *   debate 直下に openingTemplate 等を持つので、それは ja のテンプレートとして引き継ぐ
  *
  * 上限・下限は renderer.ts の丸め(clampRatio / setNextRunTurns)と Window.ts の minWidth / minHeight に
  * 合わせている。index.html の min / max は入力補助で、正とするのはここ。
@@ -60,7 +62,20 @@ export function normalizeSettings(input: unknown): SettingsData {
   const debate = sectionOf(input, 'debate');
   const detection = sectionOf(input, 'detection');
   const win = sectionOf(input, 'window');
+  const templates = sectionOf(debate, 'templates');
+  const templatesOf = (lang: Lang): DebateTemplates => {
+    // 旧形式(debate 直下の 3 キー)は日本語版として扱う
+    const src = lang === 'ja' && !isPlainObject(templates.ja) ? debate : sectionOf(templates, lang);
+    const def = d.debate.templates[lang];
+    return {
+      openingTemplate: nonEmptyText(src.openingTemplate, def.openingTemplate),
+      counterTemplate: nonEmptyText(src.counterTemplate, def.counterTemplate),
+      relayTemplate: nonEmptyText(src.relayTemplate, def.relayTemplate),
+    };
+  };
+  const langInput = isPlainObject(input) ? input.language : undefined;
   return {
+    language: langInput === 'ja' || langInput === 'en' ? langInput : d.language,
     layout: {
       // 比率は 0 / 1 に潰れないよう 0.05〜0.95
       adminRatio: clampNumber(layout.adminRatio, d.layout.adminRatio, 0.05, 0.95),
@@ -71,9 +86,7 @@ export function normalizeSettings(input: unknown): SettingsData {
       // ターン数は整数。小数は切り捨て
       maxTurns: Math.floor(clampNumber(debate.maxTurns, d.debate.maxTurns, 1, 99)),
       firstSpeaker: speakerOf(debate.firstSpeaker, d.debate.firstSpeaker),
-      openingTemplate: nonEmptyText(debate.openingTemplate, d.debate.openingTemplate),
-      counterTemplate: nonEmptyText(debate.counterTemplate, d.debate.counterTemplate),
-      relayTemplate: nonEmptyText(debate.relayTemplate, d.debate.relayTemplate),
+      templates: { ja: templatesOf('ja'), en: templatesOf('en') },
       betweenTurnsMs: clampNumber(debate.betweenTurnsMs, d.debate.betweenTurnsMs, 0),
     },
     detection: {

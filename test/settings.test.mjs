@@ -24,13 +24,23 @@ const D = DEFAULT_SETTINGS;
 
 // 既定値と全項目が異なる、範囲内の正常な設定(「正常値はそのまま通る」ことの確認用)
 const CUSTOM = {
+  language: 'en',
   layout: { adminRatio: 0.3, chatSplit: 0.6, chatZoom: 1 },
   debate: {
     maxTurns: 4,
     firstSpeaker: 'gemini',
-    openingTemplate: 'A {topic} {opponent}',
-    counterTemplate: 'B {topic} {opponent} {message}',
-    relayTemplate: 'C {opponent} {message}',
+    templates: {
+      ja: {
+        openingTemplate: 'A {topic} {opponent}',
+        counterTemplate: 'B {topic} {opponent} {message}',
+        relayTemplate: 'C {opponent} {message}',
+      },
+      en: {
+        openingTemplate: 'EA {topic} {opponent}',
+        counterTemplate: 'EB {topic} {opponent} {message}',
+        relayTemplate: 'EC {opponent} {message}',
+      },
+    },
     betweenTurnsMs: 1500,
   },
   detection: { pollMs: 200, stabilityMs: 3000, timeoutMs: 60000 },
@@ -84,6 +94,7 @@ test('normalizeSettings: 範囲内の正常値はそのまま通る(境界値を
   assert.deepEqual(normalizeSettings(CUSTOM), CUSTOM);
 
   const lower = {
+    language: 'ja',
     layout: { adminRatio: 0.05, chatSplit: 0.05, chatZoom: 0.25 },
     debate: { ...CUSTOM.debate, maxTurns: 1, betweenTurnsMs: 0 },
     detection: { pollMs: 100, stabilityMs: 500, timeoutMs: 1000 },
@@ -170,15 +181,53 @@ test('normalizeSettings: firstSpeaker は chatgpt / gemini 以外なら既定値
   }
 });
 
-test('normalizeSettings: テンプレートは空でない文字列だけ採用し、空文字・空白のみ・文字列以外は既定値', () => {
-  for (const key of ['openingTemplate', 'counterTemplate', 'relayTemplate']) {
-    const tpl = (value) => normalizeSettings(withValue('debate', key, value)).debate[key];
-    assert.equal(tpl('ok {message}'), 'ok {message}', `${key}: 普通の文字列はそのまま`);
-    assert.equal(tpl(' x '), ' x ', `${key}: 前後の空白は削らずそのまま`);
-    for (const bad of ['', '   ', ' \n\t ', 123, null, true, ['x'], { text: 'x' }]) {
-      assert.equal(tpl(bad), D.debate[key], `${key} = ${JSON.stringify(bad)} は既定値`);
+test('normalizeSettings: テンプレートは言語ごとに、空でない文字列だけ採用し、空文字・空白のみ・文字列以外は既定値', () => {
+  for (const lang of ['ja', 'en']) {
+    for (const key of ['openingTemplate', 'counterTemplate', 'relayTemplate']) {
+      const tpl = (value) =>
+        normalizeSettings({ debate: { templates: { [lang]: { [key]: value } } } }).debate.templates[lang][key];
+      assert.equal(tpl('ok {message}'), 'ok {message}', `${lang}.${key}: 普通の文字列はそのまま`);
+      assert.equal(tpl(' x '), ' x ', `${lang}.${key}: 前後の空白は削らずそのまま`);
+      for (const bad of ['', '   ', ' \n\t ', 123, null, true, ['x'], { text: 'x' }]) {
+        assert.equal(tpl(bad), D.debate.templates[lang][key], `${lang}.${key} = ${JSON.stringify(bad)} は既定値`);
+      }
     }
   }
+  // 片方の言語だけ入れても、もう片方は既定値で埋まる
+  const only = normalizeSettings({ debate: { templates: { en: { openingTemplate: 'E' } } } }).debate.templates;
+  assert.equal(only.en.openingTemplate, 'E');
+  assert.deepEqual(only.ja, D.debate.templates.ja);
+});
+
+test('normalizeSettings: language は ja / en だけ。他は既定値(ja)', () => {
+  assert.equal(normalizeSettings({ language: 'en' }).language, 'en');
+  assert.equal(normalizeSettings({ language: 'ja' }).language, 'ja');
+  for (const bad of ['fr', 'EN', '', 1, null, ['en']]) {
+    assert.equal(normalizeSettings({ language: bad }).language, 'ja', `language = ${JSON.stringify(bad)}`);
+  }
+});
+
+test('normalizeSettings: 0.3.0 以前の settings.json(debate 直下の 3 テンプレート)は ja のテンプレートとして引き継ぐ', () => {
+  const legacy = {
+    debate: {
+      openingTemplate: '旧 A {topic}',
+      counterTemplate: '旧 B {message}',
+      relayTemplate: '旧 C {message}',
+    },
+  };
+  const s = normalizeSettings(legacy);
+  assert.deepEqual(s.debate.templates.ja, {
+    openingTemplate: '旧 A {topic}',
+    counterTemplate: '旧 B {message}',
+    relayTemplate: '旧 C {message}',
+  });
+  assert.deepEqual(s.debate.templates.en, D.debate.templates.en, 'en は既定値');
+  assert.equal(s.language, 'ja');
+  assert.equal('openingTemplate' in s.debate, false, '旧キーは残さない');
+  // 新形式があれば旧キーは無視する
+  const both = normalizeSettings({ debate: { ...legacy.debate, templates: { ja: { openingTemplate: '新 A' } } } });
+  assert.equal(both.debate.templates.ja.openingTemplate, '新 A');
+  assert.equal(both.debate.templates.ja.counterTemplate, D.debate.templates.ja.counterTemplate);
 });
 
 // ---------- Settings クラス(ファイルの読み書き) ----------
@@ -195,7 +244,7 @@ test('load: 手編集で壊れた値は丸めて読み込み、ファイルは�
   const raw = JSON.stringify(
     {
       layout: { adminRatio: 5, chatZoom: 0 },
-      debate: { maxTurns: 0, firstSpeaker: 'foo', openingTemplate: '', relayTemplate: 42 },
+      debate: { maxTurns: 0, firstSpeaker: 'foo', templates: { ja: { openingTemplate: '', relayTemplate: 42 } } },
       detection: { pollMs: 1, stabilityMs: -1, timeoutMs: 'x' },
       window: { width: 10 },
       junk: true,
@@ -211,9 +260,7 @@ test('load: 手編集で壊れた値は丸めて読み込み、ファイルは�
   assert.equal(s.layout.chatZoom, 0.25);
   assert.equal(s.debate.maxTurns, 1);
   assert.equal(s.debate.firstSpeaker, 'chatgpt');
-  assert.equal(s.debate.openingTemplate, D.debate.openingTemplate);
-  assert.equal(s.debate.counterTemplate, D.debate.counterTemplate);
-  assert.equal(s.debate.relayTemplate, D.debate.relayTemplate);
+  assert.deepEqual(s.debate.templates, D.debate.templates);
   assert.equal(s.detection.pollMs, 100);
   assert.equal(s.detection.stabilityMs, 500);
   assert.equal(s.detection.timeoutMs, D.detection.timeoutMs);
@@ -257,14 +304,27 @@ test('set: 不正な値は正規化してから保存され、change イベン�
 
   settings.set({
     ...CUSTOM,
-    debate: { ...CUSTOM.debate, maxTurns: 1000, firstSpeaker: 'foo', relayTemplate: '' },
+    debate: {
+      ...CUSTOM.debate,
+      maxTurns: 1000,
+      firstSpeaker: 'foo',
+      templates: { ...CUSTOM.debate.templates, en: { ...CUSTOM.debate.templates.en, relayTemplate: '' } },
+    },
     detection: { ...CUSTOM.detection, pollMs: 1 },
     window: { width: 10, height: 'x' },
   });
 
   const expected = {
     ...CUSTOM,
-    debate: { ...CUSTOM.debate, maxTurns: 99, firstSpeaker: 'chatgpt', relayTemplate: D.debate.relayTemplate },
+    debate: {
+      ...CUSTOM.debate,
+      maxTurns: 99,
+      firstSpeaker: 'chatgpt',
+      templates: {
+        ...CUSTOM.debate.templates,
+        en: { ...CUSTOM.debate.templates.en, relayTemplate: D.debate.templates.en.relayTemplate },
+      },
+    },
     detection: { ...CUSTOM.detection, pollMs: 100 },
     window: { width: 1000, height: D.window.height },
   };

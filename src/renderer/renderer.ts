@@ -1,8 +1,9 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-// 管理ペイン UI。フレームワークなし・import なし(型は api.d.ts の ambient 宣言)。
+// 管理ペイン UI。フレームワークなし(型は api.d.ts の ambient 宣言)。画面文言は ./i18n.ts(日本語 / 英語)。
 // メッセージ本文・検索スニペットは信頼できない文字列のため textContent のみで描画する。
+import { applyI18n, currentLang, setLang, t } from './i18n.js';
 (() => {
   const api = window.api;
 
@@ -62,6 +63,8 @@
   const turnNow = must<HTMLElement>('turn-now');
   const turnMax = must<HTMLElement>('turn-max');
   const btnTranscript = must<HTMLButtonElement>('btn-transcript');
+  const langSelect = must<HTMLSelectElement>('lang-select');
+  let transcriptVisible = false;
 
   const topicInput = must<HTMLTextAreaElement>('topic-input');
   const ctlMaxTurns = must<HTMLInputElement>('ctl-max-turns');
@@ -99,6 +102,7 @@
   const taOpening = must<HTMLTextAreaElement>('set-opening');
   const taCounter = must<HTMLTextAreaElement>('set-counter');
   const taRelay = must<HTMLTextAreaElement>('set-relay');
+  const templatesNote = must<HTMLElement>('set-templates-note');
   const saveFlash = must<HTMLElement>('save-flash');
 
   const historyList = must<HTMLElement>('history-list');
@@ -131,9 +135,9 @@
   }
 
   function chatLedTitle(status: ChatStatus): string {
-    if (!status.ready) return status.loading ? '読み込み中' : 'ChatGPT / Gemini の画面になっていません';
-    if (status.rateLimited) return 'レート制限中';
-    return status.loggedIn ? 'ログイン済み' : 'ゲスト(ログインなしで利用中)';
+    if (!status.ready) return status.loading ? t('led.loading') : t('led.notChat');
+    if (status.rateLimited) return t('led.rateLimited');
+    return status.loggedIn ? t('led.loggedIn') : t('led.guest');
   }
 
   function updateChatUi(): void {
@@ -160,8 +164,8 @@
     }
     if (stuck.length > 0) {
       loginBanner.className = 'login-banner warn';
-      loginBannerText.textContent = `${stuck.join(' と ')} が ChatGPT / Gemini の画面になっていません`;
-      loginBannerHint.textContent = 'ログイン中なら完了後に戻ります。戻らなければ下のパネルで確認してください';
+      loginBannerText.textContent = t('banner.stuck', { names: stuck.join(t('names.join')) });
+      loginBannerHint.textContent = t('banner.stuck.hint');
       return;
     }
     if (loading) {
@@ -177,10 +181,9 @@
     }
     const locked = runner.state === 'running' || runner.state === 'paused';
     loginBanner.className = 'login-banner info';
-    loginBannerText.textContent = `${guests.join(' と ')} はログインなしで使えます`;
+    loginBannerText.textContent = t('banner.guest', { names: guests.join(t('names.join')) });
     loginBannerHint.textContent =
-      'ログインすると、会話がサイト側の履歴に残り、利用制限が緩くなることがあります' +
-      (locked ? '(停止後に下のパネルでログインできます)' : '(下のパネルでログイン)');
+      t('banner.guest.hint') + (locked ? t('banner.guest.hint.locked') : t('banner.guest.hint.idle'));
   }
   loginBannerClose.addEventListener('click', () => {
     guestNoticeDismissed = true;
@@ -293,7 +296,7 @@
   btnStart.addEventListener('click', () => {
     const topic = topicInput.value.trim();
     if (!topic) {
-      localLog('warn', 'テーマを入力してください');
+      localLog('warn', t('log.topicRequired'));
       topicInput.focus();
       return;
     }
@@ -302,19 +305,19 @@
     const firstSpeaker: Speaker = ctlFirstSpeaker.value === 'gemini' ? 'gemini' : 'chatgpt';
     api
       .startDebate(topic, defaultMaxTurns, firstSpeaker)
-      .catch((err) => localLog('error', `開始失敗: ${errMsg(err)}`));
+      .catch((err) => localLog('error', t('log.startFailed', { error: errMsg(err) })));
   });
   btnPause.addEventListener('click', () => {
-    api.pauseDebate().catch((err) => localLog('error', `一時停止失敗: ${errMsg(err)}`));
+    api.pauseDebate().catch((err) => localLog('error', t('log.pauseFailed', { error: errMsg(err) })));
   });
   btnResume.addEventListener('click', () => {
-    api.resumeDebate().catch((err) => localLog('error', `再開失敗: ${errMsg(err)}`));
+    api.resumeDebate().catch((err) => localLog('error', t('log.resumeFailed', { error: errMsg(err) })));
   });
   btnStop.addEventListener('click', () => {
-    api.stopDebate().catch((err) => localLog('error', `停止失敗: ${errMsg(err)}`));
+    api.stopDebate().catch((err) => localLog('error', t('log.stopFailed', { error: errMsg(err) })));
   });
   btnTranscript.addEventListener('click', () => {
-    api.toggleTranscript().catch((err) => localLog('error', `表示切替失敗: ${errMsg(err)}`));
+    api.toggleTranscript().catch((err) => localLog('error', t('log.toggleFailed', { error: errMsg(err) })));
   });
 
   topicInput.addEventListener('keydown', (ev) => {
@@ -422,13 +425,15 @@
       inAdminRatio.value = String(s.layout.adminRatio);
       inChatSplit.value = String(s.layout.chatSplit);
       inChatZoom.value = String(s.layout.chatZoom);
-      taOpening.value = s.debate.openingTemplate;
-      taCounter.value = s.debate.counterTemplate;
-      taRelay.value = s.debate.relayTemplate;
+      const tpl = s.debate.templates[s.language];
+      taOpening.value = tpl.openingTemplate;
+      taCounter.value = tpl.counterTemplate;
+      taRelay.value = tpl.relayTemplate;
+      templatesNote.textContent = t('set.templatesNote', { lang: t(`lang.${s.language}`) });
       setNextRunTurns(s.debate.maxTurns);
       ctlFirstSpeaker.value = s.debate.firstSpeaker;
     } catch (err) {
-      localLog('error', `設定読込失敗: ${errMsg(err)}`);
+      localLog('error', t('log.settingsLoadFailed', { error: errMsg(err) }));
     }
   }
 
@@ -460,9 +465,15 @@
           debate: {
             maxTurns: Math.min(99, Math.max(1, Math.floor(numVal(inMaxTurns, cur.debate.maxTurns)))),
             firstSpeaker: selFirstSpeaker.value === 'gemini' ? 'gemini' : 'chatgpt',
-            openingTemplate: taOpening.value,
-            counterTemplate: taCounter.value,
-            relayTemplate: taRelay.value,
+            // テンプレート欄は「いまの言語」のぶんだけ編集している
+            templates: {
+              ...cur.debate.templates,
+              [cur.language]: {
+                openingTemplate: taOpening.value,
+                counterTemplate: taCounter.value,
+                relayTemplate: taRelay.value,
+              },
+            },
             betweenTurnsMs: Math.max(0, numVal(inBetweenTurns, cur.debate.betweenTurnsMs)),
           },
           detection: {
@@ -477,7 +488,7 @@
         window.clearTimeout(flashTimer);
         flashTimer = window.setTimeout(() => saveFlash.classList.remove('show'), 1600);
       } catch (err) {
-        localLog('error', `設定保存失敗: ${errMsg(err)}`);
+        localLog('error', t('log.settingsSaveFailed', { error: errMsg(err) }));
       }
     })();
   });
@@ -492,12 +503,12 @@
   async function loadHistory(): Promise<void> {
     showHistoryList();
     historyList.textContent = '';
-    historyList.appendChild(el('div', 'drawer-empty', '読み込み中…'));
+    historyList.appendChild(el('div', 'drawer-empty', t('history.loading')));
     try {
       const convs = await api.listConversations();
       historyList.textContent = '';
       if (convs.length === 0) {
-        historyList.appendChild(el('div', 'drawer-empty', '履歴はまだありません'));
+        historyList.appendChild(el('div', 'drawer-empty', t('history.empty')));
         return;
       }
       for (const conv of convs) {
@@ -513,7 +524,7 @@
       }
     } catch (err) {
       historyList.textContent = '';
-      historyList.appendChild(el('div', 'drawer-empty', `履歴読込失敗: ${errMsg(err)}`));
+      historyList.appendChild(el('div', 'drawer-empty', t('history.loadFailed', { error: errMsg(err) })));
     }
   }
 
@@ -522,12 +533,12 @@
     historyDetail.classList.remove('hidden');
     historyTitle.textContent = conv.title;
     historyMessages.textContent = '';
-    historyMessages.appendChild(el('div', 'drawer-empty', '読み込み中…'));
+    historyMessages.appendChild(el('div', 'drawer-empty', t('history.loading')));
     try {
       const msgs = await api.getMessages(conv.id);
       historyMessages.textContent = '';
       if (msgs.length === 0) {
-        historyMessages.appendChild(el('div', 'drawer-empty', 'メッセージがありません'));
+        historyMessages.appendChild(el('div', 'drawer-empty', t('history.noMessages')));
         return;
       }
       for (const msg of msgs) {
@@ -539,7 +550,7 @@
       }
     } catch (err) {
       historyMessages.textContent = '';
-      historyMessages.appendChild(el('div', 'drawer-empty', `読込失敗: ${errMsg(err)}`));
+      historyMessages.appendChild(el('div', 'drawer-empty', t('history.messagesFailed', { error: errMsg(err) })));
     }
   }
 
@@ -585,13 +596,13 @@
     searchResults.textContent = '';
     if (query.length === 0) return;
     // 短い語は Repository 側が LIKE 検索にフォールバックするため、ここでは制限しない
-    searchResults.appendChild(el('div', 'drawer-empty', '検索中…'));
+    searchResults.appendChild(el('div', 'drawer-empty', t('search.searching')));
     try {
       const hits = await api.search(query);
       if (seq !== searchSeq) return; // 古い応答は捨てる
       searchResults.textContent = '';
       if (hits.length === 0) {
-        searchResults.appendChild(el('div', 'drawer-empty', '該当なし'));
+        searchResults.appendChild(el('div', 'drawer-empty', t('search.none')));
         return;
       }
       for (const hit of hits) {
@@ -607,7 +618,7 @@
     } catch (err) {
       if (seq !== searchSeq) return;
       searchResults.textContent = '';
-      searchResults.appendChild(el('div', 'drawer-empty', `検索失敗: ${errMsg(err)}`));
+      searchResults.appendChild(el('div', 'drawer-empty', t('search.failed', { error: errMsg(err) })));
     }
   }
 
@@ -629,21 +640,50 @@
   });
   api.onTranscriptVisible((visible) => {
     btnTranscript.classList.toggle('active', visible);
-    btnTranscript.textContent = visible ? 'ライブ' : '経過';
+    transcriptVisible = visible;
+    btnTranscript.textContent = visible ? t('view.live') : t('view.transcript');
+  });
+
+  // ---------- 言語 ----------
+  // ヘッダ右上のセレクトで切替。設定に即保存し、main からの settings:ev-changed で両ペインの文言を差し替える。
+  // 進行中の議論のプロンプトは開始時の言語のまま(Runner 側で固定)
+  function applyLanguage(lang: Lang): void {
+    if (currentLang() !== lang) setLang(lang);
+    else applyI18n();
+    langSelect.value = lang;
+    btnTranscript.textContent = transcriptVisible ? t('view.live') : t('view.transcript');
+    updateChatUi();
+    updateRunnerUi();
+    if (drawerOpen && activeTab === 'settings') void fillSettingsForm();
+  }
+  langSelect.addEventListener('change', () => {
+    const lang: Lang = langSelect.value === 'en' ? 'en' : 'ja';
+    void (async () => {
+      try {
+        const cur = await api.getSettings();
+        if (cur.language !== lang) await api.setSettings({ ...cur, language: lang });
+      } catch (err) {
+        localLog('error', t('log.langFailed', { error: errMsg(err) }));
+      }
+    })();
+  });
+  api.onSettingsChanged((s) => {
+    applyLanguage(s.language);
   });
 
   async function init(): Promise<void> {
     try {
       const [settings, chatStatus] = await Promise.all([api.getSettings(), api.getChatStatus()]);
+      applyLanguage(settings.language);
       setNextRunTurns(settings.debate.maxTurns);
       ctlFirstSpeaker.value = settings.debate.firstSpeaker;
       chats = chatStatus;
     } catch (err) {
-      localLog('error', `初期化失敗: ${errMsg(err)}`);
+      localLog('error', t('log.initFailed', { error: errMsg(err) }));
     }
     updateRunnerUi();
     updateChatUi();
-    localLog('info', '管理パネル起動');
+    localLog('info', t('log.started'));
   }
 
   void init();

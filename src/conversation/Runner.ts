@@ -97,7 +97,10 @@ export class Runner extends EventEmitter {
 
     // 設定は開始時に 1 回だけ読む(途中変更は次回から反映)。
     // maxTurns / firstSpeaker はそのラン用の上書きがあれば優先(操作バーの一時値。保存はしない)。
-    const base = this.settings.get().debate;
+    const all = this.settings.get();
+    const base = all.debate;
+    // テンプレートは開始時の言語のもの(途中で言語を切り替えても進行中の議論には影響しない)
+    const tpl = base.templates[all.language];
     const debate: DebateConfig = {
       ...base,
       maxTurns:
@@ -145,11 +148,11 @@ export class Runner extends EventEmitter {
       const opponentLabel = SPEAKER_LABELS[opponentOf(speaker)];
       let prompt: string;
       if (turn === 1) {
-        prompt = this.render(debate.openingTemplate, { topic, opponent: opponentLabel });
+        prompt = this.render(tpl.openingTemplate, { topic, opponent: opponentLabel });
       } else if (turn === 2) {
-        prompt = this.render(debate.counterTemplate, { topic, opponent: opponentLabel, message: prevReply });
+        prompt = this.render(tpl.counterTemplate, { topic, opponent: opponentLabel, message: prevReply });
       } else {
-        prompt = this.render(debate.relayTemplate, { opponent: opponentLabel, message: prevReply });
+        prompt = this.render(tpl.relayTemplate, { opponent: opponentLabel, message: prevReply });
       }
 
       let sent = false;

@@ -68,7 +68,17 @@ interface LogEntry {
   ts: string;
 }
 
+type Lang = 'ja' | 'en';
+
+interface DebateTemplates {
+  openingTemplate: string;
+  counterTemplate: string;
+  relayTemplate: string;
+}
+
 interface SettingsData {
+  /** 画面文言・ログ・プロンプトの言語 */
+  language: Lang;
   layout: {
     /** 管理ペインの高さ比(0-1) */
     adminRatio: number;
@@ -80,12 +90,8 @@ interface SettingsData {
   debate: {
     maxTurns: number;
     firstSpeaker: Speaker;
-    /** 先攻への最初の指示。{topic} {opponent} を展開 */
-    openingTemplate: string;
-    /** 後攻への最初の指示。{topic} {opponent} {message} を展開 */
-    counterTemplate: string;
-    /** 3ターン目以降の中継。{opponent} {message} を展開 */
-    relayTemplate: string;
+    /** 言語ごとのプロンプトテンプレート。使うのは language で選んだ側 */
+    templates: Record<Lang, DebateTemplates>;
     /** ターン間の待機 ms(レート制限対策) */
     betweenTurnsMs: number;
   };
@@ -119,6 +125,8 @@ interface RendererApi {
   reportPaneDragY(clientY: number): void;
   /** main からの「ドラッグ中かどうか」。true の間だけ pointermove を報告する */
   onPaneDragActive(cb: (active: boolean) => void): () => void;
+  /** 設定が保存されたとき(言語切替など)。正規化済みの設定全体が届く */
+  onSettingsChanged(cb: (settings: SettingsData) => void): () => void;
 
   search(query: string): Promise<SearchHit[]>;
   listConversations(): Promise<ConversationRecord[]>;

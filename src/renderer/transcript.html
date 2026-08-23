@@ -7,7 +7,7 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:">
-  <title>議論の経過</title>
+  <title data-i18n="tr.title">議論の経過</title>
   <link rel="stylesheet" href="./transcript.css">
 </head>
 <body>
@@ -16,13 +16,13 @@
     <span class="tr-vs">vs</span>
     <span class="tr-badge tr-badge-gem">Gemini</span>
     <h1 id="tr-title" class="tr-title"></h1>
-    <span id="tr-status" class="tr-status" title="会話のステータス"></span>
-    <button type="button" id="tr-copy" class="tr-copy" title="Markdown をコピー">Markdown をコピー</button>
-    <span id="tr-copy-flash" class="tr-copy-flash">コピーしました</span>
-    <button type="button" id="tr-back" class="tr-back" title="ライブのチャット表示に戻る">← チャットに戻る</button>
+    <span id="tr-status" class="tr-status" data-i18n-title="tr.status.title" title="会話のステータス"></span>
+    <button type="button" id="tr-copy" class="tr-copy" data-i18n="tr.copy" data-i18n-title="tr.copy" title="Markdown をコピー">Markdown をコピー</button>
+    <span id="tr-copy-flash" class="tr-copy-flash" data-i18n="tr.copied">コピーしました</span>
+    <button type="button" id="tr-back" class="tr-back" data-i18n="tr.back" data-i18n-title="tr.back.title" title="ライブのチャット表示に戻る">← チャットに戻る</button>
   </header>
   <main id="tr-body" class="tr-body">
-    <div class="tr-empty">議論が完了するとここに経過が表示されます。</div>
+    <div class="tr-empty" data-i18n="tr.placeholder">議論が完了するとここに経過が表示されます。</div>
   </main>
   <script type="module" src="./transcript.js"></script>
 </body>

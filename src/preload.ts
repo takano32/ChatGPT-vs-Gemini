@@ -30,6 +30,7 @@ const api: RendererApi = {
   endPaneDrag: () => ipcRenderer.send(IPC.layoutDragEnd),
   reportPaneDragY: (clientY) => ipcRenderer.send(IPC.layoutDragMove, clientY),
   onPaneDragActive: (cb) => subscribe(IPC.evLayoutDragActive, cb),
+  onSettingsChanged: (cb) => subscribe(IPC.evSettingsChanged, cb),
 
   search: (query) => ipcRenderer.invoke(IPC.search, query),
   listConversations: () => ipcRenderer.invoke(IPC.listConversations),

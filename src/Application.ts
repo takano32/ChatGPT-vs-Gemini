@@ -148,6 +148,14 @@ export class Application {
     ipcMain.handle(IPC.runnerResume, () => this.runner.resume());
 
     ipcMain.handle(IPC.settingsGet, () => this.manager.settings.get());
+    this.manager.settings.on('change', (settings: SettingsData) => {
+      this.sendToAdmin(IPC.evSettingsChanged, settings);
+      try {
+        this.manager.layout.view('transcript').webContents.send(IPC.evSettingsChanged, settings);
+      } catch {
+        // ウィンドウ破棄後のイベントは捨てる
+      }
+    });
     ipcMain.handle(IPC.settingsSet, (_e, settings: SettingsData) =>
       this.manager.settings.set(settings)
     );

@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-23
+
+### Added
+
+- 右上の「日本語 / English」で言語を切り替えられるようにした。管理ペイン・経過表示の画面文言と、両 AI に送るプロンプトのテンプレートが切り替わる(進行中の議論は開始時の言語のまま)。対応言語は日本語と英語の 2 つだけ([#4](https://github.com/takano32/ChatGPT-vs-Gemini/issues/4))
+
+### Changed
+
+- プロンプトテンプレートは言語ごとに保存するようになった(`settings.json` の `debate.templates.ja / .en`)。以前の `debate.openingTemplate` 等は日本語用として自動で引き継ぐ
+- main プロセスのログ文言(「送信 → ChatGPT」など)はまだ日本語のまま。次の版で対応する
+
 ## [0.3.0] - 2026-08-23
 
 ### Added
@@ -137,7 +148,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.6...v0.2.7

@@ -27,6 +27,7 @@ ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron
 - DOM 知識は `src/chat/` に閉じる。セレクタと文言パターンは `src/chat/selectors.ts` だけに書き、`Chat.ts` はサイト非依存のアルゴリズムに保つ
 - SQL は `src/conversation/Repository.ts` だけ。既存 DB の変更(列追加など)は `MIGRATIONS` に冪等な関数を追記し、`SCHEMA_SQL` も最終形に更新する(`PRAGMA user_version` で未適用分だけ当たる)
 - `src/shared/types.ts` と `src/renderer/api.d.ts` はミラー。片方を変えたら必ず両方直す(renderer ビルドは shared を import できない)
+- 画面文言は日本語と英語の 2 言語だけ(他の言語は対応しない)。renderer 側の文言は `src/renderer/i18n.ts`(静的文言は HTML の `data-i18n*` 属性、動的文言は `t()`)。新しい文言を足したら両言語を書く
 - main プロセスに DOM 型は無い。ページ操作は `executeJavaScript` に渡す自己完結の IIFE 文字列で、値は `JSON.stringify` で埋め込む
 - ページ側スクリプト(`Chat.ts` のテンプレートリテラル)の落とし穴: 中の `'\n'` は TS が実改行に展開して無言で壊れるので必ず `'\\n'`。テンプレート内にエスケープや改行を含むコメントを書かない。`js()` は例外を握りつぶすため症状は「送信喪失 → 再送 → ERROR」に化ける。触ったら `npm run build && npm test`
 - 素の JS は `src/chat-preload.js` だけ(document_start で走る操作ロック。tsc を通さない)
