@@ -107,7 +107,7 @@ export interface SettingsData {
     maxTurns: number;
     firstSpeaker: Speaker;
     /** 既定のモード(操作バーで議論ごとに上書きできる) */
-    mode: Mode;
+    mode: Mode; // 設定画面でテンプレートを編集しているモード(0.6.5 以降、操作バーの既定には使わない: 操作バーは常に対立で始まる)
     /** 言語 × モードごとのプロンプトテンプレート(定義は shared/modes.ts) */
     templates: Record<Lang, Record<Mode, DebateTemplates>>;
     /** 進行役の一文(言語ごと。定義は shared/modes.ts) */

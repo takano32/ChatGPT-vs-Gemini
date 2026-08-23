@@ -107,7 +107,7 @@ const STRINGS: Table = {
   'tab.search': { ja: '検索', en: 'Search' },
   'set.maxTurns': { ja: '最大ターン数', en: 'Max turns' },
   'set.firstSpeaker': { ja: '先攻', en: 'First speaker' },
-  'set.mode': { ja: 'モード', en: 'Mode' },
+  'set.mode': { ja: '編集するモード', en: 'Mode to edit' },
   'set.betweenTurns': { ja: 'ターン間隔 (ms)', en: 'Gap between turns (ms)' },
   'set.poll': { ja: 'ポーリング (ms)', en: 'Polling (ms)' },
   'set.stability': { ja: '安定判定 (ms)', en: 'Stability (ms)' },

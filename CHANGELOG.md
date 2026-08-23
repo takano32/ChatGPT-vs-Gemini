@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-08-24
+
+### Changed
+
+- 操作バーの「モード」は起動時に常に「対立」になる(設定の値や前回の値を引き継がない)。設定タブを開いても操作バーのモードは変わらない。設定画面の「モード」は「編集するモード」(テンプレートの編集対象)に改名
+
 ## [0.6.4] - 2026-08-24
 
 ### Changed
@@ -242,7 +248,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.1...v0.6.2

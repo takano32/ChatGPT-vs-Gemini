@@ -84,6 +84,7 @@ import type {
   const ctlTurnsDown = must<HTMLButtonElement>('ctl-turns-down');
   const ctlFirstSpeaker = must<HTMLSelectElement>('ctl-first-speaker');
   const ctlMode = must<HTMLSelectElement>('ctl-mode');
+  ctlMode.value = 'debate';
   const btnStart = must<HTMLButtonElement>('btn-start');
   const btnPause = must<HTMLButtonElement>('btn-pause');
   const btnResume = must<HTMLButtonElement>('btn-resume');
@@ -492,7 +493,7 @@ import type {
       inTkLate.value = tk.late;
       setNextRunTurns(s.debate.maxTurns);
       ctlFirstSpeaker.value = s.debate.firstSpeaker;
-      ctlMode.value = s.debate.mode;
+      // 操作バーのモードは触らない: 起動時は常に「対立」で、前回の値も設定の値も引き継がない(利用者の決定 2026-08-24)
     } catch (err) {
       localLog('error', t('log.settingsLoadFailed', { error: errMsg(err) }));
     }
