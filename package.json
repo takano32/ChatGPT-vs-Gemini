@@ -2,7 +2,7 @@
   "name": "chatgpt-vs-gemini",
   "productName": "ChatGPT vs Gemini",
   "desktopName": "io.github.takano32.ChatGPTvsGemini.desktop",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "ChatGPT と Gemini をブラウザ画面のまま議論させるデスクトップアプリ",
   "private": true,
   "license": "MPL-2.0",
