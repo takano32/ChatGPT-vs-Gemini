@@ -122,6 +122,13 @@ const STRINGS: Table = {
 
   // ---- その他 ----
   'app.startupError': { ja: '起動エラー', en: 'Startup error' },
+  'app.closeWhileRunning': { ja: '議論の途中です。終了しますか?', en: 'A debate is in progress. Quit anyway?' },
+  'app.closeWhileRunning.detail': {
+    ja: '終了すると議論はここで止まります(ここまでの発言は履歴に残ります)',
+    en: 'Quitting stops the debate here (the messages so far are kept in the history)',
+  },
+  'app.closeWhileRunning.quit': { ja: '終了', en: 'Quit' },
+  'app.closeWhileRunning.cancel': { ja: '続ける', en: 'Keep going' },
   'md.untitled': { ja: '議論', en: 'Debate' },
 };
 

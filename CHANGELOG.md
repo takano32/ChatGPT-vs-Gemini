@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-08-23
+
+### Added
+
+- 議論中(実行中・一時停止中)にウィンドウの ✕ を押すと「議論の途中です。終了しますか?」と確認する。「終了」で議論を停止してから閉じる
+- 管理ペインのログを `logs/main.log`(Electron の logs ディレクトリ)にも残す。1 MB を超えると起動時に `main.log.1` へ退避
+
 ## [0.5.2] - 2026-08-23
 
 ### Changed
@@ -196,7 +203,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.3...v0.5.0

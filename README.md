@@ -63,6 +63,8 @@ Electron の userData(Linux: `~/.config/ChatGPT vs Gemini`、macOS: `~/Library/A
 - `data.db` — 会話ログ(SQLite、WAL)
 - ログインセッション — `persist:chatgpt` / `persist:gemini` パーティション
 
+管理ペインに出るログは `logs/main.log`(Linux / Windows は userData の下、macOS は `~/Library/Logs/ChatGPT vs Gemini`)にも残る。不具合を報告するときに添えると原因を追いやすい。1 MB を超えると起動時に `main.log.1` へ退避する。
+
 ## トラブルシューティング
 
 - **日本語が □ になる(Linux)**: CJK フォントと絵文字フォント(例: `noto-fonts-cjk`、`noto-fonts-emoji`)を入れてアプリを再起動する。

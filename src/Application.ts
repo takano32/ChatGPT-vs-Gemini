@@ -7,6 +7,7 @@ import { app, clipboard, dialog, ipcMain } from 'electron';
 import * as path from 'node:path';
 import { Manager } from './manager/Manager';
 import { setMainLang, tm } from './shared/i18n';
+import { FileLog } from './shared/FileLog';
 import { Repository } from './conversation/Repository';
 import { Runner } from './conversation/Runner';
 import { transcriptToMarkdown } from './conversation/markdown';
@@ -39,6 +40,9 @@ export class Application {
   private chatGPT!: ChatGPT;
   private gemini!: Gemini;
   private statusTimer: NodeJS.Timeout | null = null;
+  private fileLog!: FileLog;
+  // 議論中の ✕ は確認ダイアログを挟む。確認済みなら再度は聞かない
+  private closeConfirmed = false;
   private transcriptVisible = false;
   private lastRunnerState: RunnerStatus['state'] = 'idle';
 
@@ -94,9 +98,11 @@ export class Application {
       settings: this.manager.settings,
     });
 
+    this.fileLog = new FileLog(app.getPath('logs'));
     this.registerIpc();
     this.forwardEvents();
     this.startChatStatusPolling();
+    this.confirmCloseWhileRunning();
 
     if (process.env[SMOKE_TEST_ENV]) void this.runSmokeTest();
   }
@@ -219,7 +225,7 @@ export class Application {
       // 経過ビューを毎メッセージ更新(表示・非表示に関わらず最新を保持)
       this.renderTranscript(m.conversationId);
     });
-    this.runner.on('log', (l: LogEntry) => this.sendToAdmin(IPC.evLog, l));
+    this.runner.on('log', (l: LogEntry) => this.emitLog(l));
     // チャットペインの自動復旧(読込失敗・異常終了・ハングの再読込、証明書エラー)の通知。
     // 議論の進行とは別の話なので Runner の log は通さず、そのまま管理ペインのログに WARN で出す
     // 管理ペインが購読を始める前(起動直後のオフライン等)に来た通知は捨てずに溜め、読込完了後に流す
@@ -231,9 +237,41 @@ export class Application {
     });
     this.manager.layout.onPaneNotice = (_pane, message) => {
       const entry: LogEntry = { level: 'warn', message, ts: new Date().toISOString() };
+      this.fileLog.write(entry);
       if (admin.isLoading()) pending.push(entry);
       else this.sendToAdmin(IPC.evLog, entry);
     };
+  }
+
+  private emitLog(entry: LogEntry): void {
+    this.fileLog.write(entry);
+    this.sendToAdmin(IPC.evLog, entry);
+  }
+
+  // 議論中(実行中・一時停止中)に ✕ で閉じようとしたら確認する。うっかり閉じると議論が途中で終わるため。
+  // 「終了」を選んだら議論を停止してから閉じる(会話の状態は stopped で保存される)
+  private confirmCloseWhileRunning(): void {
+    const win = this.manager.window.base;
+    win.on('close', (e) => {
+      const state = this.runner.status.state;
+      if (this.closeConfirmed || (state !== 'running' && state !== 'paused')) return;
+      e.preventDefault();
+      void dialog
+        .showMessageBox(win, {
+          type: 'question',
+          message: tm('app.closeWhileRunning'),
+          detail: tm('app.closeWhileRunning.detail'),
+          buttons: [tm('app.closeWhileRunning.quit'), tm('app.closeWhileRunning.cancel')],
+          defaultId: 1,
+          cancelId: 1,
+        })
+        .then(({ response }) => {
+          if (response !== 0) return;
+          this.closeConfirmed = true;
+          this.runner.stop();
+          win.close();
+        });
+    });
   }
 
   private renderTranscript(conversationId: number): void {

@@ -36,7 +36,7 @@ Pick the package for your OS on the [download site](https://takano32.github.io/C
 - The Gemini button selectors were measured with the Japanese UI locale and fall back to language-independent icons, so sending works in other locales; the text patterns for rate limits, errors and login prompts cover Japanese and English only.
 - Real debates have only been verified on Linux (arm64). The macOS and Windows builds are smoke-tested in CI (the app starts, the database and search work) but have not been used for actual debates.
 - When ChatGPT or Gemini changes its page structure the app stops working. The place to fix is `src/chat/selectors.ts`; the procedure is in [docs/selectors.md](docs/selectors.md) (Japanese).
-- Transcripts are stored unencrypted in a local SQLite database, and login sessions stay on the machine. Data lives in Linux `~/.config/ChatGPT vs Gemini`, macOS `~/Library/Application Support/ChatGPT vs Gemini`, Windows `%APPDATA%\ChatGPT vs Gemini`: `settings.json` (settings), `data.db` (transcripts), `Partitions/` (login sessions). Delete what you want to reset.
+- Transcripts are stored unencrypted in a local SQLite database, and login sessions stay on the machine. Data lives in Linux `~/.config/ChatGPT vs Gemini`, macOS `~/Library/Application Support/ChatGPT vs Gemini`, Windows `%APPDATA%\ChatGPT vs Gemini`: `settings.json` (settings), `data.db` (transcripts), `Partitions/` (login sessions). Delete what you want to reset. The admin-pane log is also written to `logs/main.log` (under userData on Linux / Windows, `~/Library/Logs/ChatGPT vs Gemini` on macOS); attach it when reporting a problem.
 
 ## Development
 
