@@ -491,9 +491,8 @@ import type {
       inTkEarly.value = tk.early;
       inTkMiddle.value = tk.middle;
       inTkLate.value = tk.late;
-      setNextRunTurns(s.debate.maxTurns);
-      ctlFirstSpeaker.value = s.debate.firstSpeaker;
-      // 操作バーのモードは触らない: 起動時は常に「対立」で、前回の値も設定の値も引き継がない(利用者の決定 2026-08-24)
+      // 操作バー(ターン数・先攻・モード)は触らない。決めるのは起動時と設定の保存時だけで、
+      // 設定タブを開いただけで選び直した値が戻らないようにする(モードは起動時に常に「対立」。利用者の決定 2026-08-24)
     } catch (err) {
       localLog('error', t('log.settingsLoadFailed', { error: errMsg(err) }));
     }
@@ -589,7 +588,9 @@ import type {
           },
         };
         await api.setSettings(next);
+        // 既定を変えたのに操作バーが古いままだと紛らわしいので、保存したときだけ追従させる
         setNextRunTurns(next.debate.maxTurns);
+        ctlFirstSpeaker.value = next.debate.firstSpeaker;
         saveFlash.classList.add('show');
         window.clearTimeout(flashTimer);
         flashTimer = window.setTimeout(() => saveFlash.classList.remove('show'), 1600);
