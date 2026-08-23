@@ -407,6 +407,8 @@ export abstract class Chat {
     let ignoreStop = false;
     // 応答の代わりにエラー吹き出しが追加された場合、それは履歴に残るので基準件数を進める
     let baseline = initialBaseline;
+    // 応答待ちの時間切れで再読込するのは 1 回だけ
+    let reloadedForTimeout = false;
     if (await this.stopVisible()) {
       await this.clickStop();
       await sleep(STOP_RELEASE_MS);
@@ -468,7 +470,24 @@ export abstract class Chat {
         continue;
       }
 
-      const outcome = await this.waitForCompletion(baseline, ignoreStop);
+      let outcome: Awaited<ReturnType<Chat['waitForCompletion']>>;
+      try {
+        outcome = await this.waitForCompletion(baseline, ignoreStop);
+      } catch (err) {
+        // 上限まで待っても応答が全く来なかった(本文があれば waitForCompletion が採用している)。
+        // ストリームが切れたままの可能性が高いので、停止ボタンの固着と同じく 1 回だけ
+        // ページを読み込み直して同じ内容を送り直す。2 回目も来なければそのまま timeout
+        if (!(err instanceof ChatError && err.code === 'timeout') || reloadedForTimeout || attempt === SEND_ATTEMPTS) {
+          throw err;
+        }
+        reloadedForTimeout = true;
+        this.notify(tm('chat.timeoutReload', { name: this.displayName }));
+        await this.reloadForStuckStop();
+        ignoreStop = false;
+        baseline = await this.captureBaseline();
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
       if (outcome.reply !== null) return outcome.reply;
       // 正規の応答が来ないまま終わった(応答要素が現れない / エラー吹き出し / 空応答)。再送へ。
       // 停止ボタンだけが出続けていたなら固着とみなし、以降は指標から外す

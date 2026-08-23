@@ -151,6 +151,8 @@ const STRINGS: Table = {
   'tr.placeholder': { ja: '議論が完了するとここに経過が表示されます。', en: 'The transcript appears here when a debate finishes.' },
   'tr.untitled': { ja: '(無題の議論)', en: '(untitled debate)' },
   'tr.empty': { ja: '発言はまだありません。', en: 'No messages yet.' },
+  'cooldown.label': { ja: '制限待ち {seconds}s', en: 'cooldown {seconds}s' },
+  'cooldown.title': { ja: '{name} がレート制限中。待ってから同じターンを再試行します({attempt}/{max} 回目)', en: '{name} is rate limited; retrying the same turn after the wait ({attempt}/{max})' },
   'status.running': { ja: '進行中', en: 'Running' },
   'status.paused': { ja: '一時停止', en: 'Paused' },
   'status.stopped': { ja: '停止', en: 'Stopped' },

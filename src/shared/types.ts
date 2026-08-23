@@ -77,6 +77,8 @@ export interface RunnerStatus {
   turn: number; // 送信済みメッセージ数(1 AI 発言 = 1 ターン)
   maxTurns: number;
   error?: string;
+  // レート制限の自動クールダウン中(until は epoch ms。待ち終えると同じターンを再試行する)
+  cooldown?: { speaker: Speaker; until: number; attempt: number; max: number };
 }
 
 export interface LogEntry {

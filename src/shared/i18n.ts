@@ -17,9 +17,13 @@ const STRINGS: Table = {
   'runner.preparing': { ja: '新しいチャットを準備しています(ChatGPT / Gemini)', en: 'Opening new chats (ChatGPT / Gemini)' },
   'runner.prepareFailed': { ja: '新規チャットの準備に失敗しました: {error}', en: 'Failed to open new chats: {error}' },
   'runner.send': { ja: '送信 → {name}', en: 'Sending → {name}' },
+  'runner.cooldown': {
+    ja: '{name} がレート制限中です。{seconds} 秒待って同じターンを再試行します({attempt}/{max} 回目)',
+    en: '{name} is rate limited. Waiting {seconds} s, then retrying the same turn ({attempt}/{max})',
+  },
   'runner.rateLimited': {
-    ja: '{name} がレート制限中のため一時停止しました。再開すると同じターンを再試行します',
-    en: '{name} is rate limited; paused. Resume to retry the same turn',
+    ja: '{name} のレート制限が {max} 回待っても解除されないため一時停止しました。しばらくしてから「再開」を押すと同じターンを再試行します',
+    en: '{name} stayed rate limited after {max} waits; paused. Press Resume later to retry the same turn',
   },
   'runner.stopped': { ja: '議論を停止しました', en: 'Debate stopped' },
   'runner.aborted': { ja: 'エラーで中断しました: {error}', en: 'Aborted on error: {error}' },
@@ -49,6 +53,10 @@ const STRINGS: Table = {
   'chat.stopStuckReload': {
     ja: '{name} の停止ボタンが消えないため、ページを読み込み直してから送ります',
     en: "{name}'s stop button will not go away; reloading the page before sending",
+  },
+  'chat.timeoutReload': {
+    ja: '{name} の応答が時間内に来ないため、ページを読み込み直してから同じ内容を送り直します',
+    en: "{name}'s response did not arrive in time; reloading the page and sending again",
   },
   'chat.stopCleared': { ja: '{name} に残っていた生成状態を解除しました', en: 'Cleared a stale generating state on {name}' },
   'chat.retrySend': { ja: '{name} への送信を再試行します({attempt}/{max} 回目)', en: 'Retrying send to {name} ({attempt}/{max})' },

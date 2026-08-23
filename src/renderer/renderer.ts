@@ -198,9 +198,26 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     updateLoginBanner();
   });
 
+  // レート制限のクールダウン中は状態ラベルを残り秒数のカウントダウンにする(main は開始と終了だけ通知する)
+  let cooldownTimer: number | null = null;
+  function updateCooldownLabel(): void {
+    const cd = runner.cooldown;
+    if (!cd) {
+      if (cooldownTimer !== null) window.clearInterval(cooldownTimer);
+      cooldownTimer = null;
+      runnerLabel.textContent = runner.state;
+      runnerLabel.title = '';
+      return;
+    }
+    const seconds = Math.max(0, Math.ceil((cd.until - Date.now()) / 1000));
+    runnerLabel.textContent = t('cooldown.label', { seconds: String(seconds) });
+    runnerLabel.title = t('cooldown.title', { name: SPEAKER_LABELS[cd.speaker], attempt: String(cd.attempt), max: String(cd.max) });
+    if (cooldownTimer === null) cooldownTimer = window.setInterval(updateCooldownLabel, 1000);
+  }
+
   function updateRunnerUi(): void {
     ledRunner.className = `led st-${runner.state}`;
-    runnerLabel.textContent = runner.state;
+    updateCooldownLabel();
     turnNow.textContent = String(runner.turn);
     const max = runner.maxTurns > 0 ? runner.maxTurns : defaultMaxTurns;
     turnMax.textContent = max > 0 ? String(max) : '–';

@@ -53,7 +53,7 @@ class FakeChat {
 }
 
 /** 1 テストぶんの部品一式。終了時に DB と一時ディレクトリを片付ける */
-function setup(t, { debate = {}, chatgpt, gemini } = {}) {
+function setup(t, { debate = {}, chatgpt, gemini, cooldownMs = 10 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'chatgpt-vs-gemini-runner-'));
   const repository = new Repository(join(dir, 'data.db'));
   repository.init();
@@ -68,7 +68,7 @@ function setup(t, { debate = {}, chatgpt, gemini } = {}) {
   const settings = {
     get: () => ({ ...DEFAULT_SETTINGS, debate: { ...DEFAULT_SETTINGS.debate, betweenTurnsMs: 0, ...debate } }),
   };
-  const runner = new Runner({ chats, repository, settings });
+  const runner = new Runner({ chats, repository, settings, cooldownMs });
   const logs = [];
   const statuses = [];
   runner.on('log', (e) => logs.push(e));
@@ -202,11 +202,41 @@ test('進行役: 毎ターン先頭に「n/max ターン目」と段階の指示
   assert.ok(all[2].split('\n\n')[0].includes('終盤'));
 });
 
-test('レート制限: paused になり、resume で同じターンを再送して続きが進む', async (t) => {
-  let failOnce = true;
+test('レート制限: クールダウン後に同じターンを自動で再送し、一時停止せず完走する', async (t) => {
+  let failures = 2;
   const gemini = new FakeChat('Gemini', (_p, n) => {
-    if (failOnce) {
-      failOnce = false;
+    if (failures > 0) {
+      failures -= 1;
+      return new ChatError('rate-limited', 'Gemini');
+    }
+    return `Gemini の発言 ${n}`;
+  });
+  const { runner, repository, chats, logs, statuses } = setup(t, { gemini });
+  const cooldowns = [];
+  runner.on('status', (s) => {
+    if (s.cooldown) cooldowns.push(s.cooldown);
+  });
+  await runner.start('制限', 2);
+
+  assert.equal(runner.status.state, 'done');
+  assert.equal(chats.gemini.prompts.length, 3, '制限 2 回のあと 3 回目で通る');
+  assert.ok(chats.gemini.prompts.every((p) => p === chats.gemini.prompts[0]), '再送のプロンプトは同一');
+  assert.deepEqual(
+    cooldowns.map((c) => [c.speaker, c.attempt, c.max]),
+    [['gemini', 1, 3], ['gemini', 2, 3]],
+    'クールダウンの状態が回数つきで通知される',
+  );
+  assert.equal(runner.status.cooldown, undefined, '終わったら消える');
+  assert.equal(logs.filter((e) => e.level === 'warn' && e.message.includes('秒待って')).length, 2);
+  assert.ok(!statuses.includes('paused'), '自動再試行で通るなら一時停止しない');
+  assert.equal(repository.getMessages(repository.listConversations()[0].id).length, 2, '失敗したターンは保存されない');
+});
+
+test('レート制限: 3 回待っても解除されなければ paused になり、resume で同じターンを再送して続きが進む', async (t) => {
+  let failures = 4;
+  const gemini = new FakeChat('Gemini', (_p, n) => {
+    if (failures > 0) {
+      failures -= 1;
       return new ChatError('rate-limited', 'Gemini');
     }
     return `Gemini の発言 ${n}`;
@@ -215,17 +245,56 @@ test('レート制限: paused になり、resume で同じターンを再送し�
   const run = runner.start('制限', 2);
   await until(() => runner.status.state === 'paused');
 
-  assert.equal(chats.gemini.prompts.length, 1);
-  assert.ok(logs.some((e) => e.level === 'warn' && e.message.includes('レート制限')));
+  assert.equal(chats.gemini.prompts.length, 4, '3 回待って再試行し、4 回目も制限なら止まる');
+  assert.ok(logs.some((e) => e.level === 'warn' && e.message.includes('一時停止')));
   assert.equal(repository.listConversations()[0].status, 'paused');
 
   runner.resume();
   await run;
   assert.equal(runner.status.state, 'done');
-  assert.equal(chats.gemini.prompts.length, 2, '同じターンをもう一度送る');
-  assert.equal(chats.gemini.prompts[0], chats.gemini.prompts[1], '再送のプロンプトは同一');
+  assert.equal(chats.gemini.prompts.length, 5, '再開で同じターンをもう一度送る');
+  assert.equal(chats.gemini.prompts[0], chats.gemini.prompts[4], '再送のプロンプトは同一');
   assert.equal(repository.getMessages(repository.listConversations()[0].id).length, 2, '失敗したターンは保存されない');
   assert.deepEqual(statuses.filter((s) => s === 'paused').length, 1);
+});
+
+test('レート制限: 成功すれば連続回数はリセットされる(後で再び制限されても待ち直せる)', async (t) => {
+  const pattern = ['x', 'x', 'ok', 'x', 'x', 'ok'];
+  const gemini = new FakeChat('Gemini', (_p, n) => (pattern[n - 1] === 'x' ? new ChatError('rate-limited', 'Gemini') : `Gemini ${n}`));
+  const { runner, statuses } = setup(t, { gemini });
+  await runner.start('制限', 4);
+  assert.equal(runner.status.state, 'done');
+  assert.ok(!statuses.includes('paused'));
+});
+
+test('レート制限: クールダウン中の一時停止は待機を打ち切り、再開で同じターンを送る。停止も即効く', async (t) => {
+  const make = () =>
+    new FakeChat('Gemini', (_p, n) => (n === 1 ? new ChatError('rate-limited', 'Gemini') : `Gemini の発言 ${n}`));
+  {
+    const gemini = make();
+    const { runner, chats } = setup(t, { gemini, cooldownMs: 60_000 });
+    const run = runner.start('制限', 2);
+    await until(() => runner.status.cooldown !== undefined);
+    runner.pause();
+    assert.equal(runner.status.state, 'paused');
+    assert.equal(runner.status.cooldown, undefined);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(chats.gemini.prompts.length, 1, '一時停止中は送らない');
+    runner.resume();
+    await run;
+    assert.equal(runner.status.state, 'done');
+    assert.equal(chats.gemini.prompts.length, 2);
+  }
+  {
+    const gemini = make();
+    const { runner, chats } = setup(t, { gemini, cooldownMs: 60_000 });
+    const run = runner.start('制限', 2);
+    await until(() => runner.status.cooldown !== undefined);
+    runner.stop();
+    await run;
+    assert.equal(runner.status.state, 'stopped');
+    assert.equal(chats.gemini.prompts.length, 1);
+  }
 });
 
 test('pause: 実行中のターンは完了まで続き、次のターンの前で止まる。resume で続行', async (t) => {

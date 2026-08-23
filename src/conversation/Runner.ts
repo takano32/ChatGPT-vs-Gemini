@@ -28,17 +28,28 @@ interface RunnerDeps {
   chats: Record<Speaker, Chat>;
   repository: Repository;
   settings: Settings;
+  /** レート制限の待ち時間(既定 COOLDOWN_MS。テストで短くする) */
+  cooldownMs?: number;
 }
+
+// レート制限(ゲストの送信上限など)に当たったときの自動クールダウン: この時間待って同じターンを再試行し、
+// 連続 COOLDOWN_ATTEMPTS 回とも制限のままなら一時停止して利用者の「再開」を待つ。
+// 2026-08-21 実測では解除までの時間は未観察なので 60 秒は仮置き(設定には出さない)
+const COOLDOWN_MS = 60_000;
+const COOLDOWN_ATTEMPTS = 3;
 
 export class Runner extends EventEmitter {
   private readonly chats: Record<Speaker, Chat>;
   private readonly repository: Repository;
   private readonly settings: Settings;
+  private readonly cooldownMs: number;
 
   private state: RunnerState = 'idle';
   private conversation: Conversation | null = null;
   private debate: DebateConfig | null = null;
   private lastError: string | undefined;
+  private cooldown: RunnerStatus['cooldown'];
+  private rateLimitStreak = 0;
 
   // 世代トークン。stop 直後に start された場合、旧ループの残骸を無効化する
   private runId = 0;
@@ -58,6 +69,7 @@ export class Runner extends EventEmitter {
     this.chats = deps.chats;
     this.repository = deps.repository;
     this.settings = deps.settings;
+    this.cooldownMs = deps.cooldownMs ?? COOLDOWN_MS;
     // Chat 内部の自己修復(送信の再試行など)もログフィードに流す
     for (const chat of Object.values(this.chats)) {
       chat.notice = (message) => this.log('warn', message);
@@ -74,6 +86,7 @@ export class Runner extends EventEmitter {
     if (this.lastError !== undefined) {
       status.error = this.lastError;
     }
+    if (this.cooldown) status.cooldown = this.cooldown;
     return status;
   }
 
@@ -92,6 +105,8 @@ export class Runner extends EventEmitter {
     this.stopRequested = false;
     this.pauseRequested = false;
     this.lastError = undefined;
+    this.cooldown = undefined;
+    this.rateLimitStreak = 0;
     this.resumeWaiter = null;
     this.sleepWaiter = null;
 
@@ -212,10 +227,32 @@ export class Runner extends EventEmitter {
           if (this.stopRequested) return;
 
           if (err instanceof ChatError && err.code === 'rate-limited') {
+            this.rateLimitStreak += 1;
+            if (this.rateLimitStreak <= COOLDOWN_ATTEMPTS) {
+              // 自動クールダウン: 待ってから同じターンを再試行。待機中も停止・一時停止は効く(sleep を起こす)
+              const attempt = this.rateLimitStreak;
+              this.cooldown = { speaker, until: Date.now() + this.cooldownMs, attempt, max: COOLDOWN_ATTEMPTS };
+              this.emitStatus();
+              this.log(
+                'warn',
+                tm('runner.cooldown', {
+                  name: chat.displayName,
+                  seconds: Math.round(this.cooldownMs / 1000),
+                  attempt,
+                  max: COOLDOWN_ATTEMPTS,
+                }),
+              );
+              await this.sleep(this.cooldownMs);
+              this.cooldown = undefined;
+              if (this.runId !== myRun) return;
+              this.emitStatus();
+              continue; // 同一ターンを再試行(ターンは進めない)
+            }
+            this.rateLimitStreak = 0;
             this.state = 'paused';
             this.setConversationStatus('paused');
             this.emitStatus();
-            this.log('warn', tm('runner.rateLimited', { name: chat.displayName }));
+            this.log('warn', tm('runner.rateLimited', { name: chat.displayName, max: COOLDOWN_ATTEMPTS }));
             await this.waitForResume();
             continue; // 同一ターンを再試行(ターンは進めない)
           }
@@ -240,6 +277,7 @@ export class Runner extends EventEmitter {
         this.askInFlight = false;
         this.inFlightAsk = null;
         this.currentSpeaker = null;
+        this.rateLimitStreak = 0;
         if (this.runId !== myRun) return;
         if (this.stopRequested) return;
 
@@ -279,6 +317,7 @@ export class Runner extends EventEmitter {
     if (this.state !== 'running' && this.state !== 'paused') return;
     this.stopRequested = true;
     this.pauseRequested = false;
+    this.cooldown = undefined;
     const inFlightSpeaker = this.askInFlight ? this.currentSpeaker : null;
 
     this.state = 'stopped';
@@ -296,9 +335,13 @@ export class Runner extends EventEmitter {
     if (this.state !== 'running') return;
     this.pauseRequested = true;
     this.state = 'paused';
+    this.cooldown = undefined;
     this.setConversationStatus('paused');
     this.emitStatus();
     this.log('info', tm('runner.paused'));
+    // クールダウンやターン間の待機中なら起こして、ループ先頭の一時停止判定に進ませる
+    const sleep = this.sleepWaiter;
+    if (sleep) sleep();
   }
 
   resume(): void {

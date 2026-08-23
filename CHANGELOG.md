@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-23
+
+### Changed
+
+- **レート制限で止まらなくなった**: ゲストの送信上限などで相手サイトが制限中のとき、これまでは一時停止して「再開」を待っていたが、60 秒待って同じターンを自動で再試行する(管理ペインの状態が「制限待ち 60s」のカウントダウンになる)。3 回待っても解除されないときだけ一時停止する。待っている間も一時停止・停止は効く
+- **応答が時間内に来なかったとき**: これまではエラーで議論が終わっていたが、ページを読み込み直してから同じ内容を 1 回だけ送り直す(停止ボタンの固着と同じ扱い)。それでも来なければエラーで終わる
+
 ## [0.5.0] - 2026-08-23
 
 ### Added
@@ -182,7 +189,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.4.1...v0.4.2
