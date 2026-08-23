@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 import {
   SPEAKER_LABELS,
   opponentOf,
+  type DebateTemplates,
   type LogEntry,
   type MessageRecord,
   type Mode,
@@ -15,6 +16,7 @@ import {
   type RunnerStatus,
   type SettingsData,
   type Speaker,
+  type Timekeeper,
 } from '../shared/types';
 import { Conversation } from './Conversation';
 import { tm } from '../shared/i18n';
@@ -57,6 +59,8 @@ export class Runner extends EventEmitter {
   private pauseRequested = false;
 
   private currentSpeaker: Speaker | null = null;
+  // 進行状況の表示用(誰のターン・段階)。currentSpeaker は ask 中の追跡用なので分ける
+  private currentTurn: { speaker: Speaker; step: TurnStep } | null = null;
   private askInFlight = false;
   // stop 直後の再 start が Chat の単一実行ガードに衝突しないよう、前回の ask の決着を待つ
   private inFlightAsk: Promise<string> | null = null;
@@ -87,6 +91,9 @@ export class Runner extends EventEmitter {
       status.error = this.lastError;
     }
     if (this.cooldown) status.cooldown = this.cooldown;
+    if ((this.state === 'running' || this.state === 'paused') && this.currentTurn) {
+      status.progress = { speaker: this.currentTurn.speaker, phase: this.currentTurn.step.phase };
+    }
     return status;
   }
 
@@ -96,26 +103,8 @@ export class Runner extends EventEmitter {
     firstSpeakerOverride?: Speaker,
     modeOverride?: Mode,
   ): Promise<void> {
-    if (this.state === 'running' || this.state === 'paused') {
-      this.log('warn', tm('runner.alreadyRunning'));
-      return;
-    }
-
-    const myRun = ++this.runId;
-    this.stopRequested = false;
-    this.pauseRequested = false;
-    this.lastError = undefined;
-    this.cooldown = undefined;
-    this.rateLimitStreak = 0;
-    this.resumeWaiter = null;
-    this.sleepWaiter = null;
-
-    // 前回 stop した ask が未決着なら決着を待つ(Chat の busy ガード対策)
-    if (this.inFlightAsk) {
-      await this.inFlightAsk.catch(() => {});
-      this.inFlightAsk = null;
-      if (this.runId !== myRun) return;
-    }
+    const myRun = await this.beginRun();
+    if (myRun === null) return;
 
     // 設定は開始時に 1 回だけ読む(途中変更は次回から反映)。
     // maxTurns / firstSpeaker はそのラン用の上書きがあれば優先(操作バーの一時値。保存はしない)。
@@ -151,7 +140,92 @@ export class Runner extends EventEmitter {
       'info',
       tm('runner.start', { topic: topic.replace(/\s*\n\s*/g, ' / '), max: debate.maxTurns, mode: tm(`mode.${debate.mode}`) }),
     );
+    await this.run(myRun, conversation, topic, debate, tpl, timekeeper, [], 1);
+  }
 
+  /**
+   * 止まった会話(停止 / エラー)を、保存済みの発言の次のターンから同じ会話に追記して再開する。
+   * 議題・モード・上限は会話の保存値、先攻は 1 発言目の話者。両サイトは新規チャットになるが、
+   * テンプレートが渡すのは相手の直前の発言だけなので、そのまま続けられる。再開できなければ false
+   */
+  async resumeConversation(conversationId: number): Promise<boolean> {
+    const record = this.repository.listConversations().find((c) => c.id === conversationId);
+    const messages = record ? this.repository.getMessages(conversationId) : [];
+    const maxTurns = record?.maxTurns ?? this.settings.get().debate.maxTurns;
+    if (!record || (record.status !== 'stopped' && record.status !== 'error') || messages.length >= maxTurns) {
+      this.log('warn', tm('runner.cannotResume'));
+      return false;
+    }
+    const myRun = await this.beginRun();
+    if (myRun === null) return false;
+
+    const all = this.settings.get();
+    const base = all.debate;
+    const debate: DebateConfig = {
+      ...base,
+      maxTurns,
+      firstSpeaker: messages[0]?.speaker ?? base.firstSpeaker,
+      mode: record.mode ?? 'debate',
+    };
+    const tpl = base.templates[all.language][debate.mode];
+    const timekeeper = base.timekeeper[all.language];
+    this.debate = debate;
+
+    this.state = 'running';
+    const conversation = new Conversation(record);
+    for (const m of messages) conversation.addMessage(m);
+    this.conversation = conversation;
+    this.setConversationStatus('running');
+    this.emitStatus();
+    this.log(
+      'info',
+      tm('runner.resumeFrom', {
+        topic: record.title.replace(/\s*\n\s*/g, ' / '),
+        turn: messages.length + 1,
+        max: debate.maxTurns,
+        mode: tm(`mode.${debate.mode}`),
+      }),
+    );
+    await this.run(myRun, conversation, record.title, debate, tpl, timekeeper, messages.map((m) => m.content), messages.length + 1);
+    return true;
+  }
+
+  /** 実行中でなければ世代を進めて状態を初期化し、前回の ask の決着を待つ。実行中なら null */
+  private async beginRun(): Promise<number | null> {
+    if (this.state === 'running' || this.state === 'paused') {
+      this.log('warn', tm('runner.alreadyRunning'));
+      return null;
+    }
+    const myRun = ++this.runId;
+    this.stopRequested = false;
+    this.pauseRequested = false;
+    this.lastError = undefined;
+    this.cooldown = undefined;
+    this.rateLimitStreak = 0;
+    this.currentTurn = null;
+    this.resumeWaiter = null;
+    this.sleepWaiter = null;
+
+    // 前回 stop した ask が未決着なら決着を待つ(Chat の busy ガード対策)
+    if (this.inFlightAsk) {
+      await this.inFlightAsk.catch(() => {});
+      this.inFlightAsk = null;
+      if (this.runId !== myRun) return null;
+    }
+    return myRun;
+  }
+
+  // ターンの進行本体。startTurn から maxTurns まで回す(再開時は保存済みの返答を replies に入れて途中から)
+  private async run(
+    myRun: number,
+    conversation: Conversation,
+    topic: string,
+    debate: DebateConfig,
+    tpl: DebateTemplates,
+    timekeeper: Timekeeper,
+    replies: string[],
+    startTurn: number,
+  ): Promise<void> {
     // 議論ごとに両サイトで新規チャットを開き、前の議論の文脈を持ち越さない
     this.log('info', tm('runner.preparing'));
     try {
@@ -168,14 +242,16 @@ export class Runner extends EventEmitter {
     }
     if (this.runId !== myRun || this.stopRequested) return;
 
-    // 各ターンの返答(添字 = ターン番号 - 1)。まとめの 2 人目には相手の「最後の通常発言」を渡すために保持する
-    const replies: string[] = [];
+    // replies: 各ターンの返答(添字 = ターン番号 - 1)。まとめの 2 人目には相手の「最後の通常発言」を渡すために保持する
     const plan = planTurns(debate.maxTurns);
 
-    for (let turn = 1; turn <= debate.maxTurns; turn++) {
+    for (let turn = startTurn; turn <= debate.maxTurns; turn++) {
       const speaker: Speaker = turn % 2 === 1 ? debate.firstSpeaker : opponentOf(debate.firstSpeaker);
       const opponentLabel = SPEAKER_LABELS[opponentOf(speaker)];
       const step = plan[turn - 1]!;
+      // 進行状況の表示用(誰のターン・段階)。ターンが決まった時点で出す
+      this.currentTurn = { speaker, step };
+      this.emitStatus();
       // 1: 開始(先攻)/ 2: 反論(後攻)/ 奇数: 先攻の中継 / 偶数: 後攻の中継 / 最後の 2 ターン: まとめ
       const template =
         step.kind === 'closing'
@@ -307,6 +383,7 @@ export class Runner extends EventEmitter {
     }
 
     if (this.runId !== myRun || this.stopRequested) return;
+    this.currentTurn = null;
     this.state = 'done';
     this.setConversationStatus('done');
     this.emitStatus();
@@ -318,6 +395,7 @@ export class Runner extends EventEmitter {
     this.stopRequested = true;
     this.pauseRequested = false;
     this.cooldown = undefined;
+    this.currentTurn = null;
     const inFlightSpeaker = this.askInFlight ? this.currentSpeaker : null;
 
     this.state = 'stopped';

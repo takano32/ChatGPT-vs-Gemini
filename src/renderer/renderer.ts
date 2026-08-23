@@ -7,6 +7,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
 import type {
   ChatStatus,
   ChatStatusMap,
+  ConversationRecord,
   DebateTemplates,
   Lang,
   LogEntry,
@@ -133,6 +134,9 @@ import type {
   const btnHistoryBack = must<HTMLButtonElement>('btn-history-back');
   const historyTitleInput = must<HTMLInputElement>('history-title-input');
   const btnHistoryCopy = must<HTMLButtonElement>('btn-history-copy');
+  const btnHistoryResume = must<HTMLButtonElement>('btn-history-resume');
+  const btnHistoryRematch = must<HTMLButtonElement>('btn-history-rematch');
+  const progressEl = must<HTMLElement>('progress');
   const historyUndo = must<HTMLElement>('history-undo');
   const historyUndoText = must<HTMLElement>('history-undo-text');
   const btnHistoryUndo = must<HTMLButtonElement>('btn-history-undo');
@@ -243,9 +247,19 @@ import type {
     if (cooldownTimer === null) cooldownTimer = window.setInterval(updateCooldownLabel, 1000);
   }
 
+  // 進行状況: 「ChatGPT のターン・中盤」のように、誰の番でどの段階かを TURN の左に出す
+  function updateProgress(): void {
+    progressEl.textContent = '';
+    const p = runner.progress;
+    if (!p) return;
+    progressEl.textContent = `${t('progress.turn', { name: SPEAKER_LABELS[p.speaker] })} ・ ${t(`progress.${p.phase}`)}`;
+    progressEl.className = `progress progress-${p.speaker}`;
+  }
+
   function updateRunnerUi(): void {
     ledRunner.className = `led st-${runner.state}`;
     updateCooldownLabel();
+    updateProgress();
     turnNow.textContent = String(runner.turn);
     const max = runner.maxTurns > 0 ? runner.maxTurns : defaultMaxTurns;
     turnMax.textContent = max > 0 ? String(max) : '–';
@@ -662,19 +676,35 @@ import type {
     return (runner.state === 'running' || runner.state === 'paused') && runner.conversationId === id;
   }
 
+  // 詳細で開いている会話の記録と発言(再戦・続きからの材料)
+  let openRecord: ConversationRecord | null = null;
+  let openMessages: MessageRecord[] = [];
+
   /** 会話の詳細。focusMessageId があればその発言までスクロールして一時ハイライト(検索からのジャンプ) */
   async function openConversation(id: number, title: string, focusMessageId?: number): Promise<void> {
     openConversationId = id;
+    openRecord = null;
+    openMessages = [];
     historyList.classList.add('hidden');
     historyDetail.classList.remove('hidden');
     endRename(false);
     btnHistoryDelete.disabled = isInProgress(id);
+    btnHistoryResume.classList.add('hidden');
+    btnHistoryRematch.disabled = true;
     historyTitle.textContent = title;
     historyMessages.textContent = '';
     historyMessages.appendChild(el('div', 'drawer-empty', t('history.loading')));
     try {
-      const msgs = await api.getMessages(id);
+      const [msgs, convs] = await Promise.all([api.getMessages(id), api.listConversations()]);
       if (openConversationId !== id) return; // 読込中に別の会話を開いた
+      openRecord = convs.find((c) => c.id === id) ?? null;
+      openMessages = msgs;
+      btnHistoryRematch.disabled = openRecord === null;
+      // 「続きから」は止まった会話(停止 / エラー)で、上限に達していないものだけ
+      const max = openRecord?.maxTurns ?? 0;
+      const resumable =
+        openRecord !== null && (openRecord.status === 'stopped' || openRecord.status === 'error') && msgs.length < max;
+      btnHistoryResume.classList.toggle('hidden', !resumable);
       historyMessages.textContent = '';
       if (msgs.length === 0) {
         historyMessages.appendChild(el('div', 'drawer-empty', t('history.noMessages')));
@@ -780,6 +810,27 @@ import type {
   btnHistoryDelete.addEventListener('click', () => {
     if (openConversationId === null) return;
     void deleteConversation(openConversationId, historyTitle.textContent ?? '', () => loadHistory());
+  });
+  // 再戦: 同じ議題・モード・ターン数を操作バーに入れ、先後を入れ替えて(1 発言目の話者の逆)新しい議論を始める
+  btnHistoryRematch.addEventListener('click', () => {
+    const rec = openRecord;
+    if (!rec) return;
+    topicInput.value = rec.title;
+    ctlMode.value = rec.mode ?? 'debate';
+    if (rec.maxTurns) setNextRunTurns(rec.maxTurns);
+    const first = openMessages[0]?.speaker;
+    if (first) ctlFirstSpeaker.value = first === 'chatgpt' ? 'gemini' : 'chatgpt';
+    closeDrawer();
+    btnStart.click();
+  });
+  // 続きから: 止まった会話を保存済みの発言の次のターンから、同じ会話に追記して再開する
+  btnHistoryResume.addEventListener('click', () => {
+    if (openConversationId === null) return;
+    const id = openConversationId;
+    closeDrawer();
+    void api.resumeConversation(id).then((ok) => {
+      if (!ok) localLog('warn', t('history.resumeFailed'));
+    });
   });
   btnHistoryCopy.addEventListener('click', () => {
     if (openConversationId === null) return;

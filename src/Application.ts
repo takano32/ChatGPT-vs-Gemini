@@ -157,6 +157,9 @@ export class Application {
     ipcMain.handle(IPC.runnerStop, () => this.runner.stop());
     ipcMain.handle(IPC.runnerPause, () => this.runner.pause());
     ipcMain.handle(IPC.runnerResume, () => this.runner.resume());
+    ipcMain.handle(IPC.runnerResumeConversation, (_e, conversationId: number) =>
+      this.runner.resumeConversation(Number(conversationId))
+    );
 
     ipcMain.handle(IPC.settingsGet, () => this.manager.settings.get());
     this.manager.settings.on('change', (settings: SettingsData) => {

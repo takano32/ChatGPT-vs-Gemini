@@ -23,6 +23,7 @@ export const IPC = {
   runnerStop: 'runner:stop',
   runnerPause: 'runner:pause',
   runnerResume: 'runner:resume',
+  runnerResumeConversation: 'runner:resume-conversation', // 止まった会話を続きから
   // 管理ペイン下端のつまみでペイン比をドラッグ(renderer -> main: send)。
   // 終了はチャットペインの preload(chat-preload.js)からも届く(ポインタをチャット側で離したとき)
   layoutDragStart: 'layout:drag-start',
@@ -62,6 +63,8 @@ export interface RendererApi {
   stopDebate(): Promise<void>;
   pauseDebate(): Promise<void>;
   resumeDebate(): Promise<void>;
+  /** 止まった会話(停止 / エラー)を保存済みの発言の次のターンから再開。再開できなければ false */
+  resumeConversation(conversationId: number): Promise<boolean>;
 
   getSettings(): Promise<SettingsData>;
   setSettings(settings: SettingsData): Promise<void>;

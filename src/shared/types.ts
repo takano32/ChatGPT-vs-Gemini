@@ -81,6 +81,8 @@ export interface RunnerStatus {
   error?: string;
   // レート制限の自動クールダウン中(until は epoch ms。待ち終えると同じターンを再試行する)
   cooldown?: { speaker: Speaker; until: number; attempt: number; max: number };
+  // 実行中・一時停止中: いま誰のターンで、進行役のどの段階か(序盤 / 中盤 / 終盤 / まとめ)
+  progress?: { speaker: Speaker; phase: 'early' | 'middle' | 'late' | 'closing' };
 }
 
 export interface LogEntry {

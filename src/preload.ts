@@ -24,6 +24,7 @@ const api: RendererApi = {
   stopDebate: () => ipcRenderer.invoke(IPC.runnerStop),
   pauseDebate: () => ipcRenderer.invoke(IPC.runnerPause),
   resumeDebate: () => ipcRenderer.invoke(IPC.runnerResume),
+  resumeConversation: (conversationId) => ipcRenderer.invoke(IPC.runnerResumeConversation, conversationId),
 
   getSettings: () => ipcRenderer.invoke(IPC.settingsGet),
   setSettings: (settings) => ipcRenderer.invoke(IPC.settingsSet, settings),

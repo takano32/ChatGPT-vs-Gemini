@@ -14,6 +14,14 @@ const STRINGS: Table = {
   'runner.alreadyRunning': { ja: '議論は既に実行中です', en: 'A debate is already running' },
   'runner.createFailed': { ja: '会話の作成に失敗しました: {error}', en: 'Failed to create the conversation: {error}' },
   'runner.start': { ja: '議論を開始します: 「{topic}」({mode}、最大 {max} ターン)', en: 'Starting the debate: "{topic}" ({mode}, up to {max} turns)' },
+  'runner.resumeFrom': {
+    ja: '議論を続きから再開します: 「{topic}」({mode}、{turn} ターン目から、最大 {max} ターン)',
+    en: 'Resuming the debate: "{topic}" ({mode}, from turn {turn}, up to {max} turns)',
+  },
+  'runner.cannotResume': {
+    ja: '続きから再開できません(停止またはエラーで止まった、上限に達していない会話だけ再開できます)',
+    en: 'Cannot resume (only a conversation that stopped or errored before reaching its turn limit can be resumed)',
+  },
   'runner.preparing': { ja: '新しいチャットを準備しています(ChatGPT / Gemini)', en: 'Opening new chats (ChatGPT / Gemini)' },
   'runner.prepareFailed': { ja: '新規チャットの準備に失敗しました: {error}', en: 'Failed to open new chats: {error}' },
   'runner.send': { ja: '送信 → {name}', en: 'Sending → {name}' },

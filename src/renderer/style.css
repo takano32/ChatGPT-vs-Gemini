@@ -141,6 +141,10 @@ button { font-family: var(--mono); }
   user-select: none;
 }
 .turns-label { color: var(--faint); font-size: 10px; letter-spacing: 0.14em; }
+.progress { color: var(--dim); font-size: 10px; margin-right: 8px; }
+.progress:empty { display: none; }
+.progress-chatgpt { color: var(--gpt); }
+.progress-gemini { color: var(--gem, var(--blue)); }
 .turns-sep { color: var(--faint); }
 #turn-now { color: var(--amber); min-width: 2ch; text-align: right; }
 #turn-max { color: var(--dim); }

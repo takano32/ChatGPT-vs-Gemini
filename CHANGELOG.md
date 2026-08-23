@@ -5,6 +5,14 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-24
+
+### Added
+
+- **進行状況の表示**: ヘッダの TURN の左に「ChatGPT のターン ・ 中盤」のように、いま誰のターンで進行役のどの段階(序盤 / 中盤 / 終盤 / まとめ)かを出す
+- **もう一度(再戦)**: 履歴の詳細から、同じ議題・モード・ターン数で先後を入れ替えて新しい議論を始める(先攻は元の会話の 1 発言目の話者の逆)
+- **続きから(途中再開)**: 停止・エラーで止まった会話(上限に達していないもの)を、保存済みの発言の次のターンから同じ会話に追記して再開する。議題・モード・上限は会話の保存値、先攻は 1 発言目の話者。両サイトは新規チャットになるが、渡すのは相手の直前の発言だけなのでそのまま続く
+
 ## [0.6.6] - 2026-08-24
 
 ### Fixed
@@ -254,7 +262,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.6...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.6...v0.7.0
 [0.6.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.3...v0.6.4

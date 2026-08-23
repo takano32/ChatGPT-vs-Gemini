@@ -297,6 +297,63 @@ test('レート制限: クールダウン中の一時停止は待機を打ち切
   }
 });
 
+test('進行状況: 実行中は status.progress に話者と段階が入り、完了で消える', async (t) => {
+  const { runner } = setup(t);
+  const seen = [];
+  runner.on('status', (s) => {
+    if (s.progress) seen.push(`${s.progress.speaker}:${s.progress.phase}`);
+  });
+  await runner.start('進行', 6, 'gemini');
+  assert.equal(runner.status.progress, undefined, '完了後は出ない');
+  const uniq = [...new Set(seen)];
+  // 6 ターン = 通常 4(序盤 1 / 中盤 1 / 終盤 2)+ まとめ 2
+  assert.deepEqual(uniq, ['gemini:early', 'chatgpt:middle', 'gemini:late', 'chatgpt:late', 'gemini:closing', 'chatgpt:closing']);
+});
+
+test('続きから再開: 停止した会話を次のターンから同じ会話に追記し、先攻は 1 発言目の話者、上限と議題は保存値', async (t) => {
+  const chatgpt = new FakeChat('ChatGPT', (_p, n) => `ChatGPT の発言 ${n}`);
+  const gemini = new FakeChat('Gemini', (_p, n) => `Gemini の発言 ${n}`);
+  const { runner, repository, chats } = setup(t, { chatgpt, gemini, debate: { maxTurns: 3, firstSpeaker: 'chatgpt' } });
+  // 先攻 Gemini・5 ターンの議論を 2 ターンで止める
+  gemini.hold = true;
+  const run = runner.start('再開', 5, 'gemini');
+  await until(() => gemini.pending !== null);
+  gemini.pending.resolve();
+  // 2 ターン目(ChatGPT、保留なし)は即座に進み、3 ターン目(Gemini)で再び保留になる
+  await until(() => runner.status.turn === 2 && gemini.pending !== null);
+  runner.stop();
+  await run;
+  const conv = repository.listConversations()[0];
+  assert.equal(conv.status, 'stopped');
+  assert.equal(repository.getMessages(conv.id).length, 2);
+
+  gemini.hold = false;
+  const ok = await runner.resumeConversation(conv.id);
+  assert.equal(ok, true);
+  assert.equal(runner.status.state, 'done');
+  const msgs = repository.getMessages(conv.id);
+  assert.equal(msgs.length, 5, '同じ会話に 3 ターン追記されて上限 5 で完了');
+  assert.deepEqual(msgs.map((m) => m.speaker), ['gemini', 'chatgpt', 'gemini', 'chatgpt', 'gemini'], '先攻は 1 発言目の話者(設定の chatgpt ではない)');
+  assert.equal(repository.listConversations().length, 1, '新しい会話は作らない');
+  assert.equal(repository.listConversations()[0].status, 'done');
+  // 再開後の最初のプロンプト(3 ターン目)は先攻の中継テンプレートで、相手(ChatGPT)の直前の発言を渡す
+  // (prompts[0] = 1 ターン目、[1] = 停止で捨てた 3 ターン目、[2] = 再開後の 3 ターン目)
+  assert.equal(gemini.prompts.length, 4);
+  const third = gemini.prompts[2];
+  assert.ok(third.includes('ChatGPT の発言 1'), `3 ターン目に相手の直前の発言を渡す: ${third.slice(0, 80)}`);
+  assert.ok(third.split('\n\n')[0].includes('3/5'), '進行役の行は 3 ターン目');
+  assert.equal(chats.chatgpt.newChatCalls, 2, '再開時も新規チャットを開く');
+});
+
+test('続きから再開: 完了済み・上限到達・無い id は false で何もしない', async (t) => {
+  const { runner, repository } = setup(t);
+  await runner.start('完了', 2);
+  const done = repository.listConversations()[0];
+  assert.equal(await runner.resumeConversation(done.id), false, '完了済み');
+  assert.equal(await runner.resumeConversation(99999), false, '無い id');
+  assert.equal(repository.getMessages(done.id).length, 2);
+});
+
 test('pause: 実行中のターンは完了まで続き、次のターンの前で止まる。resume で続行', async (t) => {
   const chatgpt = new FakeChat('ChatGPT', (_p, n) => `ChatGPT の発言 ${n}`);
   chatgpt.hold = true;
