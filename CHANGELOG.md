@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-08-23
+
 ### Changed
 
 - 経過の Markdown 書き出しから発言の間の区切り線(`---`)をなくした(話者の見出しで境目が分かるため)
@@ -103,7 +105,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.1...v0.2.2
