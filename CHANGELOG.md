@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- ChatGPT が長めの回答を文書風の「writing block」で表示したとき、本文の先頭に「Edit」(ヘッダのボタン文言)が混ざり、本文が二重に保存されていた
+
 ### Changed
 
 - テーマ欄の Enter は改行になり、議論の開始は Ctrl+Enter(mac は ⌘+Enter)または「開始」ボタンになった(Enter だけで始まらないように)

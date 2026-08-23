@@ -905,7 +905,9 @@ export abstract class Chat {
         const contentSel = ${JSON.stringify(s.messageContent ?? '')};
         const textOf = (el) => {
           if (!contentSel) return (el.innerText || '').trim();
-          return [...el.querySelectorAll(contentSel)].map((c) => (c.innerText || '').trim()).filter(Boolean).join('\\n\\n');
+          const all = [...el.querySelectorAll(contentSel)];
+          const leaves = all.filter((c) => !all.some((o) => o !== c && c.contains(o)));
+          return leaves.map((c) => (c.innerText || '').trim()).filter(Boolean).join('\\n\\n');
         };
         const lastText = last ? textOf(last) : '';
         const lastWhole = last ? ((last.innerText || '').trim()) : '';

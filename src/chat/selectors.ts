@@ -47,7 +47,10 @@ export const CHATGPT_SELECTORS: SiteSelectors = {
   sendButton: 'button[data-testid="send-button"], button[aria-label="Send message"]',
   stopButton: 'button[data-testid="stop-button"], button[aria-label="Stop generating"]',
   assistantMessages: '[data-message-author-role="assistant"], li[data-message-role="assistant"]',
-  messageContent: '.markdown, [data-assistant-markdown]', // 変種の li は読み上げ用「ChatGPT said:」を含むため本文だけ取る
+  // 変種の li は読み上げ用「ChatGPT said:」を含むため本文だけ取る。
+  // 2026-08-23 実測: 長めの回答は「writing block」(文書風の編集可能表示)で描かれ、.markdown の中に
+  // ヘッダ(Edit ボタン)と本文の .markdown.ProseMirror が入れ子になる。Chat.ts は入れ子の最内側だけを本文にする
+  messageContent: '.markdown, [data-assistant-markdown]',
   dismissPatterns: ['Stay logged out', 'ログアウトしたまま', 'ログインせずに'],
   // 実測(2026-08-21): 一時的に出るトースト「You'll get smarter responses…」だけを隠す。
   // サイドバーのカード「Get responses tailored to you」とヘッダーの「Log in」「Sign up for free」は残す
