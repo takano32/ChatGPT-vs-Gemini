@@ -5,7 +5,7 @@
 // Electron や DB に触らないので、node:test から dist/conversation/markdown.js を読み込んでそのまま検査できる
 // (test/markdown.test.mjs)。クリップボードへ書くのは呼び出し側(Application)の仕事。
 //
-// 出力の形(話者行を見出しにし、本文はそのまま段落で置き、水平線で区切る):
+// 出力の形(話者行を見出しにし、本文はそのまま段落で置き、発言の間を水平線で区切る。最後の発言の後には付けない):
 //
 //   # 議論のタイトル
 //
@@ -49,12 +49,14 @@ export function transcriptToMarkdown(title: string, messages: MessageRecord[], m
     parts.push('');
   }
   messages.forEach((m, i) => {
+    if (i > 0) {
+      parts.push('---');
+      parts.push('');
+    }
     parts.push(`### ${SPEAKER_EMOJI[m.speaker]} ${SPEAKER_LABELS[m.speaker]} (${i + 1}/${maxTurns})`);
     parts.push('');
-    // 本文はそのまま置く。末尾の改行だけ落として、区切り線との間が空行 1 つになるようにする
+    // 本文はそのまま置く。末尾の改行だけ落として、次の要素との間が空行 1 つになるようにする
     parts.push(m.content.replace(/\n+$/, ''));
-    parts.push('');
-    parts.push('---');
     parts.push('');
   });
   return parts.join('\n');

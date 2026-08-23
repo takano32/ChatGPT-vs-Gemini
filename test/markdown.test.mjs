@@ -13,7 +13,7 @@ function message(speaker, content, id = 1) {
   return { id, conversationId: 100, speaker, content, createdAt: '2026-08-21T00:00:00.000Z' };
 }
 
-test('1 件: 見出し・話者見出し・本文・区切り線の形が gist 形式になる', () => {
+test('1 件: 見出し・話者見出し・本文の形が gist 形式になる(区切り線は発言の間だけ)', () => {
   const md = transcriptToMarkdown('猫と犬はどちらが賢いか', [message('chatgpt', '猫派です。')], 4);
   assert.equal(
     md,
@@ -24,11 +24,9 @@ test('1 件: 見出し・話者見出し・本文・区切り線の形が gist �
       '',
       '猫派です。',
       '',
-      '---',
-      '',
     ].join('\n'),
   );
-  assert.ok(md.endsWith('---\n'), '末尾は区切り線と改行 1 つで終わる');
+  assert.ok(md.endsWith('猫派です。\n') && !md.includes('---'), '最後の発言の後に区切り線は付けない');
   assert.ok(!md.includes('2026-08-21'), '日時や id は出力に含めない');
 });
 
@@ -59,8 +57,6 @@ test('複数件: 発言順に並び、話者ごとの絵文字とラベルが付
       '',
       '再反論',
       '',
-      '---',
-      '',
     ].join('\n'),
   );
 });
@@ -80,14 +76,12 @@ test('本文の改行・空行・"> ": 本文はそのまま置き(引用にし�
       '> 相手の言葉の引用',
       '最後の行',
       '',
-      '---',
-      '',
     ].join('\n'),
   );
 
   // 本文が改行で終わっても区切り線との間は空行 1 つ(gist で本文が薄い引用にならないよう、"> " は付けない)
   const trailing = transcriptToMarkdown('末尾改行', [message('chatgpt', '本文\n\n')], 1);
-  assert.ok(trailing.includes('\n\n本文\n\n---\n'), trailing);
+  assert.ok(trailing.endsWith('\n\n本文\n'), trailing);
   assert.ok(!trailing.includes('> '), '引用ブロックは使わない');
 });
 
@@ -103,8 +97,6 @@ test('複数行のタイトル: 1 行目を見出しに、残りは段落とし�
       '### 🟢 ChatGPT (1/1)',
       '',
       '持てません。',
-      '',
-      '---',
       '',
     ].join('\n'),
   );
