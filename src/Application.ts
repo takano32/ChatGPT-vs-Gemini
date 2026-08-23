@@ -7,7 +7,7 @@ import { app, clipboard, dialog, ipcMain } from 'electron';
 import * as path from 'node:path';
 import { Manager } from './manager/Manager';
 import { setMainLang, tm } from './shared/i18n';
-import { FileLog } from './shared/FileLog';
+import { FileLog } from './FileLog';
 import { Repository } from './conversation/Repository';
 import { Runner } from './conversation/Runner';
 import { transcriptToMarkdown } from './conversation/markdown';

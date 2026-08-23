@@ -3,10 +3,23 @@
   "compilerOptions": {
     "module": "node16",
     "moduleResolution": "node16",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "tsBuildInfoFile": "dist/.tsbuildinfo/main"
   },
-  "include": ["src/**/*"],
-  "exclude": ["src/renderer"]
+  "references": [
+    {
+      "path": "./tsconfig.shared.json"
+    }
+  ],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "src/renderer",
+    "src/shared"
+  ]
 }

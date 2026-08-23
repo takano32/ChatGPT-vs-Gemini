@@ -24,8 +24,8 @@
   },
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node scripts/copy-assets.mjs",
-    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "build": "tsc -b && node scripts/copy-assets.mjs",
+    "typecheck": "tsc -b",
     "start": "npm run build && electron .",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",

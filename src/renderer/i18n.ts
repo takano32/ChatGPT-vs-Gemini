@@ -2,11 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 // 管理ペイン・経過表示の画面文言(日本語 / 英語の 2 言語だけ。他の言語は対応しない。2026-08-23 利用者の決定)。
-// renderer のビルドは src/shared を import できないので、main 側の文言表(src/shared/i18n.ts)とは別に持つ。
+// main 側の文言表(src/shared/i18n.ts)とは別に持つ(main と renderer で文言の用途が違うため)。
 // 静的な文言は HTML の data-i18n / data-i18n-title / data-i18n-placeholder / data-i18n-aria 属性にキーを書き、
 // applyI18n() で差し替える。動的な文言は t(key, vars) で取る。
 
-export type Lang = 'ja' | 'en';
+import type { Lang } from '../shared/types';
+export type { Lang };
 
 type Table = Record<string, { ja: string; en: string }>;
 

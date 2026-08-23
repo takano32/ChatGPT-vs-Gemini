@@ -4,6 +4,18 @@
 // 管理ペイン UI。フレームワークなし(型は api.d.ts の ambient 宣言)。画面文言は ./i18n.ts(日本語 / 英語)。
 // メッセージ本文・検索スニペットは信頼できない文字列のため textContent のみで描画する。
 import { applyI18n, currentLang, setLang, t } from './i18n.js';
+import type {
+  ChatStatus,
+  ChatStatusMap,
+  DebateTemplates,
+  Lang,
+  LogEntry,
+  MessageRecord,
+  Mode,
+  RunnerStatus,
+  SettingsData,
+  Speaker,
+} from '../shared/types';
 (() => {
   const api = window.api;
 

@@ -29,6 +29,7 @@ backBtn.addEventListener('click', () => {
   void window.api.toggleTranscript();
 });
 import { applyI18n, setLang, t } from './i18n.js';
+import type { MessageRecord, Speaker, TranscriptPayload } from '../shared/types';
 
 let lastConversationId: number | null = null;
 let lastPayload: TranscriptPayload | null = null;

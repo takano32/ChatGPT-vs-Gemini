@@ -96,6 +96,7 @@ src/
 ├── Application.ts        # Composition Root(IPC 登録・イベント転送)
 ├── chat-preload.js       # チャットペイン用 preload(操作ロック。素の JS で tsc を通さない)
 ├── preload.ts            # 管理ペイン / 経過表示用 preload
+├── FileLog.ts            # 管理ペインのログを logs/main.log にも残す
 ├── manager/              # アプリケーションインフラ
 │   ├── Manager.ts
 │   ├── Window.ts         # BaseWindow 管理
@@ -110,17 +111,18 @@ src/
 │   ├── selectors.ts      # サイト別セレクタ(要調整箇所はここに集約)
 │   ├── ChatGPT.ts
 │   └── Gemini.ts
-├── shared/               # main/preload 共有の型と IPC 定義
+├── shared/               # main / preload / renderer 共有の型・IPC 定義・モード・main 側文言(Node 非依存。tsconfig.shared.json の composite プロジェクト)
 └── renderer/
     ├── index.html / style.css / renderer.ts          # 管理ペイン
     ├── transcript.html / transcript.css / transcript.ts  # 経過表示
-    └── api.d.ts          # shared/types のミラー(renderer ビルド用)
+    └── api.d.ts          # window.api の宣言(型は shared/ipc.ts を参照)
 scripts/
 ├── copy-assets.mjs       # HTML/CSS・chat-preload.js・アイコンを dist/ へコピー
 ├── check-page-scripts.mjs # ページ側スクリプトの構文検査(npm test)
 └── smoke.mjs             # パッケージ済みアプリの認証なし起動テスト(CI 用)
 test/                     # 自動テスト(node:test。dist/ を対象にするのでビルド後に npm test)
 ├── repository.test.mjs   # Repository(SQLite / FTS5 / マイグレーション)
+├── runner.test.mjs       # Runner(ターン進行・モード・進行役・レート制限)
 ├── settings.test.mjs     # settings.json の正規化
 └── markdown.test.mjs     # 経過の Markdown 書き出し
 .github/workflows/

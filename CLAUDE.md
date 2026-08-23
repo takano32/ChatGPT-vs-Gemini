@@ -5,8 +5,7 @@ ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron
 ## 開発コマンド
 
 - 非対話シェルでは先に `source /usr/share/nvm/init-nvm.sh`(開発機の Node は nvm 経由。`engines` は >=22.12)
-- `npm run typecheck` — main / renderer の 2 プロジェクトを `tsc --noEmit`
-- `npm run build` — tsc + `scripts/copy-assets.mjs`(HTML/CSS・chat-preload.js・アイコンを dist/ へ)
+- `npm run typecheck` / `npm run build` — `tsc -b`(shared → main / renderer の 3 プロジェクト。buildinfo は `dist/.tsbuildinfo/`)。build はさらに `scripts/copy-assets.mjs`(HTML/CSS・chat-preload.js・アイコンを dist/ へ)。おかしくなったら `rm -rf dist` でやり直す
 - `npm test` — `scripts/check-page-scripts.mjs`(ページ側スクリプトの構文検査)に加え、`test/*.test.mjs`(node:test、依存なし)があればそれも。どちらも dist/ を読むので build の後に走らせる
 - `npm start` — build して起動。`npm run pack` — release/*-unpacked/ だけ。`npm run dist` — 実行中 OS の配布物
 - 空の userData で起動(Linux): `XDG_CONFIG_HOME=/tmp/cvg-probe npx electron . --remote-debugging-port=9666`。ゲスト状態の再現と CDP 調査に使う(手順は docs/selectors.md §5)
@@ -28,7 +27,7 @@ ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron
 - DOM 知識は `src/chat/` に閉じる。セレクタと文言パターンは `src/chat/selectors.ts` だけに書き、`Chat.ts` はサイト非依存のアルゴリズムに保つ
 - モードとその既定テンプレート・進行役の文は `src/shared/modes.ts`。Runner の進行(ターンの種類と段階)は `planTurns()`(Runner.ts)
 - SQL は `src/conversation/Repository.ts` だけ。既存 DB の変更(列追加など)は `MIGRATIONS` に冪等な関数を追記し、`SCHEMA_SQL` も最終形に更新する(`PRAGMA user_version` で未適用分だけ当たる)
-- `src/shared/types.ts` と `src/renderer/api.d.ts` はミラー。片方を変えたら必ず両方直す(renderer ビルドは shared を import できない)
+- `src/shared/` は main / preload / renderer の共有(TypeScript Project References: `tsconfig.shared.json` が composite、main と renderer が参照)。renderer からは `import type` だけで使う(実行時の import は増やさない)。`src/shared` に Node 依存のコードを置かない(`node:fs` 等は `src/` 直下か `manager/` へ)。`src/renderer/api.d.ts` は `window.api` の宣言だけ
 - 画面文言は日本語と英語の 2 言語だけ(他の言語は対応しない)。renderer 側の文言は `src/renderer/i18n.ts`(静的文言は HTML の `data-i18n*` 属性、動的文言は `t()`)、main 側(ログ・通知・エラー)は `src/shared/i18n.ts` の `tm()`。新しい文言を足したら両言語を書く
 - main プロセスに DOM 型は無い。ページ操作は `executeJavaScript` に渡す自己完結の IIFE 文字列で、値は `JSON.stringify` で埋め込む
 - ページ側スクリプト(`Chat.ts` のテンプレートリテラル)の落とし穴: 中の `'\n'` は TS が実改行に展開して無言で壊れるので必ず `'\\n'`。テンプレート内にエスケープや改行を含むコメントを書かない。`js()` は例外を握りつぶすため症状は「送信喪失 → 再送 → ERROR」に化ける。触ったら `npm run build && npm test`

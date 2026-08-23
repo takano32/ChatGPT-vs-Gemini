@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-08-24
+
+### Changed
+
+- 内部構成: `src/shared` を TypeScript の Project References で main / renderer から共有するようにし、`src/renderer/api.d.ts` の手動ミラーを廃止(動作の変更なし)
+
 ## [0.6.3] - 2026-08-24
 
 ### Added
@@ -236,7 +242,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.0...v0.6.1

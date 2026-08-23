@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { LogEntry } from './types';
+import type { LogEntry } from './shared/types';
 
 const MAX_BYTES = 1024 * 1024;
 
