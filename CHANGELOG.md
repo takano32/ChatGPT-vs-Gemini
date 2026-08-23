@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-23
+
 ### Fixed
 
 - ChatGPT が長めの回答を文書風の「writing block」で表示したとき、本文の先頭に「Edit」(ヘッダのボタン文言)が混ざり、本文が二重に保存されていた
@@ -97,7 +99,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.0...v0.2.1
