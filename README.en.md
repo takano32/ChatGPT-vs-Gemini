@@ -5,7 +5,7 @@
 A desktop app that shows ChatGPT and Gemini side by side, as their regular web pages, and lets the two AIs debate each other.
 
 - Electron + TypeScript (no bundler, just tsc)
-- Layout: a control pane on the top half, ChatGPT / Gemini on the bottom half (50% / 50%). The ratio and the chat-pane zoom (default 75%) are configurable
+- Layout: a control pane on the top half, ChatGPT / Gemini on the bottom half (50% / 50%). Drag the bottom edge of the control pane to change the vertical ratio (for the current session; the default is a setting). The chat-pane zoom (default 75%) is configurable too
 - Transcripts are stored in SQLite, with full-text search (FTS5 trigram, works for Japanese)
 - No API: the free web UIs are driven by DOM manipulation
 

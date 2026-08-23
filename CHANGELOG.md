@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-23
+
+### Added
+
+- 管理ペインの下端をドラッグして、管理ペインとチャットペイン(経過表示)の比率を変えられるようにした。起動中だけ有効で保存はしない(次回起動時は設定値に戻る)([#6](https://github.com/takano32/ChatGPT-vs-Gemini/issues/6))
+
+### Changed
+
+- 管理ペインは最小 120px を確保し、比率の設定が小さくても操作バーが隠れないようにした
+
 ## [0.2.8] - 2026-08-23
 
 ### Changed
@@ -127,7 +137,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.2.5...v0.2.6

@@ -49,6 +49,22 @@
     e.stopImmediatePropagation();
     if (e.cancelable) e.preventDefault();
   };
+  // 管理ペインの下端をつかんでペイン比をドラッグ中、ポインタがこのチャットペインの上で離されることがある。
+  // その終了を main に伝える(チャンネル名は src/shared/ipc.ts の layoutDragEnd と同じ文字列)。
+  // 下の block より先に登録しておき、ロック中の stopImmediatePropagation に先回りする
+  // ドラッグ中(main から layout:ev-drag-active true)は pointermove の clientY も送る(layout:drag-move)。
+  // Wayland では main がポインタ位置を取れないため、ペイン側から渡す必要がある
+  try {
+    const { ipcRenderer } = require('electron');
+    window.addEventListener('pointerup', () => ipcRenderer.send('layout:drag-end'), true);
+    const onMove = (e) => ipcRenderer.send('layout:drag-move', e.clientY);
+    ipcRenderer.on('layout:ev-drag-active', (_e, active) => {
+      if (active) window.addEventListener('pointermove', onMove, true);
+      else window.removeEventListener('pointermove', onMove, true);
+    });
+  } catch {
+    // preload の環境が変わって require できなければ、管理ペイン側の pointerup だけが終了の合図になる
+  }
   // wheel / scroll は遮断しない(スクロールは常に許可)
   const types = [
     'mousedown', 'mouseup', 'click', 'dblclick', 'auxclick', 'contextmenu',

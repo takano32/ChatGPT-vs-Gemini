@@ -22,6 +22,14 @@ export const IPC = {
   runnerStop: 'runner:stop',
   runnerPause: 'runner:pause',
   runnerResume: 'runner:resume',
+  // 管理ペイン下端のつまみでペイン比をドラッグ(renderer -> main: send)。
+  // 終了はチャットペインの preload(chat-preload.js)からも届く(ポインタをチャット側で離したとき)
+  layoutDragStart: 'layout:drag-start',
+  layoutDragEnd: 'layout:drag-end',
+  // ドラッグ中だけ各ペインが pointermove の clientY を main に送る(main -> 各ペイン: active の on/off)。
+  // Wayland では screen.getCursorScreenPoint() が使えないため、ポインタ位置はペイン側から受け取る
+  layoutDragMove: 'layout:drag-move',
+  evLayoutDragActive: 'layout:ev-drag-active',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
   search: 'repository:search',
@@ -51,6 +59,13 @@ export interface RendererApi {
 
   getSettings(): Promise<SettingsData>;
   setSettings(settings: SettingsData): Promise<void>;
+  /** 管理ペインとチャットペインの境界ドラッグの開始 / 終了(main がポインタ位置を追って比率を変える) */
+  beginPaneDrag(): void;
+  endPaneDrag(): void;
+  /** ドラッグ中のポインタ縦位置(このペインの clientY)を main に送る */
+  reportPaneDragY(clientY: number): void;
+  /** main からの「ドラッグ中かどうか」。true の間だけ pointermove を報告する */
+  onPaneDragActive(cb: (active: boolean) => void): () => void;
 
   search(query: string): Promise<SearchHit[]>;
   listConversations(): Promise<ConversationRecord[]>;

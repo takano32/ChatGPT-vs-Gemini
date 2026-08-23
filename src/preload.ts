@@ -26,6 +26,10 @@ const api: RendererApi = {
 
   getSettings: () => ipcRenderer.invoke(IPC.settingsGet),
   setSettings: (settings) => ipcRenderer.invoke(IPC.settingsSet, settings),
+  beginPaneDrag: () => ipcRenderer.send(IPC.layoutDragStart),
+  endPaneDrag: () => ipcRenderer.send(IPC.layoutDragEnd),
+  reportPaneDragY: (clientY) => ipcRenderer.send(IPC.layoutDragMove, clientY),
+  onPaneDragActive: (cb) => subscribe(IPC.evLayoutDragActive, cb),
 
   search: (query) => ipcRenderer.invoke(IPC.search, query),
   listConversations: () => ipcRenderer.invoke(IPC.listConversations),
@@ -46,3 +50,4 @@ const api: RendererApi = {
 };
 
 contextBridge.exposeInMainWorld('api', api);
+

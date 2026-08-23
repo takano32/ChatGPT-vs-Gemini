@@ -131,6 +131,11 @@ export class Application {
   }
 
   private registerIpc(): void {
+    ipcMain.on(IPC.layoutDragStart, () => this.manager.layout.beginAdminDrag());
+    ipcMain.on(IPC.layoutDragEnd, () => this.manager.layout.endAdminDrag());
+    ipcMain.on(IPC.layoutDragMove, (e, clientY: unknown) => {
+      this.manager.layout.dragMove(e.sender.id, typeof clientY === 'number' ? clientY : NaN);
+    });
     ipcMain.handle(IPC.runnerStart, (_e, topic: string, maxTurns?: number, firstSpeaker?: unknown) => {
       // 議論全体を await すると invoke が完走まで返らないため fire-and-forget。
       // エラーは Runner が status/log イベントで通知する。

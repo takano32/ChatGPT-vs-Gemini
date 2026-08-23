@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 import { WebContentsView, shell } from 'electron';
+import { IPC } from '../shared/ipc';
 import type { WebContents } from 'electron';
 import { SPEAKER_LABELS } from '../shared/types';
 import { Settings } from './Settings';
@@ -146,6 +147,7 @@ export class Layout {
 
     this.window.on('resize', () => this.apply());
     this.settings.on('change', () => {
+      this.dragRatio = null;
       this.apply();
       this.applyChatZoom();
     });
@@ -388,6 +390,54 @@ export class Layout {
     // will-navigate はブロックしない(ログインはドメインをまたいで遷移する)
   }
 
+  // ---- 管理ペインとチャットペインの境界ドラッグ ----
+  // ペインはそれぞれ独立した WebContentsView で境界はどのページにも属さないため、ドラッグ中は
+  // ポインタが乗っているペインの preload から pointermove の clientY を受け取り、そのビューの位置と
+  // ズーム率で窓内の縦位置に直して比率を決める(Wayland では main がポインタ位置を取れない。2026-08-23 実測)。
+  // 開始は管理ペインのつまみ(pointerdown)、終了は管理ペインまたはチャットペインの pointerup。
+  private dragging = false;
+  /** ドラッグで決めた比率。保存はせず起動中だけ有効(次回起動は設定値に戻る。2026-08-23 利用者の決定)。
+   *  設定が変更されたら捨てる */
+  private dragRatio: number | null = null;
+  private static readonly MIN_RATIO = 0.05;
+  private static readonly MAX_RATIO = 0.9;
+  /** 管理ペインの最小高さ(px)。ヘッダ+操作バー(2026-08-23 実測 106px)が必ず見えるようにする */
+  private static readonly MIN_ADMIN_PX = 120;
+
+  private dragPanes(): WebContentsView[] {
+    return (['admin', 'chatgpt', 'gemini'] as const)
+      .map((n) => this.views[n])
+      .filter((v): v is WebContentsView => !!v && !v.webContents.isDestroyed());
+  }
+
+  beginAdminDrag(): void {
+    if (this.dragging) return;
+    this.dragging = true;
+    for (const v of this.dragPanes()) v.webContents.send(IPC.evLayoutDragActive, true);
+  }
+
+  /** ドラッグ中のポインタ位置(送信元ペインの clientY)。送信元が分からなければ無視する */
+  dragMove(senderId: number, clientY: number): void {
+    if (!this.dragging || !Number.isFinite(clientY)) return;
+    const view = this.dragPanes().find((v) => v.webContents.id === senderId);
+    if (!view) return;
+    const [, h] = this.window.base.getContentSize();
+    if (h <= 0) return;
+    // clientY は CSS px。ズーム中のチャットペインは zoomFactor を掛けると窓の座標系(DIP)になる
+    const y = view.getBounds().y + clientY * view.webContents.getZoomFactor();
+    const ratio = Math.min(Layout.MAX_RATIO, Math.max(Layout.MIN_RATIO, y / h));
+    if (this.dragRatio !== null && Math.abs(ratio - this.dragRatio) < 0.002) return;
+    this.dragRatio = ratio;
+    this.apply();
+  }
+
+  endAdminDrag(): void {
+    if (!this.dragging) return;
+    this.dragging = false;
+    for (const v of this.dragPanes()) v.webContents.send(IPC.evLayoutDragActive, false);
+    this.apply();
+  }
+
   apply(): void {
     const admin = this.views.admin;
     const chatgpt = this.views.chatgpt;
@@ -398,7 +448,8 @@ export class Layout {
     const { adminRatio, chatSplit } = this.settings.get().layout;
     // 設定ファイルの手編集等で 0 や 1 が入ってもペインが潰れないよう防衛的にクランプ
     const clampRatio = (n: number): number => Math.min(0.95, Math.max(0.05, n));
-    const ah = Math.round(h * clampRatio(adminRatio));
+    // ドラッグで決めた比率があればそれを使う(起動中だけ)。操作バーが隠れないよう最小高さを確保する
+    const ah = Math.max(Math.min(Layout.MIN_ADMIN_PX, h), Math.round(h * clampRatio(this.dragRatio ?? adminRatio)));
     const cw = Math.round(w * clampRatio(chatSplit));
 
     admin.setBounds({ x: 0, y: 0, width: w, height: ah });

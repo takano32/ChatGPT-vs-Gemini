@@ -112,6 +112,13 @@ interface RendererApi {
 
   getSettings(): Promise<SettingsData>;
   setSettings(settings: SettingsData): Promise<void>;
+  /** 管理ペインとチャットペインの境界ドラッグの開始 / 終了(main がポインタ位置を追って比率を変える) */
+  beginPaneDrag(): void;
+  endPaneDrag(): void;
+  /** ドラッグ中のポインタ縦位置(このペインの clientY)を main に送る */
+  reportPaneDragY(clientY: number): void;
+  /** main からの「ドラッグ中かどうか」。true の間だけ pointermove を報告する */
+  onPaneDragActive(cb: (active: boolean) => void): () => void;
 
   search(query: string): Promise<SearchHit[]>;
   listConversations(): Promise<ConversationRecord[]>;

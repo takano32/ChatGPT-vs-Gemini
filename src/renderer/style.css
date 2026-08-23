@@ -346,6 +346,21 @@ button { font-family: var(--mono); }
 
 /* ===== ライブフィード ===== */
 
+/* 管理ペイン下端のつまみ。ドラッグで上下のペイン比を変える(main がポインタ位置を追う。#6) */
+#pane-divider {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: row-resize;
+  background: transparent;
+  border-top: 1px solid var(--border);
+  transition: background 0.15s ease;
+  z-index: 5;
+}
+#pane-divider:hover, #pane-divider.dragging { background: var(--amber-tint); border-top-color: var(--amber-soft); }
+
 .feed {
   overflow-y: auto;
   overflow-x: hidden;

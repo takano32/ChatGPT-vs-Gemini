@@ -332,6 +332,31 @@
   topicInput.addEventListener('input', growTopic);
   growTopic();
 
+  // 下端のつまみ: 押したら main にドラッグ開始を伝え、離したら終了。ドラッグ中のポインタ位置は main が
+  // 画面座標で追う(ポインタがチャットペインに入ってもこちらには届かないため)。
+  // チャットペイン側で離された場合は chat-preload.js が終了を伝える
+  const paneDivider = must<HTMLElement>('pane-divider');
+  paneDivider.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    paneDivider.classList.add('dragging');
+    api.beginPaneDrag();
+  });
+  const endPaneDrag = (): void => {
+    if (!paneDivider.classList.contains('dragging')) return;
+    paneDivider.classList.remove('dragging');
+    api.endPaneDrag();
+  };
+  window.addEventListener('pointerup', endPaneDrag, true);
+  window.addEventListener('pointercancel', endPaneDrag, true);
+  window.addEventListener('blur', endPaneDrag);
+  // ドラッグ中は縦位置を main に報告する(Wayland では main がポインタ位置を取れないため。チャットペイン側は chat-preload.js)
+  const reportDragY = (ev: PointerEvent): void => api.reportPaneDragY(ev.clientY);
+  api.onPaneDragActive((active) => {
+    if (active) window.addEventListener('pointermove', reportDragY, true);
+    else window.removeEventListener('pointermove', reportDragY, true);
+  });
+
   // リンク等を管理ペインへドロップすると WebContents ごと遷移してしまうため常に抑止
   document.addEventListener('dragover', (ev) => ev.preventDefault());
   document.addEventListener('drop', (ev) => ev.preventDefault());
