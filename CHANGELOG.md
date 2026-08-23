@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- テーマ欄の Enter は改行になり、議論の開始は Ctrl+Enter(mac は ⌘+Enter)または「開始」ボタンになった(Enter だけで始まらないように)
+
 ### Added
 
 - Runner(ターン進行)の自動テスト。Chat を偽物に差し替えて、送信順・テンプレート・保存・一時停止/再開/停止・レート制限時の再送・エラー終了を検査する
@@ -13,7 +17,7 @@
 
 ### Added
 
-- 議論テーマを複数行で入力できるようにした(Shift+Enter で改行、Enter で開始)。経過の Markdown では 1 行目が見出し、残りはその下の段落になる([#1](https://github.com/takano32/ChatGPT-vs-Gemini/issues/1))
+- 議論テーマを複数行で入力できるようにした(Shift+Enter で改行、Enter で開始。**0.2.4 で Enter は改行、Ctrl+Enter / ⌘+Enter で開始に変更**)。経過の Markdown では 1 行目が見出し、残りはその下の段落になる([#1](https://github.com/takano32/ChatGPT-vs-Gemini/issues/1))
 
 ## [0.2.2] - 2026-08-23
 

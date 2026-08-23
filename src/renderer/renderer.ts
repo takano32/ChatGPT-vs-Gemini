@@ -284,9 +284,9 @@
   });
 
   topicInput.addEventListener('keydown', (ev) => {
-    // Enter で開始、Shift+Enter で改行(ChatGPT / Gemini の入力欄と同じ流儀)。
-    // IME の変換確定 Enter で議論が開始してしまわないよう isComposing を除外
-    if (ev.key !== 'Enter' || ev.shiftKey || ev.isComposing) return;
+    // Enter は改行、Ctrl+Enter(mac は Cmd+Enter)で開始(2026-08-23 利用者の決定: Enter だけで始まるのは避ける)。
+    // IME の変換確定 Enter で議論が開始してしまわないよう isComposing も除外
+    if (ev.key !== 'Enter' || !(ev.ctrlKey || ev.metaKey) || ev.isComposing) return;
     ev.preventDefault();
     if (!btnStart.disabled) btnStart.click();
   });
