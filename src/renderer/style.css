@@ -82,6 +82,10 @@ button { font-family: var(--mono); }
   transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 .icon-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); border-color: var(--border); }
+.icon-panel { display: inline-flex; align-items: center; padding: 4px 6px; }
+.icon-panel svg { display: block; }
+.icon-panel .panel-fill { opacity: 0; }
+.icon-panel[aria-expanded="true"] .panel-fill { opacity: 0.55; } /* 開いている間は左の区画を塗る */
 
 .app-title {
   margin: 0;

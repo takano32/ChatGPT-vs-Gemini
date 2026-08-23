@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-08-23
+
+### Changed
+
+- **OS のダイアログを使わないようにした**(当面の方針): 履歴の「保存」(ファイル保存ダイアログ)は「コピー」(Markdown をクリップボードへ)に置き換え、経過表示の「ファイルに保存」は外した。会話の削除は確認なしで消し、消したことをログに出す。議論中にウィンドウを閉じるときの確認(0.5.3)も外した(閉じれば議論は停止し、状態は保存される)
+- 左上の ☰ を「サイドパネル」のアイコン(左に仕切りのある四角)にした。メニューではなく設定 / 履歴 / 検索のパネルを開くボタンなので
+
 ## [0.6.1] - 2026-08-23
 
 ### Fixed
@@ -223,7 +230,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.5.3...v0.5.4

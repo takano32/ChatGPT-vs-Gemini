@@ -44,8 +44,6 @@ const api: RendererApi = {
     ipcRenderer.invoke(IPC.transcriptShowConversation, conversationId),
   copyTranscriptMarkdown: (conversationId) =>
     ipcRenderer.invoke(IPC.transcriptCopyMarkdown, conversationId),
-  saveTranscriptMarkdown: (conversationId) =>
-    ipcRenderer.invoke(IPC.transcriptSaveMarkdown, conversationId),
 
   onLog: (cb) => subscribe(IPC.evLog, cb),
   onRunnerStatus: (cb) => subscribe(IPC.evRunnerStatus, cb),

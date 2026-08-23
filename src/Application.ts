@@ -5,7 +5,6 @@
 
 import { app, clipboard, dialog, ipcMain } from 'electron';
 import * as path from 'node:path';
-import * as fs from 'node:fs';
 import { Manager } from './manager/Manager';
 import { setMainLang, tm } from './shared/i18n';
 import { FileLog } from './shared/FileLog';
@@ -42,8 +41,6 @@ export class Application {
   private gemini!: Gemini;
   private statusTimer: NodeJS.Timeout | null = null;
   private fileLog!: FileLog;
-  // 議論中の ✕ は確認ダイアログを挟む。確認済みなら再度は聞かない
-  private closeConfirmed = false;
   private transcriptVisible = false;
   private lastRunnerState: RunnerStatus['state'] = 'idle';
 
@@ -103,7 +100,6 @@ export class Application {
     this.registerIpc();
     this.forwardEvents();
     this.startChatStatusPolling();
-    this.confirmCloseWhileRunning();
 
     if (process.env[SMOKE_TEST_ENV]) void this.runSmokeTest();
   }
@@ -187,9 +183,6 @@ export class Application {
     ipcMain.handle(IPC.transcriptCopyMarkdown, (_e, conversationId: number) =>
       this.copyTranscriptMarkdown(Number(conversationId))
     );
-    ipcMain.handle(IPC.transcriptSaveMarkdown, (_e, conversationId: number) =>
-      this.saveTranscriptMarkdown(Number(conversationId))
-    );
     ipcMain.handle(IPC.deleteConversation, (_e, conversationId: number) =>
       this.deleteConversation(Number(conversationId))
     );
@@ -201,21 +194,10 @@ export class Application {
     });
   }
 
-  // 会話の削除。元に戻せないので確認ダイアログを挟む(利用者の決定 2026-08-23)。議論中の会話は消さない
-  private async deleteConversation(id: number): Promise<boolean> {
+  // 会話の削除(確認ダイアログは出さない: ネイティブ UI は当面使わない、利用者の決定 2026-08-23)。議論中の会話は消さない
+  private deleteConversation(id: number): boolean {
     const st = this.runner.status;
     if ((st.state === 'running' || st.state === 'paused') && st.conversationId === id) return false;
-    const conv = this.repository.listConversations().find((c) => c.id === id);
-    if (!conv) return false;
-    const { response } = await dialog.showMessageBox(this.manager.window.base, {
-      type: 'warning',
-      message: tm('app.deleteConversation', { title: conv.title.split('\n')[0] ?? '' }),
-      detail: tm('app.deleteConversation.detail'),
-      buttons: [tm('app.deleteConversation.delete'), tm('app.deleteConversation.cancel')],
-      defaultId: 1,
-      cancelId: 1,
-    });
-    if (response !== 0) return false;
     const ok = this.repository.deleteConversation(id);
     // 経過表示がその会話を出していたら、空の状態に戻す
     if (ok && this.transcriptConversationId === id) {
@@ -227,26 +209,6 @@ export class Application {
     return ok;
   }
 
-  // 経過を Markdown ファイルに保存。既定のファイル名は議題の 1 行目 + 日付(OS が使えない文字は置き換える)
-  private async saveTranscriptMarkdown(conversationId: number): Promise<boolean> {
-    try {
-      const conv = this.repository.listConversations().find((c) => c.id === conversationId);
-      const messages = this.repository.getMessages(conversationId);
-      if (!conv || messages.length === 0) return false;
-      const maxTurns = conv.maxTurns ?? Math.max(messages.length, 1);
-      const head = (conv.title.split('\n')[0] ?? '').trim().replace(/[\\/:*?"<>|]/g, '_').slice(0, 60) || tm('md.untitled');
-      const date = conv.createdAt.slice(0, 10);
-      const { canceled, filePath } = await dialog.showSaveDialog(this.manager.window.base, {
-        defaultPath: path.join(app.getPath('documents'), `${head} ${date}.md`),
-        filters: [{ name: 'Markdown', extensions: ['md'] }],
-      });
-      if (canceled || !filePath) return false;
-      fs.writeFileSync(filePath, transcriptToMarkdown(conv.title, messages, maxTurns), 'utf8');
-      return true;
-    } catch {
-      return false;
-    }
-  }
 
   // 経過を gist 形式 Markdown にしてクリップボードへ。派生データなので DB には保存しない。
   private copyTranscriptMarkdown(conversationId: number): boolean {
@@ -308,31 +270,6 @@ export class Application {
     this.sendToAdmin(IPC.evLog, entry);
   }
 
-  // 議論中(実行中・一時停止中)に ✕ で閉じようとしたら確認する。うっかり閉じると議論が途中で終わるため。
-  // 「終了」を選んだら議論を停止してから閉じる(会話の状態は stopped で保存される)
-  private confirmCloseWhileRunning(): void {
-    const win = this.manager.window.base;
-    win.on('close', (e) => {
-      const state = this.runner.status.state;
-      if (this.closeConfirmed || (state !== 'running' && state !== 'paused')) return;
-      e.preventDefault();
-      void dialog
-        .showMessageBox(win, {
-          type: 'question',
-          message: tm('app.closeWhileRunning'),
-          detail: tm('app.closeWhileRunning.detail'),
-          buttons: [tm('app.closeWhileRunning.quit'), tm('app.closeWhileRunning.cancel')],
-          defaultId: 1,
-          cancelId: 1,
-        })
-        .then(({ response }) => {
-          if (response !== 0) return;
-          this.closeConfirmed = true;
-          this.runner.stop();
-          win.close();
-        });
-    });
-  }
 
   // 経過表示がいま出している会話(削除・改名の追従用)
   private transcriptConversationId: number | null = null;

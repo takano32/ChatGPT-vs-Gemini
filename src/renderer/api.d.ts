@@ -165,7 +165,6 @@ interface RendererApi {
   toggleTranscript(): Promise<void>;
   showConversationTranscript(conversationId: number): Promise<void>;
   copyTranscriptMarkdown(conversationId: number): Promise<boolean>;
-  saveTranscriptMarkdown(conversationId: number): Promise<boolean>;
   deleteConversation(conversationId: number): Promise<boolean>;
   renameConversation(conversationId: number, title: string): Promise<boolean>;
 

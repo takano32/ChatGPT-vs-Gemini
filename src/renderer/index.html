@@ -13,7 +13,14 @@
 <body>
 
   <header class="topbar">
-    <button type="button" id="btn-menu" class="icon-btn" data-i18n-title="menu" data-i18n-aria="menu" title="メニュー" aria-label="メニュー">☰</button>
+    <!-- サイドパネル(設定 / 履歴 / 検索)の開閉。慣習どおり「左に仕切りのある四角」のアイコン(VS Code のサイドバー切替と同じ形) -->
+    <button type="button" id="btn-menu" class="icon-btn icon-panel" data-i18n-title="menu" data-i18n-aria="menu" title="サイドパネル" aria-label="サイドパネル" aria-expanded="false">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <rect class="panel-frame" x="1.5" y="2.5" width="13" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <line x1="6" y1="2.5" x2="6" y2="13.5" stroke="currentColor" stroke-width="1.3"/>
+        <rect class="panel-fill" x="1.5" y="2.5" width="4.5" height="11" rx="1.5" fill="currentColor"/>
+      </svg>
+    </button>
     <h1 class="app-title">
       <span class="t-gpt">CHATGPT</span><span class="t-vs">vs</span><span class="t-gem">GEMINI</span>
     </h1>
@@ -167,7 +174,7 @@
           <button type="button" id="btn-history-back" class="btn btn-small" data-i18n="history.back">← 一覧</button>
           <span id="history-title" class="hist-title" tabindex="0" role="button" data-i18n-title="history.rename.hint" title="クリックで名前を変更"></span>
           <input id="history-title-input" class="hist-title-input hidden" type="text" spellcheck="false" autocomplete="off">
-          <button type="button" id="btn-history-save" class="btn btn-small" data-i18n="history.save" data-i18n-title="history.save.hint" title="Markdown ファイルに保存">保存</button>
+          <button type="button" id="btn-history-copy" class="btn btn-small" data-i18n="history.copy" data-i18n-title="history.copy.hint" title="Markdown をコピー">コピー</button>
           <button type="button" id="btn-history-delete" class="btn btn-small btn-danger" data-i18n="history.delete">削除</button>
         </div>
         <div id="history-messages"></div>

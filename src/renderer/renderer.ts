@@ -119,7 +119,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
   const historyMessages = must<HTMLElement>('history-messages');
   const btnHistoryBack = must<HTMLButtonElement>('btn-history-back');
   const historyTitleInput = must<HTMLInputElement>('history-title-input');
-  const btnHistorySave = must<HTMLButtonElement>('btn-history-save');
+  const btnHistoryCopy = must<HTMLButtonElement>('btn-history-copy');
   const btnHistoryDelete = must<HTMLButtonElement>('btn-history-delete');
 
   const searchInput = must<HTMLInputElement>('search-input');
@@ -426,6 +426,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     drawerOpen = true;
     drawer.classList.add('open');
     backdrop.classList.add('show');
+    btnMenu.setAttribute('aria-expanded', 'true');
     setTab(activeTab); // 開くたびに内容を更新
   }
 
@@ -433,6 +434,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     drawerOpen = false;
     drawer.classList.remove('open');
     backdrop.classList.remove('show');
+    btnMenu.setAttribute('aria-expanded', 'false');
   }
 
   btnMenu.addEventListener('click', openDrawer);
@@ -613,7 +615,7 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
           del.title = t('history.delete.hint');
           del.addEventListener('click', (ev) => {
             ev.stopPropagation();
-            void deleteConversation(conv.id, () => loadHistory());
+            void deleteConversation(conv.id, conv.title, () => loadHistory());
           });
           row.appendChild(del);
         }
@@ -679,9 +681,14 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
     }
   }
 
-  async function deleteConversation(id: number, after: () => void | Promise<void>): Promise<void> {
-    const ok = await api.deleteConversation(id); // 確認ダイアログは main が出す
-    if (!ok) return; // 取り消し(または議論中)。議論中の会話は行に ✕ を出さないので通常は取り消し
+  // 確認は出さない(ネイティブ UI は当面使わない、利用者の決定 2026-08-23)。消したことはログに残す
+  async function deleteConversation(id: number, title: string, after: () => void | Promise<void>): Promise<void> {
+    const ok = await api.deleteConversation(id);
+    if (!ok) {
+      localLog('warn', t('history.deleteFailed'));
+      return;
+    }
+    localLog('info', t('history.deleted', { title: title.split('\n')[0] ?? '' }));
     if (openConversationId === id) openConversationId = null;
     await after();
   }
@@ -730,12 +737,12 @@ import { applyI18n, currentLang, setLang, t } from './i18n.js';
 
   btnHistoryDelete.addEventListener('click', () => {
     if (openConversationId === null) return;
-    void deleteConversation(openConversationId, () => loadHistory());
+    void deleteConversation(openConversationId, historyTitle.textContent ?? '', () => loadHistory());
   });
-  btnHistorySave.addEventListener('click', () => {
+  btnHistoryCopy.addEventListener('click', () => {
     if (openConversationId === null) return;
-    void api.saveTranscriptMarkdown(openConversationId).then((ok) => {
-      if (ok) localLog('info', t('history.saved'));
+    void api.copyTranscriptMarkdown(openConversationId).then((ok) => {
+      if (ok) localLog('info', t('history.copied'));
     });
   });
 

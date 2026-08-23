@@ -38,13 +38,12 @@ export const IPC = {
   search: 'repository:search',
   listConversations: 'repository:conversations',
   getMessages: 'repository:messages',
-  deleteConversation: 'repository:delete-conversation', // main が確認ダイアログを出してから消す
+  deleteConversation: 'repository:delete-conversation',
   renameConversation: 'repository:rename-conversation',
   chatStatus: 'chat:status',
   transcriptToggle: 'transcript:toggle', // 管理ペイン -> main。ライブ⇄経過の表示切替
   transcriptShowConversation: 'transcript:show-conversation', // 履歴から経過表示
   transcriptCopyMarkdown: 'transcript:copy-md', // 経過を gist 形式 Markdown でクリップボードへ
-  transcriptSaveMarkdown: 'transcript:save-md', // 経過を Markdown ファイルに保存(main が保存ダイアログを出す)
 
   // main -> renderer (send)
   evLog: 'event:log',
@@ -78,7 +77,7 @@ export interface RendererApi {
   search(query: string): Promise<SearchHit[]>;
   listConversations(): Promise<ConversationRecord[]>;
   getMessages(conversationId: number): Promise<MessageRecord[]>;
-  /** 会話を発言ごと消す。main が確認ダイアログを出し、取り消し・議論中の会話なら false */
+  /** 会話を発言ごと消す(確認なし)。議論中の会話なら false */
   deleteConversation(conversationId: number): Promise<boolean>;
   /** 会話の名前を変える。空なら false */
   renameConversation(conversationId: number, title: string): Promise<boolean>;
@@ -87,8 +86,6 @@ export interface RendererApi {
   showConversationTranscript(conversationId: number): Promise<void>;
   /** 経過を gist 形式 Markdown にしてクリップボードへコピー。成功すれば true */
   copyTranscriptMarkdown(conversationId: number): Promise<boolean>;
-  /** 経過を Markdown ファイルに保存(OS の保存ダイアログ)。保存したら true、取り消し・失敗は false */
-  saveTranscriptMarkdown(conversationId: number): Promise<boolean>;
 
   // 購読系。戻り値は購読解除関数
   onLog(cb: (entry: LogEntry) => void): () => void;

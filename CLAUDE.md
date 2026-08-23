@@ -21,6 +21,7 @@ ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron
 - mac の署名・公証は当面しない。`mac.identity: "-"`(ad-hoc)と `hardenedRuntime: false` は Apple シリコンで起動させるために必須なので外さない
 - CI のランナーは `ubuntu-latest` / `macos-latest` / `windows-latest` のみ。もう片方のアーキはクロスビルドし、起動スモークはアーキが一致するジョブだけ。Windows は 1 ジョブで両アーキ(NSIS / portable が両アーキ入りの 1 ファイルのため)。actions はメジャータグ、Node は `lts/*`
 - エラー文言は「次に何をするか」を示す。検知パラメータのような細かい設定は詳細設定に畳む
+- ネイティブ UI(dialog.showMessageBox / showSaveDialog 等の OS ダイアログ)は当面使わない(2026-08-23 利用者決定。起動エラーの showErrorBox だけ例外)。確認は出さず、結果は管理ペインのログに出す。ファイル書き出しの代わりにクリップボードへコピー
 
 ## 構造ルール
 
