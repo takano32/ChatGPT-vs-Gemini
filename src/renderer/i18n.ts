@@ -28,8 +28,8 @@ const STRINGS: Table = {
   },
   'mode.label': { ja: 'モード', en: 'Mode' },
   'mode.title': {
-    ja: '議論の進め方(この議論だけ。既定は設定の「モード」)。括弧は先攻 / 後攻の役割',
-    en: 'How the two AIs interact (this debate only; the default is in Settings). Parentheses: roles of first / second speaker',
+    ja: '議論の進め方(この議論だけ。起動時は常に「対立」)。括弧は先攻 / 後攻の役割',
+    en: 'How the two AIs interact (this debate only; starts as Debate on every launch). Parentheses: roles of first / second speaker',
   },
   'mode.debate': { ja: '対立', en: 'Debate' },
   'mode.collab': { ja: '協調', en: 'Collaboration' },
@@ -149,6 +149,7 @@ const STRINGS: Table = {
   },
   'history.resumeFailed': { ja: '続きから再開できませんでした', en: 'Could not resume' },
   'progress.turn': { ja: '{name} のターン', en: "{name}'s turn" },
+  'progress.sep': { ja: ' ・ ', en: ' — ' },
   'progress.early': { ja: '序盤', en: 'early' },
   'progress.middle': { ja: '中盤', en: 'middle' },
   'progress.late': { ja: '終盤', en: 'late' },

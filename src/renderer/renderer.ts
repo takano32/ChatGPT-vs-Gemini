@@ -252,7 +252,7 @@ import type {
     progressEl.textContent = '';
     const p = runner.progress;
     if (!p) return;
-    progressEl.textContent = `${t('progress.turn', { name: SPEAKER_LABELS[p.speaker] })} ・ ${t(`progress.${p.phase}`)}`;
+    progressEl.textContent = `${t('progress.turn', { name: SPEAKER_LABELS[p.speaker] })}${t('progress.sep')}${t(`progress.${p.phase}`)}`;
     progressEl.className = `progress progress-${p.speaker}`;
   }
 

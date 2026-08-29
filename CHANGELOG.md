@@ -5,6 +5,14 @@
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-08-24
+
+### Fixed
+
+- 操作バーの「モード」のツールチップが「既定は設定の「モード」」と古い説明のままだった(0.6.5 から起動時は常に「対立」)
+- 英語 UI の進行状況表示に日本語の中黒「・」が残っていた(英語は「 — 」で区切る)
+- README の「もう一度」の説明を「いまの題名を議題にする」に改めた(改名した会話は改名後の題名で再戦する)
+
 ## [0.7.2] - 2026-08-24
 
 ### Fixed
@@ -274,7 +282,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.6...v0.7.0
