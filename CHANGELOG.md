@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-24
+
+### Fixed
+
+- **改名の不具合 3 件**: 複数行の題名(テーマ欄の Enter は改行)を改名欄に出すと改行が黙って消え、何も編集せずフォーカスを外しただけで語が直結した題名に書き換わっていた(改行は「 / 」として表示し、変更していなければ改名しない)。改名欄の Esc が取り消しと同時にサイドパネルまで閉じていた。改名した直後の「もう一度」が改名前の題名を議題に使っていた
+
 ## [0.7.0] - 2026-08-24
 
 ### Added
@@ -262,7 +268,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.6...v0.7.0
 [0.6.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.4...v0.6.5

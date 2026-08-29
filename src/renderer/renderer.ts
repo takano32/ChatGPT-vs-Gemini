@@ -765,12 +765,17 @@ import type {
     });
   });
 
-  // 改名: 題名をクリックで入力欄に切り替え、Enter / フォーカス外れで確定、Esc で取り消し
+  // 改名: 題名をクリックで入力欄に切り替え、Enter / フォーカス外れで確定、Esc で取り消し。
+  // 題名は複数行がありうる(テーマ欄の Enter は改行)が、input[type=text] は代入時に改行を黙って落とす。
+  // 語が直結しないよう「 / 」に置き換えて入れ、変更判定はその置換後の初期値と比較する
+  // (textContent と比較すると、複数行の題名は未編集でもフォーカスを外しただけで改名されてしまう)
   let renaming = false;
+  let renameInitial = '';
   function beginRename(): void {
     if (openConversationId === null || renaming) return;
     renaming = true;
-    historyTitleInput.value = historyTitle.textContent ?? '';
+    renameInitial = (historyTitle.textContent ?? '').replace(/\s*\n\s*/g, ' / ');
+    historyTitleInput.value = renameInitial;
     historyTitle.classList.add('hidden');
     historyTitleInput.classList.remove('hidden');
     historyTitleInput.focus();
@@ -783,8 +788,10 @@ import type {
     historyTitle.classList.remove('hidden');
     const id = openConversationId;
     const title = historyTitleInput.value.trim();
-    if (!commit || id === null || title === '' || title === historyTitle.textContent) return;
+    if (!commit || id === null || title === '' || title === renameInitial) return;
     historyTitle.textContent = title;
+    // 詳細画面が持つスナップショットにも反映する(「もう一度」が改名前の題名を使わないように)
+    if (openRecord && openRecord.id === id) openRecord = { ...openRecord, title };
     void api.renameConversation(id, title).then((ok) => {
       if (!ok) localLog('warn', t('history.renameFailed'));
     });
@@ -802,6 +809,7 @@ import type {
       endRename(true);
     } else if (ev.key === 'Escape') {
       ev.preventDefault();
+      ev.stopPropagation(); // document 側の Escape(ドロワーを閉じる)まで届かせない
       endRename(false);
     }
   });
