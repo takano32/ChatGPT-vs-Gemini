@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-08-30
+
+### Fixed
+
+- ページの読込が遅い環境で、起動時などに `MaxListenersExceededWarning`(did-stop-loading)が出ていた。読込中のページへのスクリプト実行(状態取得・操作ロックの再適用)は Electron 側で読込完了まで保留されて積み上がるため、読込中は実行せず次の周期に回すようにした
+
 ## [0.7.7] - 2026-08-30
 
 ### Fixed
@@ -309,7 +315,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.7...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.8...HEAD
+[0.7.8]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.4...v0.7.5

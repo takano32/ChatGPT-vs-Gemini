@@ -120,10 +120,15 @@ export abstract class Chat {
     return SPEAKER_LABELS[this.name];
   }
 
-  // ナビゲーション中・CSP 例外などは全て null に潰す
+  // ナビゲーション中・CSP 例外などは全て null に潰す。
+  // 読込中は実行しない: Electron は読込完了(did-stop-loading)まで実行を保留して once リスナーを積むため、
+  // 読込の遅い環境で状態取得の呼び出しが積み上がり MaxListenersExceededWarning になる(2026-08-30 利用者報告)。
+  // 呼び出し側はどこも null(取得できない)を再試行・スキップで扱えるので、保留せず即あきらめる
   protected async js<T>(script: string): Promise<T | null> {
+    const wc = this.view.webContents;
+    if (wc.isDestroyed() || wc.isLoading()) return null;
     try {
-      return (await this.view.webContents.executeJavaScript(script, true)) as T;
+      return (await wc.executeJavaScript(script, true)) as T;
     } catch {
       return null;
     }
