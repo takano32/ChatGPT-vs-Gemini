@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-08-30
+
+### Fixed
+
+- 履歴一覧の状態バッジが日本語 UI でも「DONE / STOPPED / ERROR」と英語のままだった(経過表示と同じ訳語「完了 / 停止 / エラー」などで出す)
+
 ## [0.7.6] - 2026-08-24
 
 ### Fixed
@@ -303,7 +309,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.6...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.7...HEAD
+[0.7.7]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.3...v0.7.4

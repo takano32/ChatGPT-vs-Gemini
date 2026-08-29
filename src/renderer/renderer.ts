@@ -642,7 +642,8 @@ import type {
         row.tabIndex = 0;
         row.setAttribute('role', 'button');
         row.appendChild(el('span', 'conv-title', conv.title));
-        row.appendChild(el('span', `badge badge-${conv.status}`, conv.status));
+        // 状態は訳語で(経過表示のステータスと同じ status.* を使う)
+        row.appendChild(el('span', `badge badge-${conv.status}`, t(`status.${conv.status}`)));
         row.appendChild(el('span', 'conv-date', shortDate(conv.updatedAt)));
         if (!isInProgress(conv.id)) {
           const del = el('button', 'conv-delete', '✕');
