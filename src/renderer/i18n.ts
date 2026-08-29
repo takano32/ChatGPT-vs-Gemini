@@ -158,6 +158,7 @@ const STRINGS: Table = {
   'history.copied': { ja: 'Markdown をコピーしました', en: 'Copied as Markdown' },
   'history.delete': { ja: '削除', en: 'Delete' },
   'history.delete.hint': { ja: 'この会話を削除', en: 'Delete this conversation' },
+  'history.gone': { ja: 'この会話は見つかりません(削除された可能性があります)', en: 'This conversation no longer exists (it may have been deleted)' },
   'history.deleted': { ja: '「{title}」を削除しました', en: 'Deleted "{title}"' },
   'history.undo': { ja: '取り消す', en: 'Undo' },
   'history.undone': { ja: '削除を取り消しました', en: 'Delete undone' },

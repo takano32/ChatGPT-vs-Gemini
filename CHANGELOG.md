@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-08-24
+
+### Fixed
+
+- 会話を削除・改名しても検索タブの結果が古いままだった(タブを開くたびに検索し直す)。古い結果から削除済みの会話を開いたときは「この会話は見つかりません」と出し、操作ボタンを無効にする
+- 履歴一覧の ✕(削除)にフォーカスして Enter / Space を押すと、削除と同時にその会話が開いてしまっていた
+
 ## [0.7.4] - 2026-08-24
 
 ### Fixed
@@ -288,7 +295,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.4...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.5...HEAD
+[0.7.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.1...v0.7.2

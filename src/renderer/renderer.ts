@@ -449,7 +449,10 @@ import type {
     }
     if (name === 'settings') void fillSettingsForm();
     if (name === 'history') void loadHistory();
-    if (name === 'search') searchInput.focus();
+    if (name === 'search') {
+      searchInput.focus();
+      void runSearch(); // 削除・改名で結果が古くなっているかもしれないので、開くたびに引き直す
+    }
   }
 
   function openDrawer(): void {
@@ -655,6 +658,8 @@ import type {
           void openConversation(conv.id, conv.title);
         });
         row.addEventListener('keydown', (ev) => {
+          // ✕ ボタンにフォーカスがあるときの Enter / Space はボタンの click に任せる(会話を開かない)
+          if (ev.target !== row) return;
           if (ev.key === 'Enter' || ev.key === ' ') {
             ev.preventDefault();
             void openConversation(conv.id, conv.title);
@@ -700,6 +705,13 @@ import type {
       openRecord = convs.find((c) => c.id === id) ?? null;
       openMessages = msgs;
       btnHistoryRematch.disabled = openRecord === null;
+      // 会話がもう無い(古い検索結果から削除済みを開いた等)なら、その旨を出して操作は全部無効にする
+      if (openRecord === null) {
+        btnHistoryDelete.disabled = true;
+        historyMessages.textContent = '';
+        historyMessages.appendChild(el('div', 'drawer-empty', t('history.gone')));
+        return;
+      }
       // 「続きから」は止まった会話(停止 / エラー)で、発言があり、上限に達していないものだけ
       // (0 発言は先攻を復元できない。Runner 側の判定と揃える)
       const max = openRecord?.maxTurns ?? 0;
