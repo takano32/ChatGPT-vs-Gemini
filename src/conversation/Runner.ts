@@ -152,7 +152,8 @@ export class Runner extends EventEmitter {
     const record = this.repository.listConversations().find((c) => c.id === conversationId);
     const messages = record ? this.repository.getMessages(conversationId) : [];
     const maxTurns = record?.maxTurns ?? this.settings.get().debate.maxTurns;
-    if (!record || (record.status !== 'stopped' && record.status !== 'error') || messages.length >= maxTurns) {
+    // 0 発言は対象外: 先攻が保存されておらず(1 発言目の話者から復元する)、設定の既定にすり替わってしまう。「もう一度」で足りる
+    if (!record || (record.status !== 'stopped' && record.status !== 'error') || messages.length === 0 || messages.length >= maxTurns) {
       this.log('warn', tm('runner.cannotResume'));
       return false;
     }

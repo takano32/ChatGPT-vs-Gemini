@@ -700,10 +700,14 @@ import type {
       openRecord = convs.find((c) => c.id === id) ?? null;
       openMessages = msgs;
       btnHistoryRematch.disabled = openRecord === null;
-      // 「続きから」は止まった会話(停止 / エラー)で、上限に達していないものだけ
+      // 「続きから」は止まった会話(停止 / エラー)で、発言があり、上限に達していないものだけ
+      // (0 発言は先攻を復元できない。Runner 側の判定と揃える)
       const max = openRecord?.maxTurns ?? 0;
       const resumable =
-        openRecord !== null && (openRecord.status === 'stopped' || openRecord.status === 'error') && msgs.length < max;
+        openRecord !== null &&
+        (openRecord.status === 'stopped' || openRecord.status === 'error') &&
+        msgs.length > 0 &&
+        msgs.length < max;
       btnHistoryResume.classList.toggle('hidden', !resumable);
       historyMessages.textContent = '';
       if (msgs.length === 0) {

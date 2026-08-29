@@ -347,13 +347,19 @@ test('続きから再開: 停止した会話を次のターンから同じ会話
   assert.equal(chats.chatgpt.newChatCalls, 2, '再開時も新規チャットを開く');
 });
 
-test('続きから再開: 完了済み・上限到達・無い id は false で何もしない', async (t) => {
+test('続きから再開: 完了済み・上限到達・0 発言・無い id は false で何もしない', async (t) => {
   const { runner, repository } = setup(t);
   await runner.start('完了', 2);
   const done = repository.listConversations()[0];
   assert.equal(await runner.resumeConversation(done.id), false, '完了済み');
   assert.equal(await runner.resumeConversation(99999), false, '無い id');
   assert.equal(repository.getMessages(done.id).length, 2);
+
+  // 0 発言(1 発言目の送信中に停止)は先攻を復元できないので再開しない
+  const empty = repository.createConversation('空のまま停止', 4, 'debate');
+  repository.setConversationStatus(empty.id, 'stopped');
+  assert.equal(await runner.resumeConversation(empty.id), false, '0 発言');
+  assert.equal(runner.status.state, 'done', '状態は変わらない(直前の完了のまま)');
 });
 
 test('pause: 実行中のターンは完了まで続き、次のターンの前で止まる。resume で続行', async (t) => {

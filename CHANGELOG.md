@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-08-24
+
+### Fixed
+
+- 発言が 1 件も保存される前に止まった会話(1 発言目の送信中に停止した場合など)にも「続きから」が出ていた。この場合は先攻を復元できず、設定の既定の先攻にすり替わって再開されてしまうため、「続きから」を出さない(「もう一度」で最初からやり直せる)
+
 ## [0.7.3] - 2026-08-24
 
 ### Fixed
@@ -282,7 +288,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.0...v0.7.1
