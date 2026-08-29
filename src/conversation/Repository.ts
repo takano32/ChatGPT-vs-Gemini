@@ -5,6 +5,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 import {
+  type ConversationConfig,
   isMode,
   type ConversationRecord,
   type ConversationStatus,
@@ -22,6 +23,7 @@ interface ConversationRow {
   updated_at: string;
   max_turns: number | null;
   mode: string | null;
+  config: string | null;
 }
 
 interface MessageRow {
@@ -29,6 +31,8 @@ interface MessageRow {
   conversation_id: number;
   speaker: string;
   content: string;
+  content_md: string | null;
+  prompt: string | null;
   created_at: string;
 }
 
@@ -45,13 +49,16 @@ CREATE TABLE IF NOT EXISTS conversations (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   max_turns INTEGER,
-  mode TEXT
+  mode TEXT,
+  config TEXT
 );
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   speaker TEXT NOT NULL,
   content TEXT NOT NULL,
+  content_md TEXT,
+  prompt TEXT,
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
@@ -64,6 +71,17 @@ function hasColumn(db: Db, table: string, column: string): boolean {
   const cols = db.pragma(`table_info(${table})`) as Array<{ name: string }>;
   return cols.some((c) => c.name === column);
 }
+/** conversations.config の JSON を読む。壊れていても会話は読めるように null に潰す */
+function parseConfig(raw: string | null): ConversationConfig | null {
+  if (raw === null || raw === '') return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as ConversationConfig) : null;
+  } catch {
+    return null;
+  }
+}
+
 const MIGRATIONS: Array<(db: Db) => void> = [
   // v1: 会話ごとの最大ターン数(経過ビュー・Markdown の (n/N) を、その会話で使った値にする)
   (db) => {
@@ -75,6 +93,19 @@ const MIGRATIONS: Array<(db: Db) => void> = [
   (db) => {
     if (!hasColumn(db, 'conversations', 'mode')) {
       db.exec('ALTER TABLE conversations ADD COLUMN mode TEXT');
+    }
+  },
+  // v3(0.8.0): 記録の質。実行条件のスナップショット(config、JSON)・送信プロンプト・本文の Markdown 版。
+  // すべて nullable の追加のみ。列の意味と使い分けは docs/schema.md
+  (db) => {
+    if (!hasColumn(db, 'conversations', 'config')) {
+      db.exec('ALTER TABLE conversations ADD COLUMN config TEXT');
+    }
+    if (!hasColumn(db, 'messages', 'content_md')) {
+      db.exec('ALTER TABLE messages ADD COLUMN content_md TEXT');
+    }
+    if (!hasColumn(db, 'messages', 'prompt')) {
+      db.exec('ALTER TABLE messages ADD COLUMN prompt TEXT');
     }
   },
 ];
@@ -119,6 +150,8 @@ export class Repository {
     conversationId: number,
     speaker: Speaker,
     content: string,
+    contentMd: string | null,
+    prompt: string | null,
     now: string,
   ) => MessageRecord;
 
@@ -155,7 +188,7 @@ export class Repository {
       .run();
 
     this.stmtInsertConversation = this.db.prepare(
-      'INSERT INTO conversations (title, status, created_at, updated_at, max_turns, mode) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO conversations (title, status, created_at, updated_at, max_turns, mode, config) VALUES (?, ?, ?, ?, ?, ?, ?)',
     );
     this.stmtUpdateStatus = this.db.prepare(
       'UPDATE conversations SET status = ?, updated_at = ? WHERE id = ?',
@@ -168,16 +201,16 @@ export class Repository {
     this.stmtDeleteMessagesOf = this.db.prepare('DELETE FROM messages WHERE conversation_id = ?');
     this.stmtDeleteConversation = this.db.prepare('DELETE FROM conversations WHERE id = ?');
     this.stmtInsertMessage = this.db.prepare(
-      'INSERT INTO messages (conversation_id, speaker, content, created_at) VALUES (?, ?, ?, ?)',
+      'INSERT INTO messages (conversation_id, speaker, content, content_md, prompt, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     );
     this.stmtListConversations = this.db.prepare(
-      'SELECT id, title, status, created_at, updated_at, max_turns, mode FROM conversations ORDER BY updated_at DESC',
+      'SELECT id, title, status, created_at, updated_at, max_turns, mode, config FROM conversations ORDER BY updated_at DESC',
     );
     this.stmtGetMessages = this.db.prepare(
-      'SELECT id, conversation_id, speaker, content, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC',
+      'SELECT id, conversation_id, speaker, content, content_md, prompt, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC',
     );
     this.stmtSearchFts = this.db.prepare(
-      `SELECT m.id, m.conversation_id, m.speaker, m.content, m.created_at, c.title,
+      `SELECT m.id, m.conversation_id, m.speaker, m.content, m.content_md, m.prompt, m.created_at, c.title,
               snippet(messages_fts, 0, '【', '】', '…', 24) AS snip
        FROM messages_fts
        JOIN messages m ON m.id = messages_fts.rowid
@@ -188,7 +221,7 @@ export class Repository {
     );
     // タイトル一致(FTS はメッセージ本文だけを索引するので、3 文字以上の検索でもタイトルはこちらで見る)
     this.stmtSearchTitle = this.db.prepare(
-      `SELECT m.id, m.conversation_id, m.speaker, m.content, m.created_at, c.title, NULL AS snip
+      `SELECT m.id, m.conversation_id, m.speaker, m.content, m.content_md, m.prompt, m.created_at, c.title, NULL AS snip
        FROM messages m
        JOIN conversations c ON c.id = m.conversation_id
        WHERE c.title LIKE ? ESCAPE '\\'
@@ -196,7 +229,7 @@ export class Repository {
        LIMIT 100`,
     );
     this.stmtSearchLike = this.db.prepare(
-      `SELECT m.id, m.conversation_id, m.speaker, m.content, m.created_at, c.title, NULL AS snip
+      `SELECT m.id, m.conversation_id, m.speaker, m.content, m.content_md, m.prompt, m.created_at, c.title, NULL AS snip
        FROM messages m
        JOIN conversations c ON c.id = m.conversation_id
        WHERE m.content LIKE ? ESCAPE '\\' OR c.title LIKE ? ESCAPE '\\'
@@ -205,23 +238,40 @@ export class Repository {
     );
 
     this.txAddMessage = this.db.transaction(
-      (conversationId: number, speaker: Speaker, content: string, now: string): MessageRecord => {
-        const info = this.stmtInsertMessage.run(conversationId, speaker, content, now);
+      (
+        conversationId: number,
+        speaker: Speaker,
+        content: string,
+        contentMd: string | null,
+        prompt: string | null,
+        now: string,
+      ): MessageRecord => {
+        const info = this.stmtInsertMessage.run(conversationId, speaker, content, contentMd, prompt, now);
         this.stmtTouchConversation.run(now, conversationId);
         return {
           id: Number(info.lastInsertRowid),
           conversationId,
           speaker,
           content,
+          contentMd,
+          prompt,
           createdAt: now,
         };
       },
     );
   }
 
-  createConversation(title: string, maxTurns: number, mode: Mode): ConversationRecord {
+  createConversation(title: string, maxTurns: number, mode: Mode, config: ConversationConfig | null = null): ConversationRecord {
     const now = new Date().toISOString();
-    const info = this.stmtInsertConversation.run(title, 'running', now, now, maxTurns, mode);
+    const info = this.stmtInsertConversation.run(
+      title,
+      'running',
+      now,
+      now,
+      maxTurns,
+      mode,
+      config ? JSON.stringify(config) : null,
+    );
     return {
       id: Number(info.lastInsertRowid),
       title,
@@ -230,6 +280,7 @@ export class Repository {
       updatedAt: now,
       maxTurns,
       mode,
+      config,
     };
   }
 
@@ -253,8 +304,20 @@ export class Repository {
     this.stmtUpdateStatus.run(status, new Date().toISOString(), id);
   }
 
-  addMessage(conversationId: number, speaker: Speaker, content: string): MessageRecord {
-    return this.txAddMessage(conversationId, speaker, content, new Date().toISOString());
+  addMessage(
+    conversationId: number,
+    speaker: Speaker,
+    content: string,
+    extras?: { contentMd?: string | null; prompt?: string | null },
+  ): MessageRecord {
+    return this.txAddMessage(
+      conversationId,
+      speaker,
+      content,
+      extras?.contentMd ?? null,
+      extras?.prompt ?? null,
+      new Date().toISOString(),
+    );
   }
 
   listConversations(): ConversationRecord[] {
@@ -328,6 +391,7 @@ export class Repository {
       updatedAt: row.updated_at,
       maxTurns: row.max_turns ?? null,
       mode: isMode(row.mode) ? row.mode : null,
+      config: parseConfig(row.config),
     };
   }
 
@@ -337,6 +401,8 @@ export class Repository {
       conversationId: row.conversation_id,
       speaker: row.speaker as Speaker,
       content: row.content,
+      contentMd: row.content_md ?? null,
+      prompt: row.prompt ?? null,
       createdAt: row.created_at,
     };
   }

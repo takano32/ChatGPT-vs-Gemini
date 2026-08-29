@@ -516,6 +516,14 @@ button { font-family: var(--mono); }
   transition: opacity 0.2s ease;
 }
 #save-flash.show { opacity: 1; }
+.btn-reset { margin-left: auto; }
+#reset-flash {
+  color: var(--amber);
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+#reset-flash.show { opacity: 1; }
 
 /* --- 履歴 --- */
 
@@ -583,7 +591,14 @@ button { font-family: var(--mono); }
 .hit-row { cursor: pointer; }
 
 .hist-msg { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 11px; line-height: 1.6; }
+.hist-msg .msg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .hist-msg .msg-body { flex: 1; min-width: 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg-prompt summary { cursor: pointer; color: var(--faint); font-size: 10px; user-select: none; }
+.msg-prompt summary:hover { color: var(--dim); }
+.msg-prompt .msg-prompt-body {
+  color: var(--dim); font-size: 10px; white-space: pre-wrap; overflow-wrap: anywhere;
+  border-left: 2px solid var(--border-bright); padding-left: 8px; margin-top: 2px;
+}
 .hist-msg .msg-date { flex: none; color: var(--faint); font-size: 10px; }
 
 /* --- 検索 --- */

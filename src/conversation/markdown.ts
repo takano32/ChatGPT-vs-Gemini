@@ -49,8 +49,9 @@ export function transcriptToMarkdown(title: string, messages: MessageRecord[], m
   messages.forEach((m, i) => {
     parts.push(`### ${SPEAKER_EMOJI[m.speaker]} ${SPEAKER_LABELS[m.speaker]} (${i + 1}/${maxTurns})`);
     parts.push('');
-    // 本文はそのまま置く。末尾の改行だけ落として、次の要素との間が空行 1 つになるようにする
-    parts.push(m.content.replace(/\n+$/, ''));
+    // 本文は Markdown 版があればそれを、無ければ(旧データ・直列化に失敗した発言)プレーン文をそのまま置く。
+    // 末尾の改行だけ落として、次の要素との間が空行 1 つになるようにする
+    parts.push((m.contentMd ?? m.content).replace(/\n+$/, ''));
     parts.push('');
   });
   return parts.join('\n');

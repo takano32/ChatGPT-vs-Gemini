@@ -27,6 +27,7 @@ const api: RendererApi = {
   resumeConversation: (conversationId) => ipcRenderer.invoke(IPC.runnerResumeConversation, conversationId),
 
   getSettings: () => ipcRenderer.invoke(IPC.settingsGet),
+  getDefaultSettings: () => ipcRenderer.invoke(IPC.settingsDefaults),
   setSettings: (settings) => ipcRenderer.invoke(IPC.settingsSet, settings),
   beginPaneDrag: () => ipcRenderer.send(IPC.layoutDragStart),
   endPaneDrag: () => ipcRenderer.send(IPC.layoutDragEnd),

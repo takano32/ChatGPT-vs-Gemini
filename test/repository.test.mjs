@@ -14,7 +14,7 @@ import Database from 'better-sqlite3';
 import { Repository } from '../dist/conversation/Repository.js';
 
 // Repository.ts の MIGRATIONS の要素数。移行を足したらここも上げる
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 // max_turns 列を足す前(user_version 0)のスキーマ。旧 DB からの移行テスト用
 const LEGACY_SCHEMA_SQL = `
@@ -87,6 +87,9 @@ test('新規 DB: init で user_version が MIGRATIONS 数になり、conversatio
     assert.equal(userVersion(db), SCHEMA_VERSION);
     assert.ok(columnNames(db, 'conversations').includes('max_turns'));
     assert.ok(columnNames(db, 'conversations').includes('mode'));
+    assert.ok(columnNames(db, 'conversations').includes('config'));
+    assert.ok(columnNames(db, 'messages').includes('content_md'));
+    assert.ok(columnNames(db, 'messages').includes('prompt'));
     const fts = db.prepare("SELECT name FROM sqlite_master WHERE name = 'messages_fts'").get();
     assert.ok(fts, '全文検索テーブル messages_fts が作られる');
   });
@@ -106,6 +109,9 @@ test('旧スキーマの DB: init で max_turns / mode 列が追加され版が�
     const cols = columnNames(db, 'conversations');
     assert.ok(cols.includes('max_turns'));
     assert.ok(cols.includes('mode'));
+    assert.ok(cols.includes('config'));
+    assert.ok(columnNames(db, 'messages').includes('content_md'));
+    assert.ok(columnNames(db, 'messages').includes('prompt'));
     const legacy = db.prepare('SELECT title, max_turns, mode FROM conversations').get();
     assert.deepEqual(legacy, { title: '旧い会話', max_turns: null, mode: null }, '既存の行は残り max_turns / mode は NULL');
     return cols;
@@ -170,6 +176,37 @@ test('addMessage → getMessages: 追加した順に返り、speaker / content �
   );
   assert.deepEqual(repo.getMessages(b.id), [m3], '他の会話の発言は混ざらない');
   assert.deepEqual(repo.getMessages(b.id + 1000), [], '存在しない会話は空配列');
+});
+
+test('v3: config / prompt / contentMd が往復し、旧行と壊れた JSON は null になる', (t) => {
+  const { open, raw } = setup(t);
+  const repo = open();
+  const config = { firstSpeaker: 'gemini', language: 'ja', app: '0.8.0' };
+  const conv = repo.createConversation('記録の質', 4, 'debate', config);
+  assert.deepEqual(conv.config, config);
+  const msg = repo.addMessage(conv.id, 'chatgpt', 'プレーン本文', { contentMd: '## 見出し\n\n- 箇条書き', prompt: '【進行役】1/4。プロンプト全文' });
+  assert.equal(msg.contentMd, '## 見出し\n\n- 箇条書き');
+  assert.equal(msg.prompt, '【進行役】1/4。プロンプト全文');
+
+  assert.deepEqual(repo.listConversations()[0].config, config, '読み直しでも config が返る');
+  const stored = repo.getMessages(conv.id)[0];
+  assert.equal(stored.contentMd, '## 見出し\n\n- 箇条書き');
+  assert.equal(stored.prompt, '【進行役】1/4。プロンプト全文');
+  assert.equal(repo.search('プレーン本文')[0].message.contentMd, '## 見出し\n\n- 箇条書き', '検索結果にも載る');
+
+  // extras 省略・config 省略は null(旧呼び出しと互換)
+  const plain = repo.createConversation('省略', 2, 'debate');
+  assert.equal(plain.config, null);
+  const m2 = repo.addMessage(plain.id, 'gemini', '本文だけ');
+  assert.equal(m2.contentMd, null);
+  assert.equal(m2.prompt, null);
+
+  // 壊れた JSON は null に潰す(会話自体は読める)
+  raw((db) => db.prepare('UPDATE conversations SET config = ? WHERE id = ?').run('{broken', conv.id));
+  const rows = open().listConversations();
+  const reread = rows.find((c) => c.id === conv.id);
+  assert.equal(reread.config, null);
+  assert.equal(reread.title, '記録の質');
 });
 
 test('deleteConversation: 会話と発言が消え、全文検索の索引からも消える。無い id は false', (t) => {

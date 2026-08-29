@@ -117,6 +117,18 @@ test('maxTurns の表記: 分母は発言数ではなく渡した maxTurns、分
   );
 });
 
+test('contentMd がある発言は Markdown 版を使い、無ければ content を使う', () => {
+  const messages = [
+    { speaker: 'chatgpt', content: '見出し 箇条書き', contentMd: '## 見出し\n\n- 箇条書き\n\n' },
+    { speaker: 'gemini', content: 'プレーンのまま\n\n' },
+  ];
+  const md = transcriptToMarkdown('質', messages, 2);
+  assert.ok(md.includes('## 見出し\n\n- 箇条書き'), 'Markdown 版が優先される');
+  assert.ok(!md.includes('見出し 箇条書き'), 'プレーン版は使わない');
+  assert.ok(md.includes('プレーンのまま'), '無い発言は content にフォールバック');
+  assert.ok(!md.includes('\n\n\n'), '末尾の改行は詰める');
+});
+
 test('タイトルが空のときは「議論」を見出しにする。空でなければそのまま使う', () => {
   const messages = [message('chatgpt', 'こんにちは')];
   assert.ok(transcriptToMarkdown('', messages, 1).startsWith('# 議論\n\n'));

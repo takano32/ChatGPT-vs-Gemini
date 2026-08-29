@@ -5,6 +5,20 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-30
+
+### Added
+
+- **本文を Markdown でも保存**: 応答の確定後に本文を Markdown へ直列化して保存する(見出し / 箇条書き / コード(言語名付き)/ 引用 / 表 / 太字・斜体 / リンク)。経過や履歴の「Markdown をコピー」はこの版を使うので、gist に貼っても形が保たれる。直列化できなかった発言はこれまでどおり文章のまま(経過表示・検索・相手への中継は従来どおりプレーン文)
+- **送信プロンプトの保存**: 各発言を引き出した送信文の全文(進行役の行込み)を保存し、履歴の詳細の「この発言へのプロンプト」で確認できる
+- **実行条件の保存**: 会話ごとに先攻・言語・アプリ版のスナップショットを保存する(`conversations.config`)。0 発言で止まった会話でも先攻の記録が残る
+- **設定の「既定に戻す」**: 入力欄を既定値で埋める(「保存」を押すまで保存されない。言語ともう片方の言語のテンプレートは触らない)
+- 文書: `docs/schema.md`(DB の列の意味と変更の禁則)を追加
+
+### Changed
+
+- DB スキーマ v3(`conversations.config` / `messages.content_md` / `messages.prompt` を追加。すべて既存データに影響しない nullable 列で、旧 DB は初回起動時に自動で移行される)
+
 ## [0.7.8] - 2026-08-30
 
 ### Fixed
@@ -315,7 +329,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.8...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.8...v0.8.0
 [0.7.8]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.5...v0.7.6

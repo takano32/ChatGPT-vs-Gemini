@@ -126,6 +126,8 @@ import type {
   const inTkLate = must<HTMLInputElement>('set-tk-late');
   const templatesNote = must<HTMLElement>('set-templates-note');
   const saveFlash = must<HTMLElement>('save-flash');
+  const btnResetSettings = must<HTMLButtonElement>('btn-reset-settings');
+  const resetFlash = must<HTMLElement>('reset-flash');
 
   const historyList = must<HTMLElement>('history-list');
   const historyDetail = must<HTMLElement>('history-detail');
@@ -487,7 +489,15 @@ import type {
 
   async function fillSettingsForm(): Promise<void> {
     try {
-      const s = await api.getSettings();
+      fillFormFields(await api.getSettings());
+    } catch (err) {
+      localLog('error', t('log.settingsLoadFailed', { error: errMsg(err) }));
+    }
+  }
+
+  /** 設定フォームの入力欄を s の値で埋める(保存はしない)。テンプレート欄は s.language のぶん */
+  function fillFormFields(s: SettingsData): void {
+    {
       inMaxTurns.value = String(s.debate.maxTurns);
       selFirstSpeaker.value = s.debate.firstSpeaker;
       inBetweenTurns.value = String(s.debate.betweenTurnsMs);
@@ -510,10 +520,25 @@ import type {
       inTkLate.value = tk.late;
       // 操作バー(ターン数・先攻・モード)は触らない。決めるのは起動時と設定の保存時だけで、
       // 設定タブを開いただけで選び直した値が戻らないようにする(モードは起動時に常に「対立」。利用者の決定 2026-08-24)
-    } catch (err) {
-      localLog('error', t('log.settingsLoadFailed', { error: errMsg(err) }));
     }
   }
+
+  // 既定に戻す: 入力欄を既定値で埋めるだけで、「保存」を押すまで何も永続化しない(取り消しは保存せず閉じるだけ)。
+  // 言語ともう片方の言語のテンプレートは触らない(画面に出ていないものを黙って変えない)
+  btnResetSettings.addEventListener('click', () => {
+    void (async () => {
+      try {
+        const [defaults, cur] = await Promise.all([api.getDefaultSettings(), api.getSettings()]);
+        fillFormFields({ ...defaults, language: cur.language });
+        resetFlash.classList.add('show');
+        window.clearTimeout(resetFlashTimer);
+        resetFlashTimer = window.setTimeout(() => resetFlash.classList.remove('show'), 3000);
+      } catch (err) {
+        localLog('error', t('set.resetFailed', { error: errMsg(err) }));
+      }
+    })();
+  });
+  let resetFlashTimer = 0;
 
   let editingTemplates: Record<Mode, DebateTemplates> | null = null;
   let editingMode: Mode = 'debate';
@@ -731,7 +756,19 @@ import type {
       for (const msg of msgs) {
         const row = el('div', 'hist-msg');
         row.appendChild(el('span', `chip chip-${msg.speaker}`, SPEAKER_LABELS[msg.speaker]));
-        row.appendChild(el('span', 'msg-body', msg.content));
+        const main = el('div', 'msg-main');
+        main.appendChild(el('span', 'msg-body', msg.content));
+        // この発言を引き出した送信文(0.8.0 から保存)。あるときだけ折りたたみで出す
+        if (msg.prompt) {
+          const det = document.createElement('details');
+          det.className = 'msg-prompt';
+          const sum = document.createElement('summary');
+          sum.textContent = t('history.promptToggle');
+          det.appendChild(sum);
+          det.appendChild(el('div', 'msg-prompt-body', msg.prompt));
+          main.appendChild(det);
+        }
+        row.appendChild(main);
         row.appendChild(el('span', 'msg-date', shortDate(msg.createdAt)));
         historyMessages.appendChild(row);
         if (msg.id === focusMessageId) target = row;

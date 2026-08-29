@@ -16,7 +16,7 @@ import { ChatGPT } from './chat/ChatGPT';
 import { Gemini } from './chat/Gemini';
 import { CHATGPT_SELECTORS, GEMINI_SELECTORS } from './chat/selectors';
 import { IPC } from './shared/ipc';
-import { isMode } from './shared/types';
+import { DEFAULT_SETTINGS, isMode } from './shared/types';
 import type {
   ChatStatus,
   ChatStatusMap,
@@ -97,6 +97,7 @@ export class Application {
       chats: { chatgpt: this.chatGPT, gemini: this.gemini },
       repository: this.repository,
       settings: this.manager.settings,
+      appVersion: app.getVersion(),
     });
 
     this.fileLog = new FileLog(app.getPath('logs'));
@@ -162,6 +163,7 @@ export class Application {
     );
 
     ipcMain.handle(IPC.settingsGet, () => this.manager.settings.get());
+    ipcMain.handle(IPC.settingsDefaults, () => DEFAULT_SETTINGS);
     this.manager.settings.on('change', (settings: SettingsData) => {
       setMainLang(settings.language);
       this.sendToAdmin(IPC.evSettingsChanged, settings);

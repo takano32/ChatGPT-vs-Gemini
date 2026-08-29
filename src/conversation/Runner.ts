@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 import {
   SPEAKER_LABELS,
   opponentOf,
+  type ConversationConfig,
   type DebateTemplates,
   type LogEntry,
   type MessageRecord,
@@ -32,6 +33,8 @@ interface RunnerDeps {
   settings: Settings;
   /** レート制限の待ち時間(既定 COOLDOWN_MS。テストで短くする) */
   cooldownMs?: number;
+  /** conversations.config に記録するアプリの版(Application が app.getVersion() を渡す) */
+  appVersion?: string;
 }
 
 // レート制限(ゲストの送信上限など)に当たったときの自動クールダウン: この時間待って同じターンを再試行し、
@@ -45,6 +48,7 @@ export class Runner extends EventEmitter {
   private readonly repository: Repository;
   private readonly settings: Settings;
   private readonly cooldownMs: number;
+  private readonly appVersion: string;
 
   private state: RunnerState = 'idle';
   private conversation: Conversation | null = null;
@@ -74,6 +78,7 @@ export class Runner extends EventEmitter {
     this.repository = deps.repository;
     this.settings = deps.settings;
     this.cooldownMs = deps.cooldownMs ?? COOLDOWN_MS;
+    this.appVersion = deps.appVersion ?? '';
     // Chat 内部の自己修復(送信の再試行など)もログフィードに流す
     for (const chat of Object.values(this.chats)) {
       chat.notice = (message) => this.log('warn', message);
@@ -125,7 +130,10 @@ export class Runner extends EventEmitter {
     this.state = 'running';
     let conversation: Conversation;
     try {
-      conversation = new Conversation(this.repository.createConversation(topic, debate.maxTurns, debate.mode));
+      // 実行条件のスナップショット(docs/schema.md)。先攻は 1 発言目からも復元できるが、0 発言で止まるとこれが唯一の記録
+      const config: ConversationConfig = { firstSpeaker: debate.firstSpeaker, language: all.language };
+      if (this.appVersion !== '') config.app = this.appVersion;
+      conversation = new Conversation(this.repository.createConversation(topic, debate.maxTurns, debate.mode, config));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.state = 'error';
@@ -165,7 +173,7 @@ export class Runner extends EventEmitter {
     const debate: DebateConfig = {
       ...base,
       maxTurns,
-      firstSpeaker: messages[0]?.speaker ?? base.firstSpeaker,
+      firstSpeaker: messages[0]?.speaker ?? record.config?.firstSpeaker ?? base.firstSpeaker,
       mode: record.mode ?? 'debate',
     };
     const tpl = base.templates[all.language][debate.mode];
@@ -358,9 +366,14 @@ export class Runner extends EventEmitter {
         if (this.runId !== myRun) return;
         if (this.stopRequested) return;
 
+        // 記録用の Markdown 版(見出し・コード等を保った本文)。取れなくても議論は止めない
+        const contentMd = await chat.captureLastMarkdown().catch(() => null);
+        if (this.runId !== myRun) return;
+        if (this.stopRequested) return;
+
         let record: MessageRecord;
         try {
-          record = this.repository.addMessage(conversation.id, speaker, reply);
+          record = this.repository.addMessage(conversation.id, speaker, reply, { contentMd, prompt });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           this.state = 'error';

@@ -275,3 +275,13 @@ document.body.innerText.slice(-800)
 3. ChatGPT は両変種で確認する(プロファイルを変えて起動し直す)。ログイン済みのプロファイルでも 1 回は通す
 4. ゲストの催促を確認する: Gemini は 4 通目以降のモーダルが自動で閉じること(`window.__cvgTidy.dismissed` が増える)、ChatGPT はトーストが消えヘッダーの Log in が残ること
 5. `selectors.ts` 先頭とこの文書の実測日を更新し、push して CI(全形式のビルドと起動スモーク)が通ることを見る。実際の議論は CI では確認できない
+
+## Markdown 直列化(captureLastMarkdown)
+
+0.8.0 から、応答の確定後に最後の応答要素を Markdown へ直列化して `messages.content_md` に保存する
+(`Chat.ts` の `captureLastMarkdown()`。プレーン文の `content` とは別。docs/schema.md)。
+新しいセレクタは使わず `messageContent` / `excludeInContent` に相乗りしているので、
+**サイトの画面変更でこれらを調整したときは、直列化も一緒に確認する**:
+数ターン議論(見出し・箇条書き・表・コードを出させる議題)→ DB の `content_md` を見る。
+壊れていても議論は止まらず null が入るだけ(コピーはプレーン文にフォールバック)。
+

@@ -21,6 +21,19 @@ export type RunnerState = 'idle' | 'running' | 'paused' | 'stopped' | 'error' | 
 
 export type ConversationStatus = 'running' | 'paused' | 'stopped' | 'error' | 'done';
 
+/**
+ * 会話の実行条件のスナップショット(conversations.config、JSON で 1 列)。
+ * 将来の条件(ロールプレイの役割など)は列を増やさずここへ足す(docs/schema.md)。全フィールド任意
+ */
+export interface ConversationConfig {
+  /** 先攻(1 発言目の話者からも復元できるが、0 発言で止まった会話はこれが唯一の記録) */
+  firstSpeaker?: Speaker;
+  /** 議論を走らせた言語 */
+  language?: Lang;
+  /** 書き込んだアプリの版 */
+  app?: string;
+}
+
 export interface ConversationRecord {
   id: number;
   title: string;
@@ -31,13 +44,20 @@ export interface ConversationRecord {
   maxTurns: number | null;
   /** 議論のモード。列追加前に作られた会話は null(= 対立) */
   mode: Mode | null;
+  /** 実行条件のスナップショット。列追加前の会話・壊れた JSON は null */
+  config: ConversationConfig | null;
 }
 
 export interface MessageRecord {
   id: number;
   conversationId: number;
   speaker: Speaker;
+  /** 本文のプレーンテキスト。常に存在し、全文検索・経過表示・相手への中継はこれを使う(意味は今後も変えない) */
   content: string;
+  /** 本文の Markdown 版(見出し・コード等を保った記録)。直列化できなかった発言・列追加前は null */
+  contentMd: string | null;
+  /** この発言を引き出した送信文(進行役の行込み)。列追加前は null */
+  prompt: string | null;
   createdAt: string;
 }
 

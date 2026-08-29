@@ -30,6 +30,7 @@ class FakeChat {
     this.stopCalls = 0;
     this.hold = false;
     this.pending = null;
+    this.markdown = null; // captureLastMarkdown の戻り値(記録用 Markdown)。テストで差し替える
   }
   async newChat() {
     this.newChatCalls += 1;
@@ -41,6 +42,9 @@ class FakeChat {
     return new Promise((resolve, reject) => {
       this.pending = { resolve: () => resolve(result), reject };
     });
+  }
+  async captureLastMarkdown() {
+    return this.markdown ?? null;
   }
   stop() {
     this.stopCalls += 1;
@@ -200,6 +204,25 @@ test('進行役: 毎ターン先頭に「n/max ターン目」と段階の指示
   const all = [short.chats.chatgpt.prompts[0], short.chats.gemini.prompts[0], short.chats.chatgpt.prompts[1]];
   assert.ok(all.every((p) => !p.includes('議論はここまでです')));
   assert.ok(all[2].split('\n\n')[0].includes('終盤'));
+});
+
+test('記録の質: 送信プロンプトと Markdown 版が発言に、実行条件が会話に保存される', async (t) => {
+  const chatgpt = new FakeChat('ChatGPT', (_p, n) => `ChatGPT の発言 ${n}`);
+  const gemini = new FakeChat('Gemini', (_p, n) => `Gemini の発言 ${n}`);
+  chatgpt.markdown = '## ChatGPT の見出し';
+  const { runner, repository } = setup(t, { chatgpt, gemini });
+  await runner.start('記録', 2, 'gemini');
+
+  const conv = repository.listConversations()[0];
+  assert.equal(conv.config.firstSpeaker, 'gemini', '操作バーの先攻の上書きが config に残る');
+  assert.equal(conv.config.language, 'ja');
+  const msgs = repository.getMessages(conv.id);
+  assert.equal(msgs.length, 2);
+  assert.equal(msgs[0].prompt, gemini.prompts[0], '実際に送った全文(進行役の行込み)が残る');
+  assert.ok(msgs[0].prompt.includes('【進行役】'), `進行役の行: ${msgs[0].prompt.slice(0, 30)}`);
+  assert.equal(msgs[0].contentMd, null, 'Markdown が取れなければ null');
+  assert.equal(msgs[1].contentMd, '## ChatGPT の見出し', 'captureLastMarkdown の結果が残る');
+  assert.equal(msgs[1].prompt, chatgpt.prompts[0]);
 });
 
 test('レート制限: クールダウン後に同じターンを自動で再送し、一時停止せず完走する', async (t) => {

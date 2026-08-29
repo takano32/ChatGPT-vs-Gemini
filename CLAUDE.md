@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron アプリ(対象は初心者)。全体像は README.md、画面変更時のセレクタ調整は docs/selectors.md。会話・コメント・ログ文言・文書は日本語。
+ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron アプリ(対象は初心者)。全体像は README.md、画面変更時のセレクタ調整は docs/selectors.md、DB の列の意味と変更の禁則は docs/schema.md。会話・コメント・ログ文言・文書は日本語。
 
 ## 開発コマンド
 
@@ -26,7 +26,7 @@ ChatGPT と Gemini の無料 Web 画面を DOM 操作で議論させる Electron
 
 - DOM 知識は `src/chat/` に閉じる。セレクタと文言パターンは `src/chat/selectors.ts` だけに書き、`Chat.ts` はサイト非依存のアルゴリズムに保つ
 - モードとその既定テンプレート・進行役の文は `src/shared/modes.ts`。Runner の進行(ターンの種類と段階)は `planTurns()`(Runner.ts)
-- SQL は `src/conversation/Repository.ts` だけ。既存 DB の変更(列追加など)は `MIGRATIONS` に冪等な関数を追記し、`SCHEMA_SQL` も最終形に更新する(`PRAGMA user_version` で未適用分だけ当たる)
+- SQL は `src/conversation/Repository.ts` だけ。スキーマに触る前に docs/schema.md(列の意味と変更の禁則)を読む。既存 DB の変更(列追加など)は `MIGRATIONS` に冪等な関数を追記し、`SCHEMA_SQL` も最終形に更新する(`PRAGMA user_version` で未適用分だけ当たる)。`messages.content` はプレーン文で固定、Markdown 版は `content_md`、実行条件は `conversations.config`(JSON)へ
 - `src/shared/` は main / preload / renderer の共有(TypeScript Project References: `tsconfig.shared.json` が composite、main と renderer が参照)。renderer からは `import type` だけで使う(実行時の import は増やさない)。`src/shared` に Node 依存のコードを置かない(`node:fs` 等は `src/` 直下か `manager/` へ)。`src/renderer/api.d.ts` は `window.api` の宣言だけ
 - 画面文言は日本語と英語の 2 言語だけ(他の言語は対応しない)。renderer 側の文言は `src/renderer/i18n.ts`(静的文言は HTML の `data-i18n*` 属性、動的文言は `t()`)、main 側(ログ・通知・エラー)は `src/shared/i18n.ts` の `tm()`。新しい文言を足したら両言語を書く
 - main プロセスに DOM 型は無い。ページ操作は `executeJavaScript` に渡す自己完結の IIFE 文字列で、値は `JSON.stringify` で埋め込む

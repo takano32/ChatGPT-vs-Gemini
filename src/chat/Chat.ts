@@ -259,6 +259,175 @@ export abstract class Chat {
     return wc.isDestroyed() || wc.isLoading();
   }
 
+  /**
+   * 最後の応答要素を Markdown に直列化して返す(記録用)。応答の確定後に 1 回だけ呼ぶ想定で、
+   * 完了検知・相手への中継には使わない(それらはプレーン文のまま。docs/schema.md)。
+   * 対応: 見出し / 段落 / 箇条書き / コード(言語名付き)/ 引用 / 表 / 太字・斜体・打ち消し / リンク。
+   * ボタン等の UI 破片と excludeInContent は除外。構造が想定外・空なら null(議論は止めない)
+   */
+  async captureLastMarkdown(): Promise<string | null> {
+    const s = this.selectors;
+    const md = await this.js<string | null>(
+      `(() => {
+        const msgs = document.querySelectorAll(${JSON.stringify(s.assistantMessages)});
+        if (msgs.length === 0) return null;
+        const last = msgs[msgs.length - 1];
+        const contentSel = ${JSON.stringify(s.messageContent ?? '')};
+        const excludeSel = ${JSON.stringify(s.excludeInContent ?? '')};
+        let roots = [last];
+        if (contentSel) {
+          const all = Array.from(last.querySelectorAll(contentSel));
+          const leaves = all.filter((c) => !all.some((o) => o !== c && c.contains(o)));
+          if (leaves.length > 0) roots = leaves;
+        }
+        const TICK = String.fromCharCode(96);
+        const SKIP = { BUTTON: 1, SVG: 1, STYLE: 1, SCRIPT: 1, SELECT: 1, INPUT: 1, TEXTAREA: 1, AUDIO: 1, VIDEO: 1, CANVAS: 1, IFRAME: 1, IMG: 1, NOSCRIPT: 1 };
+        const skip = (el) => {
+          if (SKIP[el.tagName]) return true;
+          if (excludeSel && el.matches && el.matches(excludeSel)) return true;
+          if (!el.getAttribute) return false;
+          if (el.getAttribute('role') === 'button') return true;
+          if (el.getAttribute('aria-hidden') === 'true') return true;
+          return false;
+        };
+        const norm = (t) => t.replace(/\\s+/g, ' ');
+        const inlineOf = (el) => Array.from(el.childNodes).map(inline).join('');
+        const inline = (node) => {
+          if (node.nodeType === 3) return norm(node.nodeValue || '');
+          if (node.nodeType !== 1) return '';
+          const el = node;
+          // KaTeX の数式は「見える字形が aria-hidden=true、隠し MathML が本体」の構造なので、
+          // 除外ルールに入る前に見えているテキスト(innerText)をそのまま採る(2026-08-30 実測: O(1) 等が欠けた)
+          if (typeof el.className === 'string' && el.className.indexOf('katex') >= 0) {
+            return norm(el.innerText || el.textContent || '');
+          }
+          if (skip(el)) return '';
+          const tag = el.tagName;
+          if (tag === 'BR') return '\\n';
+          if (tag === 'CODE') {
+            const text = (el.textContent || '').replace(/\\n+$/, '');
+            if (text === '') return '';
+            const wrap = text.indexOf(TICK) >= 0 ? TICK + TICK : TICK;
+            return wrap + text + wrap;
+          }
+          if (tag === 'STRONG' || tag === 'B') { const t = inlineOf(el).trim(); return t === '' ? '' : '**' + t + '**'; }
+          if (tag === 'EM' || tag === 'I') { const t = inlineOf(el).trim(); return t === '' ? '' : '*' + t + '*'; }
+          if (tag === 'DEL' || tag === 'S') { const t = inlineOf(el).trim(); return t === '' ? '' : '~~' + t + '~~'; }
+          if (tag === 'A') {
+            const href = el.getAttribute('href') || '';
+            const t = inlineOf(el).trim();
+            if (t === '') return '';
+            return /^https?:/.test(href) ? '[' + t + '](' + href + ')' : t;
+          }
+          return inlineOf(el);
+        };
+        const H = { H1: 1, H2: 2, H3: 3, H4: 4, H5: 5, H6: 6 };
+        const LEAFBLOCK = { P: 1, DIV: 1, SECTION: 1, ARTICLE: 1, UL: 1, OL: 1, PRE: 1, BLOCKQUOTE: 1, TABLE: 1, HR: 1, FIGURE: 1, DETAILS: 1, DL: 1, DT: 1, DD: 1, HEADER: 1, FOOTER: 1, MAIN: 1, ASIDE: 1, NAV: 1, LI: 1 };
+        const isBlock = (el) => H[el.tagName] !== undefined || LEAFBLOCK[el.tagName] !== undefined || el.tagName.indexOf('-') >= 0;
+        const oneLine = (t) => norm(t).trim();
+        const preMd = (pre) => {
+          const code = pre.querySelector('code');
+          const srcEl = code || pre;
+          const text = (srcEl.textContent || '').replace(/\\n+$/, '');
+          if (text.trim() === '') return { md: '', header: '' };
+          const cls = String((code && code.className) || pre.className || '');
+          const m = /(?:language|lang)-([A-Za-z0-9+#-]+)/.exec(cls);
+          let lang = m ? m[1] : '';
+          let header = '';
+          if (lang === '') {
+            const prev = pre.previousElementSibling;
+            const t = prev ? oneLine(prev.textContent || '') : '';
+            if (/^[A-Za-z0-9+#.-]{1,24}$/.test(t)) {
+              lang = t.toLowerCase();
+              header = t;
+            }
+          }
+          let fence = TICK + TICK + TICK;
+          while (text.indexOf(fence) >= 0) fence += TICK;
+          return { md: fence + lang + '\\n' + text + '\\n' + fence, header: header };
+        };
+        const cellOf = (c) => oneLine(inlineOf(c)).replace(/\\|/g, '\\\\|');
+        const tableMd = (tbl) => {
+          const trs = Array.from(tbl.querySelectorAll('tr'));
+          const rows = trs
+            .map((tr) => Array.from(tr.children).filter((c) => c.tagName === 'TD' || c.tagName === 'TH').map(cellOf))
+            .filter((r) => r.length > 0);
+          if (rows.length === 0) return '';
+          let width = 0;
+          for (const r of rows) width = Math.max(width, r.length);
+          const line = (r) => {
+            const cells = [];
+            for (let i = 0; i < width; i++) cells.push(r[i] || '');
+            return '| ' + cells.join(' | ') + ' |';
+          };
+          const seps = [];
+          for (let i = 0; i < width; i++) seps.push('---');
+          const out = [line(rows[0]), '| ' + seps.join(' | ') + ' |'];
+          for (const r of rows.slice(1)) out.push(line(r));
+          return out.join('\\n');
+        };
+        const listMd = (list) => {
+          const ordered = list.tagName === 'OL';
+          let n = parseInt(list.getAttribute('start') || '1', 10) || 1;
+          const lines = [];
+          for (const li of Array.from(list.children)) {
+            if (li.tagName !== 'LI') continue;
+            const marker = ordered ? String(n++) + '. ' : '- ';
+            const pad = ' '.repeat(marker.length);
+            const parts = blocks(li);
+            const first = parts.length > 0 ? parts[0] : '';
+            lines.push(marker + first.split('\\n').join('\\n' + pad));
+            for (const b of parts.slice(1)) {
+              lines.push(b.split('\\n').map((l) => pad + l).join('\\n'));
+            }
+          }
+          return lines.join('\\n');
+        };
+        const quoteMd = (bq) => blocks(bq).join('\\n\\n').split('\\n').map((l) => ('> ' + l).replace(/\\s+$/, '')).join('\\n');
+        const blocks = (container) => {
+          const out = [];
+          let buf = '';
+          const flush = () => {
+            const t = buf.replace(/[ \\t]*\\n[ \\t]*/g, '\\n').trim();
+            buf = '';
+            if (t !== '') out.push(t);
+          };
+          for (const node of Array.from(container.childNodes)) {
+            if (node.nodeType === 3) { buf += norm(node.nodeValue || ''); continue; }
+            if (node.nodeType !== 1) continue;
+            const el = node;
+            if (skip(el)) continue;
+            if (!isBlock(el)) { buf += inline(el); continue; }
+            flush();
+            const tag = el.tagName;
+            const h = H[tag];
+            if (h !== undefined) { const t = oneLine(inlineOf(el)); if (t !== '') out.push('#'.repeat(h) + ' ' + t); continue; }
+            if (tag === 'PRE') {
+              const r = preMd(el);
+              if (r.md !== '') {
+                if (r.header !== '' && out.length > 0 && out[out.length - 1] === r.header) out.pop();
+                out.push(r.md);
+              }
+              continue;
+            }
+            if (tag === 'UL' || tag === 'OL') { const t = listMd(el); if (t !== '') out.push(t); continue; }
+            if (tag === 'TABLE') { const t = tableMd(el); if (t !== '') out.push(t); continue; }
+            if (tag === 'HR') { out.push('---'); continue; }
+            if (tag === 'BLOCKQUOTE') { const t = quoteMd(el); if (t !== '') out.push(t); continue; }
+            for (const b of blocks(el)) out.push(b);
+          }
+          flush();
+          return out;
+        };
+        const parts = [];
+        for (const r of roots) for (const b of blocks(r)) parts.push(b);
+        const md = parts.join('\\n\\n').replace(/\\n{3,}/g, '\\n\\n').trim();
+        return md === '' ? null : md;
+      })()`,
+    );
+    return typeof md === 'string' && md.trim() !== '' ? md : null;
+  }
+
   async isRateLimited(): Promise<boolean> {
     const hit = await this.js<boolean>(
       `(() => {

@@ -35,6 +35,7 @@ export const IPC = {
   // 設定が変わった(main -> 管理ペイン・経過表示)。言語切替で両方の画面文言を差し替えるのに使う
   evSettingsChanged: 'settings:ev-changed',
   settingsGet: 'settings:get',
+  settingsDefaults: 'settings:defaults', // 既定値(renderer は shared の実行時値を import しないため IPC で取る)
   settingsSet: 'settings:set',
   search: 'repository:search',
   listConversations: 'repository:conversations',
@@ -67,6 +68,8 @@ export interface RendererApi {
   resumeConversation(conversationId: number): Promise<boolean>;
 
   getSettings(): Promise<SettingsData>;
+  /** 既定の設定(設定画面の「既定に戻す」用。保存はしない) */
+  getDefaultSettings(): Promise<SettingsData>;
   setSettings(settings: SettingsData): Promise<void>;
   /** 管理ペインとチャットペインの境界ドラッグの開始 / 終了(main がポインタ位置を追って比率を変える) */
   beginPaneDrag(): void;
