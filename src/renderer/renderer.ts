@@ -868,7 +868,8 @@ import type {
   btnHistoryCopy.addEventListener('click', () => {
     if (openConversationId === null) return;
     void api.copyTranscriptMarkdown(openConversationId).then((ok) => {
-      if (ok) localLog('info', t('history.copied'));
+      // 失敗 = 発言が 0 件(main はその場合コピーしない)。無反応にしない
+      localLog(ok ? 'info' : 'warn', t(ok ? 'history.copied' : 'history.copyFailed'));
     });
   });
 

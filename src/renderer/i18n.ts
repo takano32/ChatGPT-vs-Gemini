@@ -155,6 +155,7 @@ const STRINGS: Table = {
   'progress.late': { ja: '終盤', en: 'late' },
   'progress.closing': { ja: 'まとめ', en: 'closing' },
   'history.copy.hint': { ja: 'Markdown をコピー', en: 'Copy as Markdown' },
+  'history.copyFailed': { ja: 'コピーする発言がありません', en: 'No messages to copy' },
   'history.copied': { ja: 'Markdown をコピーしました', en: 'Copied as Markdown' },
   'history.delete': { ja: '削除', en: 'Delete' },
   'history.delete.hint': { ja: 'この会話を削除', en: 'Delete this conversation' },

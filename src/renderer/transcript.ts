@@ -71,8 +71,10 @@ copyBtn.addEventListener('click', () => {
 });
 
 function render(payload: TranscriptPayload): void {
-  titleEl.textContent = payload.title || t('tr.untitled');
-  modeEl.textContent = t(`mode.${payload.mode ?? 'debate'}`);
+  // conversationId 0 は「表示する会話が無い」(削除後のリセット)。起動直後と同じ空の状態に戻す
+  const cleared = payload.conversationId === 0;
+  titleEl.textContent = cleared ? '' : payload.title || t('tr.untitled');
+  modeEl.textContent = cleared ? '' : t(`mode.${payload.mode ?? 'debate'}`);
   if (payload.status) {
     statusEl.textContent = STATUS_KEY[payload.status] ? t(STATUS_KEY[payload.status]) : payload.status;
     statusEl.className = `tr-status st-${payload.status}`;
@@ -93,7 +95,7 @@ function render(payload: TranscriptPayload): void {
   if (payload.messages.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'tr-empty';
-    empty.textContent = t('tr.empty');
+    empty.textContent = cleared ? t('tr.placeholder') : t('tr.empty');
     bodyEl.appendChild(empty);
   } else {
     payload.messages.forEach((m, i) => {

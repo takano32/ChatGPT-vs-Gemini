@@ -237,9 +237,13 @@ export class Application {
     // 経過表示がその会話を出していたら、空の状態に戻す
     if (ok && this.transcriptConversationId === id) {
       this.transcriptConversationId = null;
-      const payload: TranscriptPayload = { conversationId: 0, title: '', status: null, maxTurns: 1, mode: null, messages: [] };
-      this.manager.layout.view('transcript').webContents.send(IPC.evTranscript, payload);
-      if (this.transcriptVisible) this.setTranscriptVisible(false);
+      try {
+        const payload: TranscriptPayload = { conversationId: 0, title: '', status: null, maxTurns: 1, mode: null, messages: [] };
+        this.manager.layout.view('transcript').webContents.send(IPC.evTranscript, payload);
+        if (this.transcriptVisible) this.setTranscriptVisible(false);
+      } catch {
+        // 終了中(ビュー破棄後)の表示リセットは諦めてよい。dispose の残りの削除確定を巻き込まない
+      }
     }
   }
 

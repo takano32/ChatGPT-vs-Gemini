@@ -5,6 +5,14 @@
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-08-24
+
+### Fixed
+
+- 経過表示に出している会話を削除すると、見出しが「(無題の議論)/ 対立」になっていた。起動直後と同じ「議論が完了するとここに経過が表示されます。」の状態に戻す
+- 発言が 0 件の会話で履歴の「コピー」を押しても何も起きなかった(「コピーする発言がありません」と出す)
+- 終了中に削除の確定処理が経過表示の更新で失敗すると、残りの削除予約まで巻き込まれる可能性があった
+
 ## [0.7.5] - 2026-08-24
 
 ### Fixed
@@ -295,7 +303,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.6...HEAD
+[0.7.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.2...v0.7.3
