@@ -823,6 +823,11 @@ import type {
   btnHistoryRematch.addEventListener('click', () => {
     const rec = openRecord;
     if (!rec) return;
+    // 「開始」が押せない状態(議論中・ペイン未準備)では、操作バーを黙って書き換えるだけになるので何もしない
+    if (btnStart.disabled) {
+      localLog('warn', t('history.cannotStart'));
+      return;
+    }
     topicInput.value = rec.title;
     ctlMode.value = rec.mode ?? 'debate';
     if (rec.maxTurns) setNextRunTurns(rec.maxTurns);
@@ -834,6 +839,10 @@ import type {
   // 続きから: 止まった会話を保存済みの発言の次のターンから、同じ会話に追記して再開する
   btnHistoryResume.addEventListener('click', () => {
     if (openConversationId === null) return;
+    if (btnStart.disabled) {
+      localLog('warn', t('history.cannotStart'));
+      return;
+    }
     const id = openConversationId;
     closeDrawer();
     void api.resumeConversation(id).then((ok) => {

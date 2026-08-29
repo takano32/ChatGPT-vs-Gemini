@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-24
+
+### Fixed
+
+- 議論の実行中や ChatGPT / Gemini の準備前に履歴の「もう一度」を押すと、何も始まらないのに操作バーのテーマ・モード・ターン数・先攻だけが黙って書き換わっていた。開始できない状態では書き換えず「いまは開始できません」と出す(「続きから」も同じ)
+
 ## [0.7.1] - 2026-08-24
 
 ### Fixed
@@ -268,7 +274,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.6...v0.7.0
 [0.6.6]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.6.5...v0.6.6
