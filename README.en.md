@@ -17,7 +17,7 @@ The app runs in guest mode by default; no account or login is required. You may 
 
 Pick the package for your OS on the [download site](https://takano32.github.io/ChatGPT-vs-Gemini/) (every format is on [Releases](https://github.com/takano32/ChatGPT-vs-Gemini/releases)).
 
-- **macOS**: open the `.dmg` and drag `ChatGPT vs Gemini` to Applications (arm64 for Apple silicon, x64 for Intel). The app is **unsigned** for now, so the first launch says the developer cannot be verified or the app is "damaged": go to System Settings → Privacy & Security → "Open Anyway" (or run `xattr -d com.apple.quarantine "/Applications/ChatGPT vs Gemini.app"`).
+- **macOS** (13 Ventura or later): open the `.dmg` and drag `ChatGPT vs Gemini` to Applications (arm64 for Apple silicon, x64 for Intel). The app is **unsigned** for now, so the first launch says the developer cannot be verified or the app is "damaged": go to System Settings → Privacy & Security → "Open Anyway" (or run `xattr -d com.apple.quarantine "/Applications/ChatGPT vs Gemini.app"`).
 - **Windows**: run `ChatGPT-vs-Gemini-Setup-<version>.exe` (per-user install, no admin rights). When SmartScreen says "Windows protected your PC", click "More info" → "Run anyway". A portable build, zip and msi are also available.
 - **Linux**: deb (Ubuntu / Debian), rpm (Fedora) and pacman (Arch) packages are recommended. For the AppImage, `chmod +x` it and run (the Chromium sandbox is disabled). The tar.gz unpacks to a `chatgpt-vs-gemini` binary.
 

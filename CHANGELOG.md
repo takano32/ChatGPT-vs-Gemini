@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-08-30
+
+### Changed
+
+- Electron を 44.0.0 に更新(Chromium も更新される)。これに伴い **macOS は 13(Ventura)以降が必要**になった(Electron 44 の要件)。ほかの OS の要件は変わらない
+- 開発依存の小さな更新(@types/node 26.3.0)
+
 ## [0.9.0] - 2026-08-30
 
 ### Added
@@ -357,7 +364,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.1...v0.8.2
