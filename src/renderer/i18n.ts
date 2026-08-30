@@ -13,7 +13,9 @@ type Table = Record<string, { ja: string; en: string }>;
 
 const STRINGS: Table = {
   // ---- ヘッダ ----
-  'menu': { ja: 'サイドパネル(設定 / 履歴 / 検索)', en: 'Side panel (settings / history / search)' },
+  'menu': { ja: 'サイドパネル(設定 / 履歴 / 検索)(Ctrl+B)', en: 'Side panel (settings / history / search) (Ctrl+B)' },
+  'btn.pause.title': { ja: '一時停止(Space)', en: 'Pause (Space)' },
+  'btn.resume.title': { ja: '再開(Space)', en: 'Resume (Space)' },
   'guest': { ja: 'ゲスト', en: 'guest' },
   'guest.title': { ja: 'ログインなしで利用中', en: 'Using without login' },
   'view.transcript': { ja: '経過', en: 'Transcript' },

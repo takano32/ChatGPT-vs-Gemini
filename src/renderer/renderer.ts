@@ -475,8 +475,39 @@ import type {
   btnMenu.addEventListener('click', openDrawer);
   btnDrawerClose.addEventListener('click', closeDrawer);
   backdrop.addEventListener('click', closeDrawer);
+  // キーボードショートカット(管理ペインにフォーカスがあるときだけ届く。入力欄では発動しない)。
+  // Space = 一時停止 ⇄ 再開 / Ctrl(⌘)+B = サイドパネル開閉 / "/" = 検索を開いてフォーカス(GitHub の慣習)
+  function inEditable(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+    return target.isContentEditable;
+  }
   document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && drawerOpen) closeDrawer();
+    if (ev.key === 'Escape' && drawerOpen) {
+      closeDrawer();
+      return;
+    }
+    if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === 'b') {
+      ev.preventDefault();
+      if (drawerOpen) closeDrawer();
+      else openDrawer();
+      return;
+    }
+    if (ev.ctrlKey || ev.metaKey || ev.altKey || inEditable(ev.target)) return;
+    if (ev.key === ' ') {
+      const st = runner.state;
+      if (st !== 'running' && st !== 'paused') return;
+      ev.preventDefault(); // ボタンへのフォーカスで Space が二重に効かないよう、ここで止める
+      void (st === 'running' ? api.pauseDebate() : api.resumeDebate()).catch((err) =>
+        localLog('error', errMsg(err)),
+      );
+      return;
+    }
+    if (ev.key === '/') {
+      ev.preventDefault();
+      openDrawer();
+      setTab('search');
+    }
   });
   for (const btn of tabButtons) {
     btn.addEventListener('click', () => {

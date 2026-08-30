@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-30
+
+### Added
+
+- **キーボードショートカット**(管理ペインにフォーカスがあるとき。入力欄では効かない): Space = 一時停止 ⇄ 再開、Ctrl+B(⌘B)= サイドパネル開閉、`/` = 検索を開いてフォーカス。開始はこれまでどおり Ctrl+Enter(⌘+Enter)
+
 ## [0.8.2] - 2026-08-30
 
 ### Added
@@ -345,7 +351,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.8...v0.8.0
