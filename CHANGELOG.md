@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-30
+
+### Fixed
+
+- 発言が保存される前に止まった会話の「もう一度」で先後が入れ替わらなかった(1 発言目の話者だけを見ていた)。0.8.0 から会話に残している先攻の記録を使って入れ替える
+
 ## [0.8.0] - 2026-08-30
 
 ### Added
@@ -329,7 +335,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.8...v0.8.0
 [0.7.8]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.6...v0.7.7

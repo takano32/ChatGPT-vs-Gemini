@@ -885,7 +885,8 @@ import type {
     topicInput.value = rec.title;
     ctlMode.value = rec.mode ?? 'debate';
     if (rec.maxTurns) setNextRunTurns(rec.maxTurns);
-    const first = openMessages[0]?.speaker;
+    // 入れ替えの基準は 1 発言目の話者。0 発言(開始直後に止めた会話)は 0.8.0 から保存している config の先攻
+    const first = openMessages[0]?.speaker ?? rec.config?.firstSpeaker;
     if (first) ctlFirstSpeaker.value = first === 'chatgpt' ? 'gemini' : 'chatgpt';
     closeDrawer();
     btnStart.click();
