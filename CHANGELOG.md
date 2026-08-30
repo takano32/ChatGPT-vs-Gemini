@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-30
+
+### Added
+
+- **ロールプレイモード**: 2 つの AI に役割(例: 刑事と容疑者)を与え、テーマ(舞台)の上で役になりきって会話させる。モードで「ロールプレイ」を選ぶとテーマ欄の下に役割欄が 2 つ現れる。役割はそのラン用の一時値で、会話には保存され(`config.roles`。DB のスキーマ変更なし)、「もう一度」「続きから」で復元される。経過表示の見出しに「🟢 = 刑事 / 🔵 = 容疑者」と出る。テンプレート(5 本)は他のモード同様に設定で編集でき、`{role}`(自分の役割)と `{partnerRole}`(相手の役割)を使える
+
 ## [0.8.3] - 2026-08-30
 
 ### Added
@@ -351,7 +357,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.0...v0.8.1

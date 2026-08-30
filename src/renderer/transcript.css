@@ -63,6 +63,9 @@ body { display: flex; flex-direction: column; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* ロールプレイの役割(🟢 = 刑事 / 🔵 = 容疑者) */
+.tr-roles { color: var(--dim, #9aa); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tr-roles:empty { display: none; }
 .tr-mode {
   font-family: var(--mono);
   font-size: 11px;

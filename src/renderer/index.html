@@ -42,7 +42,14 @@
   </header>
 
   <div class="controls">
-    <textarea id="topic-input" rows="2" data-i18n-placeholder="topic.placeholder" placeholder="議論テーマを入力…(複数行可。Ctrl+Enter で開始)" autocomplete="off" spellcheck="false"></textarea>
+    <div class="topic-col">
+      <textarea id="topic-input" rows="2" data-i18n-placeholder="topic.placeholder" placeholder="議論テーマを入力…(複数行可。Ctrl+Enter で開始)" autocomplete="off" spellcheck="false"></textarea>
+      <!-- ロールプレイのときだけ表示。値はそのラン用の一時値(保存しない。会話の config に記録され、再戦・続きからで戻る) -->
+      <div id="roleplay-row" class="roleplay-row hidden">
+        <input id="role-chatgpt" type="text" data-i18n-placeholder="role.chatgpt.ph" placeholder="ChatGPT の役割(例: 刑事)" autocomplete="off" spellcheck="false">
+        <input id="role-gemini" type="text" data-i18n-placeholder="role.gemini.ph" placeholder="Gemini の役割(例: 容疑者)" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
     <div class="controls-side">
     <div class="controls-row">
     <label class="turns-field" data-i18n-title="mode.title" title="議論の進め方(この議論だけ。起動時は常に「対立」)。括弧は先攻 / 後攻の役割"><span class="turns-label-inline" data-i18n="mode.label">モード</span>
@@ -57,6 +64,7 @@
         <option value="socratic" data-i18n="mode.socratic">師弟(先生 / 生徒)</option>
         <option value="devil" data-i18n="mode.devil">悪魔の代弁者(主張 / 反対)</option>
         <option value="quiz" data-i18n="mode.quiz">クイズ(解答 / 出題)</option>
+        <option value="roleplay" data-i18n="mode.roleplay.option">ロールプレイ(役割を入力)</option>
       </select>
     </label>
     <label class="turns-field" data-i18n-title="first.title" title="先に発言する AI(この議論だけ。既定は設定の「先攻」)"><span class="turns-label-inline" data-i18n="first.label">先攻</span>
@@ -125,6 +133,7 @@
               <option value="socratic" data-i18n="mode.socratic">師弟(先生 / 生徒)</option>
               <option value="devil" data-i18n="mode.devil">悪魔の代弁者(主張 / 反対)</option>
               <option value="quiz" data-i18n="mode.quiz">クイズ(解答 / 出題)</option>
+        <option value="roleplay" data-i18n="mode.roleplay.option">ロールプレイ(役割を入力)</option>
             </select></label>
           <label class="field"><span data-i18n="set.betweenTurns">ターン間隔 (ms)</span>
             <input id="set-between-turns" type="number" min="0" step="500"></label>

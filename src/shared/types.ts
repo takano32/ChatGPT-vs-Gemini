@@ -32,6 +32,8 @@ export interface ConversationConfig {
   language?: Lang;
   /** 書き込んだアプリの版 */
   app?: string;
+  /** ロールプレイの役割(0.9.0)。他のモードでは書かない */
+  roles?: { chatgpt: string; gemini: string };
 }
 
 export interface ConversationRecord {
@@ -70,6 +72,8 @@ export interface SearchHit {
 export interface TranscriptPayload {
   conversationId: number;
   title: string;
+  /** ロールプレイの役割(会話の config から)。無ければ null */
+  roles: { chatgpt: string; gemini: string } | null;
   status: ConversationStatus | null;
   maxTurns: number;
   mode: Mode | null;

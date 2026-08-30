@@ -148,12 +148,17 @@ export class Application {
     ipcMain.on(IPC.layoutDragMove, (e, clientY: unknown) => {
       this.manager.layout.dragMove(e.sender.id, typeof clientY === 'number' ? clientY : NaN);
     });
-    ipcMain.handle(IPC.runnerStart, (_e, topic: string, maxTurns?: number, firstSpeaker?: unknown, mode?: unknown) => {
+    ipcMain.handle(IPC.runnerStart, (_e, topic: string, maxTurns?: number, firstSpeaker?: unknown, mode?: unknown, roles?: unknown) => {
       // 議論全体を await すると invoke が完走まで返らないため fire-and-forget。
       // エラーは Runner が status/log イベントで通知する。
       const override = typeof maxTurns === 'number' ? maxTurns : undefined;
       const first = firstSpeaker === 'chatgpt' || firstSpeaker === 'gemini' ? firstSpeaker : undefined;
-      void this.runner.start(String(topic), override, first, isMode(mode) ? mode : undefined).catch(() => {});
+      const r = roles as { chatgpt?: unknown; gemini?: unknown } | undefined;
+      const rolesOverride =
+        r && typeof r.chatgpt === 'string' && typeof r.gemini === 'string' && r.chatgpt.trim() !== '' && r.gemini.trim() !== ''
+          ? { chatgpt: r.chatgpt.trim(), gemini: r.gemini.trim() }
+          : undefined;
+      void this.runner.start(String(topic), override, first, isMode(mode) ? mode : undefined, rolesOverride).catch(() => {});
     });
     ipcMain.handle(IPC.runnerStop, () => this.runner.stop());
     ipcMain.handle(IPC.runnerPause, () => this.runner.pause());
@@ -240,7 +245,7 @@ export class Application {
     if (ok && this.transcriptConversationId === id) {
       this.transcriptConversationId = null;
       try {
-        const payload: TranscriptPayload = { conversationId: 0, title: '', status: null, maxTurns: 1, mode: null, messages: [] };
+        const payload: TranscriptPayload = { conversationId: 0, title: '', roles: null, status: null, maxTurns: 1, mode: null, messages: [] };
         this.manager.layout.view('transcript').webContents.send(IPC.evTranscript, payload);
         if (this.transcriptVisible) this.setTranscriptVisible(false);
       } catch {
@@ -324,6 +329,7 @@ export class Application {
       const payload: TranscriptPayload = {
         conversationId,
         title: conv ? conv.title : '',
+        roles: conv?.config?.roles ?? null,
         status: conv ? conv.status : null,
         // その会話で使った上限。列追加前の会話は発言数を上限として表示する
         maxTurns: conv?.maxTurns ?? Math.max(messages.length, 1),

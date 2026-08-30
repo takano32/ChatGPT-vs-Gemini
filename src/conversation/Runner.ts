@@ -107,6 +107,7 @@ export class Runner extends EventEmitter {
     maxTurnsOverride?: number,
     firstSpeakerOverride?: Speaker,
     modeOverride?: Mode,
+    rolesOverride?: { chatgpt: string; gemini: string },
   ): Promise<void> {
     const myRun = await this.beginRun();
     if (myRun === null) return;
@@ -125,6 +126,8 @@ export class Runner extends EventEmitter {
     // テンプレートは開始時の言語・モードのもの(途中で切り替えても進行中の議論には影響しない)
     const tpl = base.templates[all.language][debate.mode];
     const timekeeper = base.timekeeper[all.language];
+    // ロールプレイの役割(そのラン用の一時値。config に保存し、続きから・再戦で復元する)
+    const roles = debate.mode === 'roleplay' ? (rolesOverride ?? null) : null;
     this.debate = debate;
 
     this.state = 'running';
@@ -133,6 +136,7 @@ export class Runner extends EventEmitter {
       // 実行条件のスナップショット(docs/schema.md)。先攻は 1 発言目からも復元できるが、0 発言で止まるとこれが唯一の記録
       const config: ConversationConfig = { firstSpeaker: debate.firstSpeaker, language: all.language };
       if (this.appVersion !== '') config.app = this.appVersion;
+      if (roles) config.roles = roles;
       conversation = new Conversation(this.repository.createConversation(topic, debate.maxTurns, debate.mode, config));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -148,7 +152,7 @@ export class Runner extends EventEmitter {
       'info',
       tm('runner.start', { topic: topic.replace(/\s*\n\s*/g, ' / '), max: debate.maxTurns, mode: tm(`mode.${debate.mode}`) }),
     );
-    await this.run(myRun, conversation, topic, debate, tpl, timekeeper, [], 1);
+    await this.run(myRun, conversation, topic, debate, tpl, timekeeper, roles, [], 1);
   }
 
   /**
@@ -178,6 +182,7 @@ export class Runner extends EventEmitter {
     };
     const tpl = base.templates[all.language][debate.mode];
     const timekeeper = base.timekeeper[all.language];
+    const roles = record.config?.roles ?? null;
     this.debate = debate;
 
     this.state = 'running';
@@ -195,7 +200,7 @@ export class Runner extends EventEmitter {
         mode: tm(`mode.${debate.mode}`),
       }),
     );
-    await this.run(myRun, conversation, record.title, debate, tpl, timekeeper, messages.map((m) => m.content), messages.length + 1);
+    await this.run(myRun, conversation, record.title, debate, tpl, timekeeper, roles, messages.map((m) => m.content), messages.length + 1);
     return true;
   }
 
@@ -232,6 +237,7 @@ export class Runner extends EventEmitter {
     debate: DebateConfig,
     tpl: DebateTemplates,
     timekeeper: Timekeeper,
+    roles: { chatgpt: string; gemini: string } | null,
     replies: string[],
     startTurn: number,
   ): Promise<void> {
@@ -282,7 +288,17 @@ export class Runner extends EventEmitter {
         remaining: String(debate.maxTurns - turn),
         phase,
       });
-      const prompt = lead.trim() + '\n\n' + this.render(template, { topic, opponent: opponentLabel, message });
+      // role / partnerRole はロールプレイ用(他のモードのテンプレートには現れないので空文字で害はない)
+      const prompt =
+        lead.trim() +
+        '\n\n' +
+        this.render(template, {
+          topic,
+          opponent: opponentLabel,
+          message,
+          role: roles ? roles[speaker] : '',
+          partnerRole: roles ? roles[opponentOf(speaker)] : '',
+        });
 
       let sent = false;
       while (!sent) {

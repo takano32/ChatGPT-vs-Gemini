@@ -216,7 +216,9 @@ test('normalizeSettings: テンプレートは言語 × モードごとに、空
 
 test('normalizeSettings: mode は既知のモード名だけ、timekeeper は言語ごとに空でない文字列だけ採用', () => {
   assert.equal(normalizeSettings({ debate: { mode: 'quiz' } }).debate.mode, 'quiz');
-  for (const bad of ['roleplay', 'DEBATE', '', 1, null]) {
+  assert.equal(normalizeSettings({ debate: { mode: 'roleplay' } }).debate.mode, 'roleplay', '0.9.0 で追加');
+  assert.ok(D.debate.templates.ja.roleplay.openingTemplate.includes('{role}'), 'ロールプレイの既定テンプレートは {role} を使う');
+  for (const bad of ['karaoke', 'DEBATE', '', 1, null]) {
     assert.equal(normalizeSettings({ debate: { mode: bad } }).debate.mode, 'debate', `mode = ${JSON.stringify(bad)}`);
   }
   const tk = normalizeSettings({ debate: { timekeeper: { en: { template: 'X {turn}', early: '' } } } }).debate.timekeeper;

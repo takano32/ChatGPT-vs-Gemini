@@ -206,6 +206,54 @@ test('進行役: 毎ターン先頭に「n/max ターン目」と段階の指示
   assert.ok(all[2].split('\n\n')[0].includes('終盤'));
 });
 
+test('ロールプレイ: {role} と {partnerRole} が話者ごとに展開され、役割が config に残る', async (t) => {
+  const chatgpt = new FakeChat('ChatGPT', (_p, n) => `ChatGPT の発言 ${n}`);
+  const gemini = new FakeChat('Gemini', (_p, n) => `Gemini の発言 ${n}`);
+  const { runner, repository } = setup(t, { chatgpt, gemini });
+  await runner.start('取調室', 3, 'chatgpt', 'roleplay', { chatgpt: '刑事', gemini: '容疑者' });
+
+  assert.equal(runner.status.state, 'done');
+  const conv = repository.listConversations()[0];
+  assert.equal(conv.mode, 'roleplay');
+  assert.deepEqual(conv.config.roles, { chatgpt: '刑事', gemini: '容疑者' });
+  // 先攻 ChatGPT: 自分の役割 = 刑事、相手の役割 = 容疑者
+  assert.ok(chatgpt.prompts[0].includes('あなたの役割は「刑事」'), chatgpt.prompts[0].slice(0, 120));
+  assert.ok(chatgpt.prompts[0].includes('相手の役割は「容疑者」'));
+  assert.ok(gemini.prompts[0].includes('あなたの役割は「容疑者」'));
+  // 3 ターン目(先攻の中継)にも役割が入る
+  assert.ok(chatgpt.prompts[1].includes('あなたは「刑事」です'), chatgpt.prompts[1].slice(0, 120));
+  assert.ok(chatgpt.prompts[1].includes('相手(容疑者)の発言'));
+  assert.ok(!chatgpt.prompts[0].includes('{role}'), '未展開の変数を残さない');
+});
+
+test('ロールプレイの続きから再開: config の役割が復元されてプロンプトに入る', async (t) => {
+  const chatgpt = new FakeChat('ChatGPT', (_p, n) => `ChatGPT の発言 ${n}`);
+  const gemini = new FakeChat('Gemini', (_p, n) => `Gemini の発言 ${n}`);
+  const { runner, repository } = setup(t, { chatgpt, gemini });
+  gemini.hold = true;
+  const run = runner.start('取調室', 4, 'chatgpt', 'roleplay', { chatgpt: '刑事', gemini: '容疑者' });
+  await until(() => gemini.pending !== null); // 2 ターン目(Gemini)の送信中
+  runner.stop();
+  await run;
+  const conv = repository.listConversations()[0];
+  assert.equal(conv.status, 'stopped');
+  assert.equal(repository.getMessages(conv.id).length, 1);
+
+  gemini.hold = false;
+  assert.equal(await runner.resumeConversation(conv.id), true);
+  assert.equal(runner.status.state, 'done');
+  // 再開後の 2 ターン目(prompts[1] は停止で捨てた分、[2] が再開後)
+  const resumed = gemini.prompts[gemini.prompts.length - 2];
+  assert.ok(resumed.includes('あなたの役割は「容疑者」'), resumed.slice(0, 120));
+  assert.equal(repository.getMessages(conv.id).length, 4);
+});
+
+test('ロールプレイ以外では役割を渡しても無視され、config に残らない', async (t) => {
+  const { runner, repository } = setup(t);
+  await runner.start('普通の議論', 2, 'chatgpt', 'debate', { chatgpt: 'A', gemini: 'B' });
+  assert.equal(repository.listConversations()[0].config.roles, undefined);
+});
+
 test('記録の質: 送信プロンプトと Markdown 版が発言に、実行条件が会話に保存される', async (t) => {
   const chatgpt = new FakeChat('ChatGPT', (_p, n) => `ChatGPT の発言 ${n}`);
   const gemini = new FakeChat('Gemini', (_p, n) => `Gemini の発言 ${n}`);

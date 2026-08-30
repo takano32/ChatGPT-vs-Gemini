@@ -305,8 +305,9 @@ button { font-family: var(--mono); }
   user-select: none;
 }
 
+.topic-col { flex: 0 0 50%; min-width: 0; display: flex; flex-direction: column; }
 #topic-input {
-  flex: 0 0 50%;
+  width: 100%;
   min-width: 0;
   resize: none;
   overflow-y: auto;
@@ -324,6 +325,13 @@ button { font-family: var(--mono); }
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 #topic-input::placeholder { color: var(--faint); }
+.roleplay-row { display: flex; gap: 8px; margin-top: 6px; }
+.roleplay-row input {
+  flex: 1; min-width: 0; font: inherit; font-size: 11px; color: var(--text);
+  background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px;
+}
+.roleplay-row input::placeholder { color: var(--faint); }
+.roleplay-row input:focus { outline: none; border-color: var(--amber-soft); }
 #topic-input:focus {
   outline: none;
   border-color: var(--amber-soft);

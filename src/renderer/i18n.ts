@@ -43,6 +43,11 @@ const STRINGS: Table = {
   'mode.socratic': { ja: '師弟(先生 / 生徒)', en: 'Socratic (teacher / student)' },
   'mode.devil': { ja: '悪魔の代弁者(主張 / 反対)', en: "Devil's advocate (claim / oppose)" },
   'mode.quiz': { ja: 'クイズ(解答 / 出題)', en: 'Quiz (contestant / quizmaster)' },
+  'mode.roleplay': { ja: 'ロールプレイ', en: 'Roleplay' },
+  'mode.roleplay.option': { ja: 'ロールプレイ(役割を入力)', en: 'Roleplay (enter the roles)' }, // 選択肢だけ説明付き(経過表示では素の名前)
+  'role.chatgpt.ph': { ja: 'ChatGPT の役割(例: 刑事)', en: "ChatGPT's role (e.g. detective)" },
+  'role.gemini.ph': { ja: 'Gemini の役割(例: 容疑者)', en: "Gemini's role (e.g. suspect)" },
+  'log.rolesRequired': { ja: 'ロールプレイでは両方の役割を入力してください', en: 'Roleplay needs a role for both AIs' },
   'first.label': { ja: '先攻', en: 'First' },
   'first.title': {
     ja: '先に発言する AI(この議論だけ。既定は設定の「先攻」)',

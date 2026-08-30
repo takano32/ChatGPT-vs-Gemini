@@ -19,6 +19,7 @@ const STATUS_KEY: Record<string, string> = {
 const titleEl = document.getElementById('tr-title') as HTMLElement;
 const statusEl = document.getElementById('tr-status') as HTMLElement;
 const modeEl = document.getElementById('tr-mode') as HTMLElement;
+const rolesEl = document.getElementById('tr-roles') as HTMLElement;
 const bodyEl = document.getElementById('tr-body') as HTMLElement;
 const copyBtn = document.getElementById('tr-copy') as HTMLButtonElement;
 const copyFlash = document.getElementById('tr-copy-flash') as HTMLElement;
@@ -75,6 +76,8 @@ function render(payload: TranscriptPayload): void {
   const cleared = payload.conversationId === 0;
   titleEl.textContent = cleared ? '' : payload.title || t('tr.untitled');
   modeEl.textContent = cleared ? '' : t(`mode.${payload.mode ?? 'debate'}`);
+  // ロールプレイなら誰が何を演じたかを見出しに出す(言語非依存の表記)
+  rolesEl.textContent = !cleared && payload.roles ? `🟢 = ${payload.roles.chatgpt} / 🔵 = ${payload.roles.gemini}` : '';
   if (payload.status) {
     statusEl.textContent = STATUS_KEY[payload.status] ? t(STATUS_KEY[payload.status]) : payload.status;
     statusEl.className = `tr-status st-${payload.status}`;

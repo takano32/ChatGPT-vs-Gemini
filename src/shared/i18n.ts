@@ -127,6 +127,7 @@ const STRINGS: Table = {
   'mode.socratic': { ja: '師弟', en: 'Socratic' },
   'mode.devil': { ja: '悪魔の代弁者', en: "Devil's advocate" },
   'mode.quiz': { ja: 'クイズ', en: 'Quiz' },
+  'mode.roleplay': { ja: 'ロールプレイ', en: 'Roleplay' },
 
   // ---- その他 ----
   'app.startupError': { ja: '起動エラー', en: 'Startup error' },

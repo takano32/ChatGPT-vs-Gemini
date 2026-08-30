@@ -86,6 +86,14 @@ import type {
   const ctlFirstSpeaker = must<HTMLSelectElement>('ctl-first-speaker');
   const ctlMode = must<HTMLSelectElement>('ctl-mode');
   ctlMode.value = 'debate';
+  const roleplayRow = must<HTMLElement>('roleplay-row');
+  const roleChatgpt = must<HTMLInputElement>('role-chatgpt');
+  const roleGemini = must<HTMLInputElement>('role-gemini');
+  // 役割欄はロールプレイのときだけ見せる(値は消さない: モードを行き来しても入力を失わない)
+  function updateRoleplayRow(): void {
+    roleplayRow.classList.toggle('hidden', ctlMode.value !== 'roleplay');
+  }
+  ctlMode.addEventListener('change', updateRoleplayRow);
   const btnStart = must<HTMLButtonElement>('btn-start');
   const btnPause = must<HTMLButtonElement>('btn-pause');
   const btnResume = must<HTMLButtonElement>('btn-resume');
@@ -372,8 +380,20 @@ import type {
     // 操作バーのターン数をそのラン用の上書きとして渡す(設定の既定は変えない)
     // 先攻もターン数と同じく、このラン用の一時値(設定の既定は変えない)
     const firstSpeaker: Speaker = ctlFirstSpeaker.value === 'gemini' ? 'gemini' : 'chatgpt';
+    const mode = modeOf(ctlMode.value);
+    let roles: { chatgpt: string; gemini: string } | undefined;
+    if (mode === 'roleplay') {
+      const a = roleChatgpt.value.trim();
+      const b = roleGemini.value.trim();
+      if (a === '' || b === '') {
+        localLog('warn', t('log.rolesRequired'));
+        (a === '' ? roleChatgpt : roleGemini).focus();
+        return;
+      }
+      roles = { chatgpt: a, gemini: b };
+    }
     api
-      .startDebate(topic, defaultMaxTurns, firstSpeaker, modeOf(ctlMode.value))
+      .startDebate(topic, defaultMaxTurns, firstSpeaker, mode, roles)
       .catch((err) => localLog('error', t('log.startFailed', { error: errMsg(err) })));
   });
   btnPause.addEventListener('click', () => {
@@ -575,7 +595,7 @@ import type {
   let editingMode: Mode = 'debate';
 
   function modeOf(value: string): Mode {
-    const known: Mode[] = ['debate', 'collab', 'brainstorm', 'dialectic', 'relay', 'review', 'interview', 'socratic', 'devil', 'quiz'];
+    const known: Mode[] = ['debate', 'collab', 'brainstorm', 'dialectic', 'relay', 'review', 'interview', 'socratic', 'devil', 'quiz', 'roleplay'];
     return (known as string[]).includes(value) ? (value as Mode) : 'debate';
   }
 
@@ -915,6 +935,12 @@ import type {
     }
     topicInput.value = rec.title;
     ctlMode.value = rec.mode ?? 'debate';
+    // ロールプレイなら役割も復元する(0.9.0 から config に保存している)
+    if (rec.mode === 'roleplay' && rec.config?.roles) {
+      roleChatgpt.value = rec.config.roles.chatgpt;
+      roleGemini.value = rec.config.roles.gemini;
+    }
+    updateRoleplayRow();
     if (rec.maxTurns) setNextRunTurns(rec.maxTurns);
     // 入れ替えの基準は 1 発言目の話者。0 発言(開始直後に止めた会話)は 0.8.0 から保存している config の先攻
     const first = openMessages[0]?.speaker ?? rec.config?.firstSpeaker;

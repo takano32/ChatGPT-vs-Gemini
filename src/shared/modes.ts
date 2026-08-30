@@ -7,7 +7,8 @@
 // 後攻の中継(4 ターン目以降の後攻)/ まとめ(最後の 2 ターン。両者が 1 回ずつ。4 ターン未満なら無し)。
 // 対称なモードは 2 本の中継が同じ文になる。展開できる変数: {topic} {opponent} {message}(開始だけ {message} なし)。
 // 進行役(タイムキーパー)の一文は毎ターン先頭に付く(TIMEKEEPER、{turn} {max} {remaining})。2026-08-23 利用者の案。
-// 2026-08-23 利用者の決定: 候補に挙げたモードを全部入れる(ロールプレイだけは「テーマ欄に役割を書く」のが特殊なので見送り)。
+// 2026-08-23 利用者の決定: 候補に挙げたモードを全部入れる。ロールプレイは 0.9.0 で追加(役割は操作バーの専用欄で
+// 入力し、{role} = 自分の役割 / {partnerRole} = 相手の役割 を展開する。他のモードでは両方とも空文字)。
 
 import type { Lang } from './types';
 
@@ -22,6 +23,7 @@ export const MODES = [
   'socratic',
   'devil',
   'quiz',
+  'roleplay',
 ] as const;
 export type Mode = (typeof MODES)[number];
 
@@ -161,6 +163,12 @@ const JA: Record<Mode, DebateTemplates> = {
     relaySecondTemplate: `解答者({opponent})の答え:\n\n{message}\n\n正解かどうかを判定して解説し、次の問題を 1 問出してください(${JA_LIMIT})。`,
     closingTemplate: `相手({opponent})の最後の発言:\n\n{message}\n\nクイズはここまでです。出題と解答の結果を振り返り、成績と総評を${JA_LIMIT}で述べてください。`,
   },
+  roleplay: symmetric(
+    `${JA_INTRO}ロールプレイをします。舞台・お題: 「{topic}」。あなたの役割は「{role}」、相手の役割は「{partnerRole}」です。以後、その役になりきって話し、地の文や説明は最小限にしてください。まず役として最初の発言を${JA_LIMIT}でどうぞ。`,
+    `${JA_INTRO}ロールプレイをします。舞台・お題: 「{topic}」。あなたの役割は「{role}」、相手の役割は「{partnerRole}」です。相手({partnerRole})の発言は以下のとおりです。役になりきって${JA_LIMIT}で応じてください(地の文や説明は最小限に)。\n\n{message}`,
+    `相手({partnerRole})の発言:\n\n{message}\n\nあなたは「{role}」です。役から外れずに${JA_LIMIT}で応じてください。`,
+    `相手({partnerRole})の発言:\n\n{message}\n\nこの場面はここで終わりです。「{role}」として、この場面を締めくくる最後の発言を${JA_LIMIT}でどうぞ。`,
+  ),
 };
 
 const EN: Record<Mode, DebateTemplates> = {
@@ -229,6 +237,12 @@ const EN: Record<Mode, DebateTemplates> = {
     relaySecondTemplate: `The contestant ({opponent}) answered:\n\n{message}\n\nJudge whether it is correct, explain, and ask the next question (${EN_LIMIT}).`,
     closingTemplate: `Your partner ({opponent}) last said:\n\n{message}\n\nThe quiz ends here. Review the questions and answers and give the score and overall comments in ${EN_LIMIT}.`,
   },
+  roleplay: symmetric(
+    `${EN_INTRO} for a roleplay. Setting / premise: "{topic}". Your role is "{role}" and your partner's role is "{partnerRole}". Stay in character from now on, with minimal narration. Give your first line in character, ${EN_LIMIT}.`,
+    `${EN_INTRO} for a roleplay. Setting / premise: "{topic}". Your role is "{role}" and your partner's role is "{partnerRole}". Your partner ({partnerRole}) said the following. Reply in character in ${EN_LIMIT}, with minimal narration.\n\n{message}`,
+    `Your partner ({partnerRole}) said:\n\n{message}\n\nYou are "{role}". Stay in character and reply in ${EN_LIMIT}.`,
+    `Your partner ({partnerRole}) said:\n\n{message}\n\nThe scene ends here. As "{role}", give the closing line of the scene in ${EN_LIMIT}.`,
+  ),
 };
 
 export const DEFAULT_TEMPLATES: Record<Lang, Record<Mode, DebateTemplates>> = { ja: JA, en: EN };
