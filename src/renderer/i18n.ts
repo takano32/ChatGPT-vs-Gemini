@@ -150,7 +150,7 @@ const STRINGS: Table = {
   'history.resume': { ja: '続きから', en: 'Resume' },
   'history.resume.hint': { ja: '保存済みの発言の次のターンから、同じ会話に続けて再開', en: 'Continue this conversation from the turn after the last saved message' },
   'history.rematch': { ja: 'もう一度', en: 'Rematch' },
-  'history.rematch.hint': { ja: '同じ議題・モード・ターン数で、先後を入れ替えて新しい議論を始める', en: 'Start a new debate with the same topic, mode and turns, with the speaking order swapped' },
+  'history.rematch.hint': { ja: 'いまの題名を議題に、同じモード・ターン数で先後を入れ替えて新しい議論を始める', en: 'Start a new debate with the current title as the topic, the same mode and turns, and the speaking order swapped' },
   'history.cannotStart': {
     ja: 'いまは開始できません(議論の実行中か、ChatGPT / Gemini の準備待ちです)',
     en: 'Cannot start now (a debate is running, or ChatGPT / Gemini is not ready yet)',

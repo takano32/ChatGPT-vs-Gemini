@@ -31,6 +31,11 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   );
 }
 
+/** 有限の数値なら丸めて返す。数値でなければ null(= 記録なし) */
+function finitePosition(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null;
+}
+
 /** 有限の数値なら [min, max] に収めて返す。数値でなければ(文字列・null・NaN など)fallback */
 function clampNumber(value: unknown, fallback: number, min: number, max = Infinity): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
@@ -129,6 +134,9 @@ export function normalizeSettings(input: unknown): SettingsData {
       timeoutMs: clampNumber(detection.timeoutMs, d.detection.timeoutMs, 1000),
     },
     window: {
+      // 位置はどのモニタにあるかで負にもなるので範囲は絞らない(見えない位置の補正は Window.create() 側)
+      x: finitePosition(win.x),
+      y: finitePosition(win.y),
       // ピクセルなので整数に丸める
       width: Math.round(clampNumber(win.width, d.window.width, 1000)),
       height: Math.round(clampNumber(win.height, d.window.height, 700)),

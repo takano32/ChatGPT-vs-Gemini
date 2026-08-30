@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-08-30
+
+### Added
+
+- **ウィンドウ位置を覚える**: 大きさに加えて位置も保存し、次回起動時に復元する(モニタ構成が変わって画面外になっていたときは OS に任せる。Linux の Wayland など、環境によっては OS が位置指定を無視することがある)
+
+### Fixed
+
+- 「もう一度」のツールチップが「同じ議題…」のままだった(0.7.3 で README を「いまの題名を議題に」へ直したときの追随漏れ)
+
 ## [0.8.1] - 2026-08-30
 
 ### Fixed
@@ -335,7 +345,8 @@ v0.2.0 の細かな修正と堅牢化。使い方は変わらない。
 - 管理ペインのログは発言の全文を改行を保って表示する。
 - 設定と会話ログは端末内にだけ保存する(`settings.json`、`data.db`)。
 
-[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.8...v0.8.0
 [0.7.8]: https://github.com/takano32/ChatGPT-vs-Gemini/compare/v0.7.7...v0.7.8

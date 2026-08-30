@@ -54,7 +54,7 @@ const CUSTOM = {
     betweenTurnsMs: 1500,
   },
   detection: { pollMs: 200, stabilityMs: 3000, timeoutMs: 60000 },
-  window: { width: 1400, height: 900 },
+  window: { width: 1400, height: 900, x: 120, y: -40 }, // x/y は負もあり得る(マルチモニタ)
 };
 
 // 1 項目だけ入れた入力を作る: withValue('debate', 'maxTurns', 0) → { debate: { maxTurns: 0 } }
@@ -108,7 +108,7 @@ test('normalizeSettings: 範囲内の正常値はそのまま通る(境界値を
     layout: { adminRatio: 0.05, chatSplit: 0.05, chatZoom: 0.25 },
     debate: { ...CUSTOM.debate, maxTurns: 1, betweenTurnsMs: 0 },
     detection: { pollMs: 100, stabilityMs: 500, timeoutMs: 1000 },
-    window: { width: 1000, height: 700 },
+    window: { width: 1000, height: 700, x: 0, y: 0 },
   };
   assert.deepEqual(normalizeSettings(lower), lower, '下限ちょうどは丸めない');
 
@@ -117,7 +117,7 @@ test('normalizeSettings: 範囲内の正常値はそのまま通る(境界値を
     layout: { adminRatio: 0.95, chatSplit: 0.95, chatZoom: 3 },
     debate: { ...lower.debate, maxTurns: 99, betweenTurnsMs: 600000 },
     detection: { pollMs: 5000, stabilityMs: 60000, timeoutMs: 3600000 },
-    window: { width: 5120, height: 2880 },
+    window: { width: 5120, height: 2880, x: -1920, y: 2160 },
   };
   assert.deepEqual(normalizeSettings(upper), upper, '上限ちょうど・上限なしの大きな値は丸めない');
 });
@@ -304,7 +304,7 @@ test('load: 手編集で壊れた値は丸めて読み込み、ファイルは�
   assert.equal(s.detection.pollMs, 100);
   assert.equal(s.detection.stabilityMs, 500);
   assert.equal(s.detection.timeoutMs, D.detection.timeoutMs);
-  assert.deepEqual(s.window, { width: 1000, height: D.window.height });
+  assert.deepEqual(s.window, { width: 1000, height: D.window.height, x: null, y: null });
   assert.ok(!('junk' in s), '知らないキーは捨てる');
   assert.equal(readFileSync(filePath, 'utf8'), raw, 'load だけではファイルを書き換えない');
 });
@@ -354,7 +354,7 @@ test('set: 不正な値は正規化してから保存され、change イベン�
       },
     },
     detection: { ...CUSTOM.detection, pollMs: 1 },
-    window: { width: 10, height: 'x' },
+    window: { width: 10, height: 'x', x: '中央', y: 12.6 }, // 位置: 数値でなければ null、数値は丸める
   });
 
   const expected = {
@@ -372,7 +372,7 @@ test('set: 不正な値は正規化してから保存され、change イベン�
       },
     },
     detection: { ...CUSTOM.detection, pollMs: 100 },
-    window: { width: 1000, height: D.window.height },
+    window: { width: 1000, height: D.window.height, x: null, y: 13 }, // '中央' → null、12.6 → 13
   };
   assert.deepEqual(settings.get(), expected);
   assert.equal(changes.length, 1);
@@ -388,12 +388,12 @@ test('update: 部分的な変更は現在値にマージされ、正規化して
 
   // Window.ts のリサイズ保存と同じ形。width は下限に丸まり、height はそのまま
   settings.update({ window: { width: 10, height: 1000 } });
-  assert.deepEqual(settings.get(), { ...CUSTOM, window: { width: 1000, height: 1000 } });
+  assert.deepEqual(settings.get(), { ...CUSTOM, window: { ...CUSTOM.window, width: 1000, height: 1000 } });
   assert.deepEqual(readSaved(), settings.get());
 
   // オブジェクトでないパッチは何も変えない
   settings.update('garbage');
-  assert.deepEqual(settings.get(), { ...CUSTOM, window: { width: 1000, height: 1000 } });
+  assert.deepEqual(settings.get(), { ...CUSTOM, window: { ...CUSTOM.window, width: 1000, height: 1000 } });
 
   // 数値でない値で上書きしようとすると、その項目は既定値になる(現在値には戻らない)
   settings.update({ debate: { maxTurns: 'abc' } });

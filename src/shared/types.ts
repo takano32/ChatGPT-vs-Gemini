@@ -148,6 +148,9 @@ export interface SettingsData {
   window: {
     width: number;
     height: number;
+    /** 前回のウィンドウ位置。null = 記録なし(OS に任せる)。マルチモニタで負の座標もあるため丸めるだけで範囲は絞らない */
+    x: number | null;
+    y: number | null;
   };
 }
 
@@ -174,5 +177,7 @@ export const DEFAULT_SETTINGS: SettingsData = {
   window: {
     width: 1280,
     height: 860,
+    x: null,
+    y: null,
   },
 };
