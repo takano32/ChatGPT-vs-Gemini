@@ -51,6 +51,7 @@
   td .size { color: var(--muted); white-space: nowrap; }
   .tag { display: inline-block; font-size: .75rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; }
   .note { border-left: 3px solid var(--purple); padding-left: 14px; color: var(--muted); }
+  img.shot { width: 100%; border: 1px solid var(--line); border-radius: 12px; margin-top: 12px; display: block; }
   .hidden { display: none; }
   code { background: var(--panel-2); padding: 1px 6px; border-radius: 6px; font-size: .9em; }
   footer { color: var(--muted); font-size: .9rem; margin-top: 40px; }
@@ -73,6 +74,13 @@
     <div class="hint" id="primary-hint"></div>
     <div class="whatsnew hidden" id="whatsnew"></div>
     <div class="meta" id="primary-meta"></div>
+  </section>
+
+  <section class="card">
+    <h2>スクリーンショット</h2>
+    <p class="hint">ロールプレイモード(警察官 vs 容疑者)の進行中と、議論後の経過表示。</p>
+    <img class="shot" src="screenshots/02-roleplay.png" alt="ロールプレイ進行中の画面。上半分が管理ペイン、下半分に ChatGPT と Gemini" loading="lazy">
+    <img class="shot" src="screenshots/03-transcript.png" alt="経過表示。役割と完了バッジ付きで、発言が台詞形式で並ぶ" loading="lazy">
   </section>
 
   <section class="card">

@@ -4,10 +4,25 @@
 
 A desktop app that shows ChatGPT and Gemini side by side, as their regular web pages, and lets the two AIs debate each other.
 
+![A roleplay in progress: the control pane on top, ChatGPT and Gemini below](docs/screenshots/02-roleplay.png)
+
 - Electron + TypeScript (no bundler, just tsc)
 - Layout: a control pane on the top half, ChatGPT / Gemini on the bottom half (50% / 50%). Drag the bottom edge of the control pane to change the vertical ratio (for the current session; the default is a setting). The chat-pane zoom (default 75%) is configurable too
 - Transcripts are stored in SQLite, with full-text search (FTS5 trigram, works for Japanese)
 - No API: the free web UIs are driven by DOM manipulation
+
+## Screenshots
+
+Above: a roleplay (police officer vs suspect) in progress. More:
+
+![Right after launch: both panes ready, enter a topic and start](docs/screenshots/01-idle.png)
+*Right after launch — enter a topic, pick a mode / first speaker / turns, press Start*
+
+![The transcript view with the roles and a Done badge, messages laid out as dialogue](docs/screenshots/03-transcript.png)
+*When a debate finishes, the transcript comes to the front (copyable as Markdown)*
+
+![The transcript enlarged to 80% of the window](docs/screenshots/04-transcript-80.png)
+*Drag the bottom edge of the control pane to give the transcript more room*
 
 ## Works without an account
 
