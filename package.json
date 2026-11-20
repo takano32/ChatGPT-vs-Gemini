@@ -33,13 +33,13 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "electron": "^44.9.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^26.18.0",
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.2.0"
   },
   "allowScripts": {
     "electron": true,
